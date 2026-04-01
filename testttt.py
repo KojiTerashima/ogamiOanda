@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tokens as tk
 
+
 def last_day_of_month(year, month):
     if month == 12:
         next_month = datetime.datetime(year + 1, 1, 1)
@@ -19,7 +20,6 @@ end = datetime.datetime(2025, 11, 1)
 current = start
 
 while current <= end:
-
     # 月末日を取得
     last_day = last_day_of_month(current.year, current.month)
     tk.line_send("ループ処理", last_day, "（", current.year, "年", current.month, "月)")
@@ -30,11 +30,13 @@ while current <= end:
     print(f"Running: {dt_str}")
 
     # 別プロセスで実行（メモリ完全にリセットされる）
-    subprocess.run([
-        sys.executable,    # 今の Python をそのまま使う
-        "run_month_inspection.py",    # サブプロセス側のスクリプト
-        dt_str             # 引数として日付を渡す
-    ])
+    subprocess.run(
+        [
+            sys.executable,  # 今の Python をそのまま使う
+            "run_month_inspection.py",  # サブプロセス側のスクリプト
+            dt_str,  # 引数として日付を渡す
+        ]
+    )
 
     # 次の月へ進める
     if current.month == 12:

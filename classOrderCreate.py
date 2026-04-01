@@ -1,6 +1,6 @@
 import fGeneric as gene
 import tokens as tk
-import copy
+
 
 class Order:
     """
@@ -12,6 +12,7 @@ class Order:
     ・order_json:　プログラムでオーダーやポジションを管理するために必要な情報を含んだJson
 
     """
+
     def __init__(self, order_json):
         # オーダー発行用のJsonを生成する。
         self.order_json_original = order_json  # オーダー用json
@@ -28,7 +29,9 @@ class Order:
         self.lc_change_base = 3  # ベースは０（LCchangeなし）
         # 判定に利用する、初期値
         self.u = 3  # round時の有効桁数
-        self.dependence_price_or_range_criteria = 80  # ドル円の場合、80以上は価格とみなし、それ以下はrangeとみなす
+        self.dependence_price_or_range_criteria = (
+            80  # ドル円の場合、80以上は価格とみなし、それ以下はrangeとみなす
+        )
         self.dependence_tp_lc_margin = 0.01  # targetとTP/LCとの間が極端に狭いときはウォーニングを出す（すぐ決済になってしまうため）
 
         # ■■
@@ -37,7 +40,9 @@ class Order:
         self.exe_order = {}
         # オーダーを管理するための情報群（デフォルト値付）
         self.oa_mode = 2
-        self.target = 0  # 正の値で記載。margin または　target_priceが渡される（引数のコピー）
+        self.target = (
+            0  # 正の値で記載。margin または　target_priceが渡される（引数のコピー）
+        )
         self.target_price = 0  # targetから抽出されたtarget_price
         self.margin = 0  # targetから抽出されたmargin(現在価格とtarget_priceの差分）
         self.direction = 0
@@ -66,8 +71,10 @@ class Order:
         self.move_ave = 0
         if "candle_analysis_class" in order_json:
             # print("candle_analysis_classがあるよ", round(order_json['candle_analysis_class'].candle_class.cal_move_ave(1), 3))
-            self.move_ave = order_json['candle_analysis_class'].candle_class.cal_move_ave(1)
-            self.candle_analysis = order_json['candle_analysis_class']
+            self.move_ave = order_json[
+                "candle_analysis_class"
+            ].candle_class.cal_move_ave(1)
+            self.candle_analysis = order_json["candle_analysis_class"]
         else:
             tk.line_send("【注意】キャンドルアナリシスが添付されていない注文が発生")
             print("candle_analysis_classがない")
@@ -86,26 +93,32 @@ class Order:
         """
         # ■API送信用（一番大事な奴）
         self.data = {  # オーダーのテンプレート！（一応書いておく）
-                "order": {
-                    "instrument": self.instrument,
-                    "units": str(self.units * self.direction),
-                    "type": self.ls_type,  # "STOP(逆指)" or "LIMIT" or "MARKET"
-                    "positionFill": "DEFAULT",
-                    "price": str(round(self.target_price, self.u)),  # 小数点3桁の文字列（それ以外はエラーとなる）
-                    "takeProfitOnFill": {
-                        "timeInForce": "GTC",
-                        "price": str(round(self.tp_price, self.u))  # 小数点3桁の文字列（それ以外はエラーとなる）
-                    },
-                    "stopLossOnFill": {
-                        "timeInForce": "GTC",
-                        "price": str(round(self.lc_price, self.u))  # 小数点3桁の文字列（それ以外はエラーとなる）
-                    },
-                    # "trailingStopLossOnFill": {
-                    #     "timeInForce": "GTC",
-                    #     "distance": "0"  # 5pips以上,かつ,小数点3桁の文字列
-                    # }
-                }
+            "order": {
+                "instrument": self.instrument,
+                "units": str(self.units * self.direction),
+                "type": self.ls_type,  # "STOP(逆指)" or "LIMIT" or "MARKET"
+                "positionFill": "DEFAULT",
+                "price": str(
+                    round(self.target_price, self.u)
+                ),  # 小数点3桁の文字列（それ以外はエラーとなる）
+                "takeProfitOnFill": {
+                    "timeInForce": "GTC",
+                    "price": str(
+                        round(self.tp_price, self.u)
+                    ),  # 小数点3桁の文字列（それ以外はエラーとなる）
+                },
+                "stopLossOnFill": {
+                    "timeInForce": "GTC",
+                    "price": str(
+                        round(self.lc_price, self.u)
+                    ),  # 小数点3桁の文字列（それ以外はエラーとなる）
+                },
+                # "trailingStopLossOnFill": {
+                #     "timeInForce": "GTC",
+                #     "distance": "0"  # 5pips以上,かつ,小数点3桁の文字列
+                # }
             }
+        }
         # ■ポジション管理用含めた情報
         self.exe_order = {
             "decision_time": self.decision_time,
@@ -130,15 +143,16 @@ class Order:
             "for_api_json": self.data,  # 発注API用(classPositionにはexe_orderしか渡さないため、その中に入れておく）
             "lc_change": self.lc_change,
             "move_ave": self.move_ave,  # 参考情報だが追加（無いとLineSendでエラーになるが、オーダーには影響ない）
-            "candle_lc_change_type": "5M"  # lc_changeで利用する足
+            "candle_lc_change_type": "5M",  # lc_changeで利用する足
         }
 
         # クラスにある情報を明示しておく（混乱防止用で、冗長な書き方）
         if "candle_analysis_class" in self.order_json:
-            self.candle_analysis = self.order_json['candle_analysis_class']
+            self.candle_analysis = self.order_json["candle_analysis_class"]
         else:
-
-            self.candle_analysis = None  # 基本、初回の強制オーダー以外では、candle_analysisは入ってくる
+            self.candle_analysis = (
+                None  # 基本、初回の強制オーダー以外では、candle_analysisは入ってくる
+            )
 
         # 他に対外的に使うやつ
         # self.linkage_classes = self.linkage_classes  # 覚書
@@ -158,7 +172,9 @@ class Order:
         self.lc_change_base = 3  # ベースは０（LCchangeなし）
         # 判定に利用する、初期値
         self.u = 3  # round時の有効桁数
-        self.dependence_price_or_range_criteria = 80  # ドル円の場合、80以上は価格とみなし、それ以下はrangeとみなす
+        self.dependence_price_or_range_criteria = (
+            80  # ドル円の場合、80以上は価格とみなし、それ以下はrangeとみなす
+        )
         self.dependence_tp_lc_margin = 0.01  # targetとTP/LCとの間が極端に狭いときはウォーニングを出す（すぐ決済になってしまうため）
 
         # ■■
@@ -167,7 +183,9 @@ class Order:
         self.exe_order = {}
         # オーダーを管理するための情報群（デフォルト値付）
         self.oa_mode = 2
-        self.target = 0  # 正の値で記載。margin または　target_priceが渡される（引数のコピー）
+        self.target = (
+            0  # 正の値で記載。margin または　target_priceが渡される（引数のコピー）
+        )
         self.target_price = 0  # targetから抽出されたtarget_price
         self.margin = 0  # targetから抽出されたmargin(現在価格とtarget_priceの差分）
         self.direction = 0
@@ -195,10 +213,14 @@ class Order:
         self.move_ave = 0
         if "candle_analysis_class" in order_json:
             # print("candle_analysis_classがあるよ", round(order_json['candle_analysis_class'].candle_class.cal_move_ave(1), 3))
-            self.move_ave = order_json['candle_analysis_class'].candle_class.cal_move_ave(1)
-            self.candle_analysis = order_json['candle_analysis_class']
+            self.move_ave = order_json[
+                "candle_analysis_class"
+            ].candle_class.cal_move_ave(1)
+            self.candle_analysis = order_json["candle_analysis_class"]
         else:
-            tk.line_send("【注意】キャンドルアナリシスが添付されていない注文が発生 in updatePlan")
+            tk.line_send(
+                "【注意】キャンドルアナリシスが添付されていない注文が発生 in updatePlan"
+            )
             print("candle_analysis_classがない")
             print(order_json)
 
@@ -252,13 +274,19 @@ class Order:
         }
         """
         order_json = self.order_json
-        print("targetなし。その場合、targetPriceが必要です。") if "target" not in order_json else None
+        print(
+            "targetなし。その場合、targetPriceが必要です。"
+        ) if "target" not in order_json else None
         print("typeがありません") if "type" not in order_json else None
         print("directionがありません") if "direction" not in order_json else None
         print("lcがありません") if "lc" not in order_json else None
         print("tpがありません") if "tp" not in order_json else None
-        print("decision_timeがありません") if "decision_time" not in order_json else None
-        print("current_priceがありません") if "current_price" not in order_json else None
+        print(
+            "decision_timeがありません"
+        ) if "decision_time" not in order_json else None
+        print(
+            "current_priceがありません"
+        ) if "current_price" not in order_json else None
         print("priorityがありません") if "priority" not in order_json else None
 
     def order_finalize_new(self):
@@ -269,25 +297,27 @@ class Order:
 
         # 環境を選択する（通常環境か、両建て環境か）
         if "oa_mode" in order_json:
-            self.oa_mode = order_json['oa_mode']
+            self.oa_mode = order_json["oa_mode"]
         else:
             self.oa_mode = self.base_oa_mode
 
         # 名前の入力
         # print(order_json['name'])
-        self.name = order_json['name'] + "_" + str(gene.delYearDay(order_json['decision_time']))
-        self.name_ymdhms = order_json['name'] + "_" + order_json['decision_time']
+        self.name = (
+            order_json["name"] + "_" + str(gene.delYearDay(order_json["decision_time"]))
+        )
+        self.name_ymdhms = order_json["name"] + "_" + order_json["decision_time"]
 
         # priority
-        self.priority = order_json['priority']
+        self.priority = order_json["priority"]
 
         # Unitsがない場合は初期値を入れる
         if "units" in order_json:
-            if order_json['units'] < 100:
+            if order_json["units"] < 100:
                 # 100以下の数字は倍率とみなす
                 # print("   UNITが倍数として処理されています", order_json['units'])
-                self.units = round(self.basic_unit * order_json['units'])
-                self.units_adj = order_json['units']
+                self.units = round(self.basic_unit * order_json["units"])
+                self.units_adj = order_json["units"]
             else:
                 # 直接の指定と判断
                 self.units = self.order_json["units"]
@@ -298,26 +328,26 @@ class Order:
 
         # 注文方式を指定する
         if "type" in order_json:
-            self.ls_type = order_json['type']
+            self.ls_type = order_json["type"]
         else:
             print(" オーダー方法記載内為、MARKET注文とする")
 
         # 購入方向（１買い、-1売り）
-        self.direction = order_json['direction']
+        self.direction = order_json["direction"]
 
         # 決心時間を入れておく（決心価格はcurrentPrice)
-        self.decision_time = order_json['decision_time']
-        self.current_price = order_json['current_price']
+        self.decision_time = order_json["decision_time"]
+        self.current_price = order_json["current_price"]
 
         # ★ここからは下は、Directionとtypeは必須。処理の順番が大切
         # ①TargetPriceを確実に取得する
-        if 'target' in order_json:
+        if "target" in order_json:
             # 価格で指定されている、と判断される時
-            if order_json['target'] >= self.dependence_price_or_range_criteria:
-                self.target_price = order_json['target']
+            if order_json["target"] >= self.dependence_price_or_range_criteria:
+                self.target_price = order_json["target"]
             # 現在価格との差分で指定されている、と判断されるとき
             else:
-                margin = order_json['target']  # わかりやすいように変数で置換
+                margin = order_json["target"]  # わかりやすいように変数で置換
                 # STOPオーダー（順張りの場合）⇒現価より高い値段で買い、現価より低い値段で売り
                 if self.ls_type == "STOP":
                     if self.direction == 1:
@@ -339,77 +369,100 @@ class Order:
                     self.target_price = self.current_price
 
         # TP情報を取得する（TPの値は、クライテリアより小さい値ならRange指定、それ以上は価格直接指定と読み替える）
-        if 'tp' in order_json:
+        if "tp" in order_json:
             # 価格で指定されている場合
-            if order_json['tp'] >= self.dependence_price_or_range_criteria:
-                self.tp_range = round(abs(self.target_price - order_json['tp']), self.u)  # Rangeを算出
-                self.tp_price = round(order_json['tp'], self.u)  # Priceはそのまま代入
+            if order_json["tp"] >= self.dependence_price_or_range_criteria:
+                self.tp_range = round(
+                    abs(self.target_price - order_json["tp"]), self.u
+                )  # Rangeを算出
+                self.tp_price = round(order_json["tp"], self.u)  # Priceはそのまま代入
             # レンジで指定されている場合
             else:
-                self.tp_range = round(order_json['tp'], self.u)  # Rangeはそのまま代入
-                self.tp_price = round(self.target_price + (self.tp_range * self.direction), self.u)
+                self.tp_range = round(order_json["tp"], self.u)  # Rangeはそのまま代入
+                self.tp_price = round(
+                    self.target_price + (self.tp_range * self.direction), self.u
+                )
 
             # TPRangeが狭すぎる場合はウォーニングを出す
             if self.tp_range < self.dependence_tp_lc_margin:
-                print("  ★★TP価格とTarget価格が極端に近いため、注意", self.tp_range, self.tp_price, self.target_price)
+                print(
+                    "  ★★TP価格とTarget価格が極端に近いため、注意",
+                    self.tp_range,
+                    self.tp_price,
+                    self.target_price,
+                )
 
         # LC情報を取得する（LCの値は、正の値で指定される。クライテリアより小さい値ならRange指定、それ以上は価格直接指定と読み替える）
-        if 'lc' in order_json:
+        if "lc" in order_json:
             # 価格で指定されている場合
-            if order_json['lc'] >= self.dependence_price_or_range_criteria:
-                self.lc_range = round(abs(self.target_price - order_json['lc']), self.u) # Rangeを算出
-                self.lc_price = round(order_json['lc'], self.u)  # Priceはそのまま代入
+            if order_json["lc"] >= self.dependence_price_or_range_criteria:
+                self.lc_range = round(
+                    abs(self.target_price - order_json["lc"]), self.u
+                )  # Rangeを算出
+                self.lc_price = round(order_json["lc"], self.u)  # Priceはそのまま代入
             # レンジで指定されている場合
             else:
-                self.lc_range = round(order_json['lc'], self.u)  # Rangeはそのまま代入
-                self.lc_price = round(self.target_price - (self.lc_range * self.direction), self.u)
+                self.lc_range = round(order_json["lc"], self.u)  # Rangeはそのまま代入
+                self.lc_price = round(
+                    self.target_price - (self.lc_range * self.direction), self.u
+                )
 
             # LCRangeが狭すぎる場合はウォーニングを出す
             if self.lc_range < self.dependence_tp_lc_margin:
-                print("  ★★LC価格とTarget価格が極端に近いため、注意", self.lc_range, self.lc_price, self.target_price)
+                print(
+                    "  ★★LC価格とTarget価格が極端に近いため、注意",
+                    self.lc_range,
+                    self.lc_price,
+                    self.target_price,
+                )
 
         # 時間の設定
         # オーダータイムアウトは、入っていなければデフォルトを代入
-        if 'order_timeout_min' in order_json:
-            self.order_timeout_min = order_json['order_timeout_min']
+        if "order_timeout_min" in order_json:
+            self.order_timeout_min = order_json["order_timeout_min"]
         else:
             self.order_timeout_min = self.order_timeout_min_base
 
         # トレード（ポジション）タイムアウトは、入っていなければデフォルトを代入
-        if 'trade_timeout_min' in order_json:
-            self.trade_timeout_min = order_json['trade_timeout_min']
+        if "trade_timeout_min" in order_json:
+            self.trade_timeout_min = order_json["trade_timeout_min"]
         else:
             self.trade_timeout_min = self.trade_timeout_min_base
 
         # オーダーの特殊な設定達
         # オーダーパーミッション
-        if 'order_permission' in order_json:
-            self.order_permission = order_json['order_permission']  # 指定ある場合は指定に従う。
+        if "order_permission" in order_json:
+            self.order_permission = order_json[
+                "order_permission"
+            ]  # 指定ある場合は指定に従う。
         else:
             self.order_permission = True  # 指定がなければ即時オーダーが基本
 
         # lc_change_candleで利用する足の設定
-        if 'lc_change' in order_json:
-            if order_json['lc_change'] is None:
+        if "lc_change" in order_json:
+            if order_json["lc_change"] is None:
                 # ほぼ無効の物を入れておく
-                self.lc_change = [{"exe": False, "time_after": 605, "trigger": 1, "ensure": 1 * 0.8}]
+                self.lc_change = [
+                    {"exe": False, "time_after": 605, "trigger": 1, "ensure": 1 * 0.8}
+                ]
             else:
-                self.lc_change = order_json['lc_change']
+                self.lc_change = order_json["lc_change"]
         else:
-            self.lc_change = [{"exe": False, "time_after": 605, "trigger": 1, "ensure": 1 * 0.8}]
+            self.lc_change = [
+                {"exe": False, "time_after": 605, "trigger": 1, "ensure": 1 * 0.8}
+            ]
 
         # lc_change_candleで利用する足の設定
-        if 'lc_change_candle_type' in order_json:
-            self.lc_change_candle_type = order_json['lc_change_candle_type']
+        if "lc_change_candle_type" in order_json:
+            self.lc_change_candle_type = order_json["lc_change_candle_type"]
         else:
             self.lc_change_candle_type = "M5"
 
         # メモ
-        if 'memo' in order_json:
-            self.memo = order_json['memo']
+        if "memo" in order_json:
+            self.memo = order_json["memo"]
         else:
             self.memo = ""
-
 
         # アラート機能
         # if "alert" in order_json and "range" in order_json['alert']:
@@ -446,23 +499,23 @@ class Order:
             # typeしていない場合はノーマルを追加
             print("ディフェンスLCチェンジ")
             # self.add_lc_change_defence()
-            self.add_lc_change_start_with_dic(order_json['lc_change'])
+            self.add_lc_change_start_with_dic(order_json["lc_change"])
         else:
-            if isinstance(order_json['lc_change'], int):
+            if isinstance(order_json["lc_change"], int):
                 # print("処理A: int型です", order_json['lc_change_type'])
                 # 指定されている場合は、指定のLC_Change処理へ
-                if order_json['lc_change'] == 1:
+                if order_json["lc_change"] == 1:
                     print("ディフェンスLCチェンジ")
                     self.add_lc_change_defence()
-                elif order_json['lc_change'] == 0:
+                elif order_json["lc_change"] == 0:
                     print("Noチェンジ")
                     self.add_lc_change_no_change()
-                elif order_json['lc_change'] == 3:
+                elif order_json["lc_change"] == 3:
                     print("オッフェンスLCチェンジ")
                     self.add_lc_change_offence()
             else:
                 print("スタートLCチェンジ")
-                self.add_lc_change_start_with_dic(order_json['lc_change'])
+                self.add_lc_change_start_with_dic(order_json["lc_change"])
 
     def add_lc_change_no_change(self):
         """
@@ -479,13 +532,18 @@ class Order:
         lcChange = 3で選ばれるもの
         実際の運用をイメージ
         ・最初の30分はlc_1.3程度をトリガーにしてLC分を確実に回収できるように
-        　（一度20pips位上がった後に、LCまで戻っており、悔しかった。上がるのは大体直前
+        （一度20pips位上がった後に、LCまで戻っており、悔しかった。上がるのは大体直前
         ・30分以降は、ローソク形状の効果が切れたとみなし、プラスにいる場合はとにかく利確に向けた動きをする
         """
         self.lc_change = [
             # {"exe": True, "time_after": 0, "trigger": 1, "ensure": 1},
             # {"exe": True, "time_after": 600, "trigger": 0.025, "ensure": 0.005},
-            {"exe": True, "time_after": 600, "trigger": 0.04, "ensure": 0.004},  # -0.02が強い
+            {
+                "exe": True,
+                "time_after": 600,
+                "trigger": 0.04,
+                "ensure": 0.004,
+            },  # -0.02が強い
             {"exe": True, "time_after": 600, "trigger": 0.06, "ensure": 0.01},
             # {"exe": True, "time_after": 600, "trigger": first_trigger, "ensure": first_ensure},
             {"exe": True, "time_after": 600, "trigger": 0.08, "ensure": 0.02},
@@ -503,12 +561,12 @@ class Order:
         lcChange = 3で選ばれるもの
         実際の運用をイメージ
         ・最初の30分はlc_1.3程度をトリガーにしてLC分を確実に回収できるように
-        　（一度20pips位上がった後に、LCまで戻っており、悔しかった。上がるのは大体直前
+        （一度20pips位上がった後に、LCまで戻っており、悔しかった。上がるのは大体直前
         ・30分以降は、ローソク形状の効果が切れたとみなし、プラスにいる場合はとにかく利確に向けた動きをする
         """
         # print("   特殊LCChange")
 
-        add = [
+        [
             # {"exe": True, "time_after": 0, "trigger": 1, "ensure": 1},
             # {"exe": True, "time_after": 600, "trigger": 0.025, "ensure": 0.005},
             # {"exe": True, "time_after": 0, "trigger": 0.04, "ensure": 0.010},
@@ -548,4 +606,3 @@ class Order:
             {"exe": True, "time_after": 2 * 5 * 60, "trigger": 0.90, "ensure": 0.85},
             {"exe": True, "time_after": 2 * 5 * 60, "trigger": 1.00, "ensure": 0.95},
         ]
-

@@ -1,20 +1,12 @@
 ###トランザクションデータの取得について（これだけクラスと分割している（理由忘れた））
 
 import pandas as pd
-import numpy as np
 import json
-import time
-import matplotlib.pyplot as plt
-import time, datetime, dateutil.parser, pytz  # 日付関係
-import pickle
-import requests
 
 # 自作ファイルインポート
 import programs.classOanda as oanda_class
 import programs.tokens as tk
-import oandapyV20.endpoints.instruments as instruments
 from oandapyV20 import API
-from oandapyV20.endpoints.trades import TradeCRCDO
 
 import oandapyV20.endpoints.transactions as trans
 
@@ -22,12 +14,12 @@ import oandapyV20.endpoints.transactions as trans
 accountID = tk.accountID
 access_token = tk.access_token
 environment = "practice"  # デモ口座 本番は"live"
-oa = oanda_class.Oanda(accountID, access_token,environment)  # クラスインスタンス生成
+oa = oanda_class.Oanda(accountID, access_token, environment)  # クラスインスタンス生成
 api = API(access_token=access_token, environment=environment)
 price_dic = oa.NowPrice_exe("USD_JPY")
 range_params = {  # 初期値。とりあえず数字はテキトーだが書き換わるので問題なし。最大１０００くらいだった気がする
     "to": 42154,  # 若い番号（古い）
-    "from": 42026  # 大きい番号（直近）　toとfromの間は１０００以下であること！（API仕様）
+    "from": 42026,  # 大きい番号（直近）　toとfromの間は１０００以下であること！（API仕様）
 }
 
 
@@ -41,12 +33,14 @@ def get_base_data():
     oa = oanda_class
 
     # APIでトランザクションを取得
-    ep = trans.TransactionIDRange(accountID=accountID, params=range_params)  # paramsでto/fromを辞書で指定。
+    ep = trans.TransactionIDRange(
+        accountID=accountID, params=range_params
+    )  # paramsでto/fromを辞書で指定。
     resp = api.request(ep)
     print(json.dumps(resp, indent=2))
 
     # transactionの内の配列データを取得する
-    transactions = resp['transactions']
+    transactions = resp["transactions"]
     print(len(transactions))
 
     all_info = []
@@ -67,10 +61,10 @@ def get_base_data():
             pass
         # priceを含む場合（オーダーのキャンセル以外はpriceが入る）
         if "price" in item:
-            dict['price'] = item['price']
+            dict["price"] = item["price"]
         else:
             print("  OrderCancel")
-            dict['price'] = 0
+            dict["price"] = 0
             pass
         # ポジション解消時にある項目
         if "pl" in item:
@@ -91,14 +85,17 @@ def get_base_data():
         all_info.append(dict)
 
     t_df = pd.DataFrame(all_info)
-    t_df['time_jp'] = t_df.apply(lambda x: oa.iso_to_jstdt(x, 'time'), axis=1)  # 日本時刻を追加する
+    t_df["time_jp"] = t_df.apply(
+        lambda x: oa.iso_to_jstdt(x, "time"), axis=1
+    )  # 日本時刻を追加する
     print(t_df)
-    t_df.to_csv(tk.folder_path + 'transaction.csv', index=False, encoding="utf-8")
+    t_df.to_csv(tk.folder_path + "transaction.csv", index=False, encoding="utf-8")
     print("トランザクションデータ取得完了")
 
     return t_df
 
-def get_base_data_multi(roop,num):
+
+def get_base_data_multi(roop, num):
     """
     最新のデータから、N個さかのぼった分のデータをトランザクションデータを取得する。
     処理としては、まず最新の取引IDを取得し、そこからnum個分のデータを、roop回数取得する。
@@ -112,22 +109,21 @@ def get_base_data_multi(roop,num):
     for_ans = None
     # 最も新しいIDを取得する（TOに入れる用）
     oa = oanda_class
-    ep = trans.TransactionIDRange(accountID=accountID, params={"to": 40746,"from": 40746})
+    ep = trans.TransactionIDRange(
+        accountID=accountID, params={"to": 40746, "from": 40746}
+    )
     resp = api.request(ep)
-    latestT = resp['lastTransactionID']
+    latestT = resp["lastTransactionID"]
 
     for i in range(roop):
-        params_temp = {
-            "to": int(latestT),
-            "from": int(latestT) - num + 1
-        }
+        params_temp = {"to": int(latestT), "from": int(latestT) - num + 1}
         ep = trans.TransactionIDRange(accountID=accountID, params=params_temp)
         resp = api.request(ep)
         # params内、toの変更
         latestT = int(latestT) - num
 
         # transactionの内の配列データを取得する
-        transactions = resp['transactions']
+        transactions = resp["transactions"]
         print(len(transactions))
 
         all_info = []
@@ -169,9 +165,9 @@ def get_base_data_multi(roop,num):
                 dict["price_lc"] = 0
             # priceを含む場合（オーダーのキャンセル以外はpriceが入る）
             if "price" in item:
-                dict['price'] = item['price']
+                dict["price"] = item["price"]
             else:
-                dict['price'] = 0
+                dict["price"] = 0
             # ポジション解消時にある項目
             if "pl" in item:
                 dict["pl"] = item["pl"]
@@ -182,14 +178,19 @@ def get_base_data_multi(roop,num):
             all_info.append(dict)
 
         t_df = pd.DataFrame(all_info)
-        t_df['time_jp'] = t_df.apply(lambda x: oa.iso_to_jstdt(x, 'time'), axis=1)  # 日本時刻を追加する
+        t_df["time_jp"] = t_df.apply(
+            lambda x: oa.iso_to_jstdt(x, "time"), axis=1
+        )  # 日本時刻を追加する
 
-        for_ans = pd.concat([t_df, for_ans])  # 結果用dataframeに蓄積（時間はテレコ状態）
+        for_ans = pd.concat(
+            [t_df, for_ans]
+        )  # 結果用dataframeに蓄積（時間はテレコ状態）
 
     # for_ans.to_csv(tk.folder_path + 'transaction_multi.csv', index=False, encoding="utf-8")
     print("トランザクションデータ取得完了")
     return for_ans
 
-dt = get_base_data_multi(2,1000)
 
-dt.to_csv(tk.folder_path + 'transaction_ans.csv', index=False, encoding="utf-8")
+dt = get_base_data_multi(2, 1000)
+
+dt.to_csv(tk.folder_path + "transaction_ans.csv", index=False, encoding="utf-8")

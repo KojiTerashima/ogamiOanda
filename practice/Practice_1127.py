@@ -1,31 +1,30 @@
-import programs.fTurnInspection as f  # とりあえずの関数集
-import pandas as pd
-import json
 import datetime
-import matplotlib.pyplot as plt
-import numpy as np
-import programs.tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
+
 import programs.classOanda as oanda_class
-import programs.fTurnInspection as t  # とりあえずの関数集
-import programs.fPeakLineInspection as p  # とりあえずの関数集
-import programs.fTurnInspection as fTurn
 import programs.fGeneric as f
+import programs.fPeakLineInspection as p  # とりあえずの関数集
+import programs.tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
 
 oa = oanda_class.Oanda(tk.accountIDl, tk.access_tokenl, "live")  # クラスの定義
 
 jp_time = datetime.datetime(2023, 11, 10, 10, 5, 6)
 euro_time_datetime = jp_time - datetime.timedelta(hours=9)
-euro_time_datetime_iso = str(euro_time_datetime.isoformat()) + ".000000000Z"  # ISOで文字型。.0z付き）
+euro_time_datetime_iso = (
+    str(euro_time_datetime.isoformat()) + ".000000000Z"
+)  # ISOで文字型。.0z付き）
 param = {"granularity": "M5", "count": 200, "to": euro_time_datetime_iso}  # 最低５０行
 df = oa.InstrumentsCandles_exe("USD_JPY", param)  # 時間指定
-df = oa.InstrumentsCandles_multi_exe("USD_JPY", {"granularity": "M5", "count": 200}, 1)  # 直近の場合
+df = oa.InstrumentsCandles_multi_exe(
+    "USD_JPY", {"granularity": "M5", "count": 200}, 1
+)  # 直近の場合
 df = df["data"]
-df.to_csv(tk.folder_path + 'TEST.csv', index=False, encoding="utf-8")  # 直近保存用
+df.to_csv(tk.folder_path + "TEST.csv", index=False, encoding="utf-8")  # 直近保存用
 df_r = df.sort_index(ascending=False)
 print(df_r.head(5))
 print(df_r.tail(5))
 print("↓↓")
 ### ↑これより上は消さない
+
 
 def inspection(df_r):
     """
@@ -37,13 +36,17 @@ def inspection(df_r):
     df_r_part = df_r[:140]
     peaks = p.make_peaks_finalize(df_r_part)  # Peaksの算出
     # 最高値の算出
-    top_peaks = peaks['tops']
-    top_peaks_sorted = sorted(top_peaks, key=lambda x: x['peak'], reverse=True)  # LCで降順
-    highest_price = top_peaks_sorted[0]['peak']
+    top_peaks = peaks["tops"]
+    top_peaks_sorted = sorted(
+        top_peaks, key=lambda x: x["peak"], reverse=True
+    )  # LCで降順
+    highest_price = top_peaks_sorted[0]["peak"]
     # 最底値の算出
-    bottom_peaks = peaks['bottoms']
-    bottom_peaks_sorted = sorted(bottom_peaks, key=lambda x: x['peak'], reverse=False)  # LCで降順
-    lowest_price = bottom_peaks_sorted[0]['peak']
+    bottom_peaks = peaks["bottoms"]
+    bottom_peaks_sorted = sorted(
+        bottom_peaks, key=lambda x: x["peak"], reverse=False
+    )  # LCで降順
+    lowest_price = bottom_peaks_sorted[0]["peak"]
 
     # 群衆ピークLine価格の算出（TOP-Bottomの１０分の１（およそ３Pips）を群衆基準とする）
     scope = (highest_price - lowest_price) / 10
@@ -54,11 +57,13 @@ def inspection(df_r):
     max_group_time = 0
     top_lines = []
     for i in range(len(top_peaks_sorted)):
-        base_price = top_peaks_sorted[i]['peak']  # この価格からScope分に何個ピークがあるかを確認する
+        base_price = top_peaks_sorted[i][
+            "peak"
+        ]  # この価格からScope分に何個ピークがあるかを確認する
         counter = 0
-        for y in range(len(top_peaks_sorted)-i):
+        for y in range(len(top_peaks_sorted) - i):
             # print(" cal", base_price, top_peaks_sorted[i+y]['peak'])
-            if base_price - top_peaks_sorted[i+y]['peak'] <= scope:
+            if base_price - top_peaks_sorted[i + y]["peak"] <= scope:
                 counter += 1
             else:
                 break
@@ -69,17 +74,19 @@ def inspection(df_r):
         if counter > max_group:
             max_group = counter
             max_group_line = base_price
-            max_group_time = top_peaks_sorted[i]['time']
+            max_group_time = top_peaks_sorted[i]["time"]
     # 最底値から群集ピークを求める（最も多い群衆を算出する）
     min_group = 0
     min_group_line = 0
     min_group_time = 0
     bottom_lines = []
     for i in range(len(bottom_peaks_sorted)):
-        base_price = bottom_peaks_sorted[i]['peak']  # この価格からScope分に何個ピークがあるかを確認する
+        base_price = bottom_peaks_sorted[i][
+            "peak"
+        ]  # この価格からScope分に何個ピークがあるかを確認する
         counter = 0
-        for y in range(len(bottom_peaks_sorted)-i):
-            if bottom_peaks_sorted[i+y]['peak'] - base_price <= scope:
+        for y in range(len(bottom_peaks_sorted) - i):
+            if bottom_peaks_sorted[i + y]["peak"] - base_price <= scope:
                 counter += 1
             else:
                 break
@@ -90,10 +97,19 @@ def inspection(df_r):
         if counter > min_group:
             min_group = counter
             min_group_line = base_price
-            min_group_time = bottom_peaks_sorted[i]['time']
+            min_group_time = bottom_peaks_sorted[i]["time"]
 
-    print("■", df_r_part.iloc[-1]['time_jp'], "-", df_r_part.iloc[0]['time_jp'], " ", round(scope, 3))
-    print(" TOP:", top_peaks_sorted[0]['peak'], "bottom", bottom_peaks_sorted[0]['peak'])
+    print(
+        "■",
+        df_r_part.iloc[-1]["time_jp"],
+        "-",
+        df_r_part.iloc[0]["time_jp"],
+        " ",
+        round(scope, 3),
+    )
+    print(
+        " TOP:", top_peaks_sorted[0]["peak"], "bottom", bottom_peaks_sorted[0]["peak"]
+    )
     print(" TopLine", max_group_line, max_group, max_group_time)
     print("  ", top_lines)
     print(" BotLine", min_group_line, min_group, min_group_time)
@@ -105,14 +121,20 @@ def inspection(df_r):
         target_peaks = top_peaks
     else:
         target_peaks = bottom_peaks
-    latest_peak = target_peaks[0]['peak']
-    oldest_peak = target_peaks[1]['peak']
+    latest_peak = target_peaks[0]["peak"]
+    oldest_peak = target_peaks[1]["peak"]
     y_gap = latest_peak - oldest_peak
     # x_gap = (latest_peak - oldest_peak) * 1000
-    print(latest_peak, oldest_peak, y_gap,)
+    print(
+        latest_peak,
+        oldest_peak,
+        y_gap,
+    )
     print(target_peaks[0])
     print(target_peaks[1])
-    time_gap_seconds = (f.str_to_time(target_peaks[0]['time']) - f.str_to_time(target_peaks[1]['time'])).seconds
+    time_gap_seconds = (
+        f.str_to_time(target_peaks[0]["time"]) - f.str_to_time(target_peaks[1]["time"])
+    ).seconds
     x_gap = round(time_gap_seconds / 60)
     print(time_gap_seconds, x_gap)
     print(y_gap, x_gap)
@@ -134,20 +156,19 @@ def inspection_block(df_r):
     # 調査幅を取得する（最高値最低値の２０分の１？）
     highest = df_r["high"].max()
     lowest = df_r["low"].min()
-    range = (highest - lowest)/20
-    print(highest,lowest, range)
+    range = (highest - lowest) / 20
+    print(highest, lowest, range)
 
 
 def block_inspection_main(df_r):
     print("TurnInspection")
     df_r_part = df_r[:140]
     peaks_info = p.make_peaks_finalize(df_r_part)  # Peaksの算出
-    peaks = peaks_info['all_peaks']
+    peaks = peaks_info["all_peaks"]
     turn_inspection_sub(peaks[0], peaks[1])
-    while len(peaks)>3:
+    while len(peaks) > 3:
         temp = block_inspection_each(peaks)
-        peaks = temp['next_peaks']
-
+        peaks = temp["next_peaks"]
 
 
 def block_inspection_each(peaks):
@@ -157,7 +178,7 @@ def block_inspection_each(peaks):
     # 直近のブロックの有無と長さを求める
     print("■■ブロック探し")
     # base_price = peaks['all_peaks'][0]['peak']  # とりあえず直近の価格を入れておく
-    base_price = (peaks[1]['peak'] + peaks[1]['peak_oldest']) / 2
+    base_price = (peaks[1]["peak"] + peaks[1]["peak_oldest"]) / 2
     rest = 0  # ピーク範囲にないカウント(ピーク数にするか、カウント数にするか？
     rest_max = 2  #
     in_range_count = 0
@@ -170,12 +191,12 @@ def block_inspection_each(peaks):
             continue
 
         # peakとpeak_oldestどちらが大きいかを確認する
-        if item['peak'] > item['peak_oldest']:
-            high = item['peak']
-            low = item['peak_oldest']
+        if item["peak"] > item["peak_oldest"]:
+            high = item["peak"]
+            low = item["peak_oldest"]
         else:
-            high = item['peak_oldest']
-            low = item['peak']
+            high = item["peak_oldest"]
+            low = item["peak"]
         # print(" ", item, base_price)
 
         # ベースがピーク範囲にあるか
@@ -213,11 +234,23 @@ def block_inspection_each(peaks):
         "peaks_num": in_range_count,
         "latest_time": peaks[1]["time"],
         "latest_price": peaks[1]["peak"],
-        "oldest_time": end_peak['time_oldest'],
-        "oldest_price": end_peak["peak_oldest"]
+        "oldest_time": end_peak["time_oldest"],
+        "oldest_price": end_peak["peak_oldest"],
     }
-    print(" ", base_price, "," , informations['latest_time'], "(", informations['latest_price'], ")-", informations['oldest_time'], "(",
-          informations['oldest_price'], ")", informations['peaks_num'])
+    print(
+        " ",
+        base_price,
+        ",",
+        informations["latest_time"],
+        "(",
+        informations["latest_price"],
+        ")-",
+        informations["oldest_time"],
+        "(",
+        informations["oldest_price"],
+        ")",
+        informations["peaks_num"],
+    )
     return informations
 
 
@@ -226,14 +259,14 @@ def turn_inspection_sub(latest, second):
     print(latest)
     print("second")
     print(second)
-    latest_dir = latest['direction']
-    latest_gap = latest['gap']
-    latest_count = latest['count']
-    second_dir = second['direction']
-    second_gap = second['gap']
-    second_count = second['count']
-    print(latest_dir,latest_count,latest_gap)
-    print(second_dir,second_count,second_gap)
+    latest_dir = latest["direction"]
+    latest_gap = latest["gap"]
+    latest_count = latest["count"]
+    second_dir = second["direction"]
+    second_gap = second["gap"]
+    second_count = second["count"]
+    print(latest_dir, latest_count, latest_gap)
+    print(second_dir, second_count, second_gap)
 
     # 戻し状況の確認
     return_ratio = latest_gap / second_gap * 100
@@ -248,12 +281,10 @@ def turn_inspection_sub(latest, second):
         print(" 突き抜け中")
 
 
-
 res = block_inspection_main(df_r[0:60])
 # turn_inspection(df_r[0:20])
 
 # print(fTurn.turn_each_inspection(df_r))
-
 
 
 # ピーク集を出す
@@ -292,9 +323,6 @@ res = block_inspection_main(df_r[0:60])
 # p.inspection_test(df_r)
 # #
 # print(p.latest_tilt_line_detect(df_r))
-
-
-
 
 
 # LINEを抽出する
@@ -409,10 +437,3 @@ res = block_inspection_main(df_r[0:60])
 #         ((x ** 2).sum() - x.sum()**2 / n))
 #     b = (y.sum() - a * x.sum())/n
 #     return a, b
-
-
-
-
-
-
-

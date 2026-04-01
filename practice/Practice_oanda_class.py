@@ -1,15 +1,13 @@
 ### 情報取得のテスト
 
-import threading  # 定時実行用
-import time
 import datetime
-import sys
-import os
+
 # import requests
-import pandas as pd
 # 自作ファイルインポート
 import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
+
 import classOanda as oanda_class
+import fGeneric as f
 
 # ★必須。Tokenの設定、クラスの実体化⇒これ以降、oa.関数名で呼び出し可能
 print("Start")
@@ -18,9 +16,15 @@ oa = oanda_class.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
 # oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, "live")
 
 # # ★現在価格の取得
-price_dic = oa.NowPrice_exe("USD_JPY")['data']
-print("【現在価格live】", price_dic['mid'], price_dic['ask'], price_dic['bid'], price_dic['spread'])
-print(oa.NowPrice_exe("USD_JPY")['data']['mid'])
+price_dic = oa.NowPrice_exe("USD_JPY")["data"]
+print(
+    "【現在価格live】",
+    price_dic["mid"],
+    price_dic["ask"],
+    price_dic["bid"],
+    price_dic["spread"],
+)
+print(oa.NowPrice_exe("USD_JPY")["data"]["mid"])
 
 euro_time = datetime.datetime(2021, 4, 1, 20, 22, 33) - datetime.timedelta(hours=9)
 euro_iso = str(euro_time.isoformat()) + ".000000000Z"
@@ -40,7 +44,7 @@ info = {
     "tp_range": 0,
     "lc_range": 0,
     "type": "STOP",
-    "price": 146.000
+    "price": 146.000,
 }
 info_market = {
     "units": 6,
@@ -48,7 +52,7 @@ info_market = {
     "tp_range": 0.04,
     "lc_range": 0,
     "type": "MARKET",
-    "price": 146.883
+    "price": 146.883,
 }
 
 info_r = {
@@ -57,7 +61,7 @@ info_r = {
     "tp_range": 0,
     "lc_range": 0,
     "type": "MARKET",
-    "price": 145.500
+    "price": 145.500,
 }
 
 info_r_big = {
@@ -66,18 +70,17 @@ info_r_big = {
     "tp_range": 0,
     "lc_range": 0,
     "type": "MARKET",
-    "price": 145.500
+    "price": 145.500,
 }
 
 ###APIレスポンステスト
 # print(oa.OrderDetails_exe(38116))
 print(oa.TradeDetails_exe(38528))
 print()
-test = oa.TradeClose_exe(38528,None)
+test = oa.TradeClose_exe(38528, None)
 print(test)
 print()
-f.print_json(test['data_json'])
-
+f.print_json(test["data_json"])
 
 
 #
@@ -115,17 +118,6 @@ f.print_json(test['data_json'])
 # oa.TradeAllClose_exe()
 
 
-
-
-
-
-
-
-
-
-
-
-
 # oa.OrderCancel_All_exe()  # 露払い(classesに依存せず、オアンダクラスで全部を消す）
 # oa.TradeAllClose_exe()  # 露払い(classesに依存せず、オアンダクラスで全部を消す）
 # print(" オーダー実行↓")
@@ -152,8 +144,6 @@ f.print_json(test['data_json'])
 # oa.TradeClose_exe(position_id,{"units": "2"})
 # states = oa.OrderDetailsState_exe(order_id)
 # print(states)
-
-
 
 
 # states = oa.OrderDetailsState_exe(0)
@@ -208,10 +198,6 @@ f.print_json(test['data_json'])
 # print(mid_df)
 
 
-
-
-
-
 # data = {
 #     "stopLoss": {"price": 132.151, "timeInForce": "GTC"},
 #     # "takeProfit": {"price": 132.006, "timeInForce": "GTC"},
@@ -246,9 +232,6 @@ f.print_json(test['data_json'])
 # print(temp)
 
 
-
-
-
 # print(time_jp)
 
 # オーダーブックの取得
@@ -271,10 +254,6 @@ f.print_json(test['data_json'])
 # print(oa.OpenTrades_exe())
 
 
-
-
-
-
 # オーダー状況確認用
 # pending_new_df = oa.OrdersWaitPending_exe()  # ペンディングオーダーの取得(利確注文等は含まない）
 # print(pending_new_df)
@@ -288,10 +267,8 @@ f.print_json(test['data_json'])
 # print(mid_each_df)
 
 
-
 # # ★注文を発行
 # oa.OrderCreate_exe(10000, 1, price_dic['mid'], 0.05, 0.09, "STOP", 0.05, " ")
-
 
 
 # print(orders)

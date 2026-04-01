@@ -1,6 +1,3 @@
-import datetime
-from datetime import timedelta
-
 import classOanda
 import tokens as tk
 import fGeneric as gene
@@ -11,13 +8,12 @@ from collections import deque  # 最大10個の情報を持つためのもの。
 import copy
 
 
-
 class position_control:
     """
     ポジションクラスをコントロースするためのもの
     """
-    # 常に最新のデータを取得してクラス変数に入れておく（毎回の取得はしないように工夫する。（してもいい気もするけど））
 
+    # 常に最新のデータを取得してクラス変数に入れておく（毎回の取得はしないように工夫する。（してもいい気もするけど））
 
     # 履歴ファイル
     def __init__(self, is_live):
@@ -38,7 +34,9 @@ class position_control:
         self.high_priority_num = 1  # ハイプライオリティのもの（max_position_numのうち）
 
         self.high_i_to = self.max_position_num
-        self.high_i_from = self.high_i_to - self.high_priority_num  # ハイプライオリティスロット(1つ限)の、添え字（最大5スロットの場合、添え字的には4番目スロット）
+        self.high_i_from = (
+            self.high_i_to - self.high_priority_num
+        )  # ハイプライオリティスロット(1つ限)の、添え字（最大5スロットの場合、添え字的には4番目スロット）
         self.mid_i_to = self.high_i_from  # python配列のTO指定は「未満」なので、ー１が不要。（以下の場合はマイナスが必要）
         self.mid_i_from = self.mid_i_to - self.middle_priority_num
         self.normal_i_to = self.mid_i_from
@@ -51,11 +49,15 @@ class position_control:
             # 複数のクラスを動的に生成する。クラス名は「C＋通し番号」とする。
             # クラス名を確定し、クラスを生成する。
             new_name = "c" + str(i)
-            self.position_classes.append(classPosition.order_information(new_name, is_live))  # 順思想のオーダーを入れるクラス
+            self.position_classes.append(
+                classPosition.order_information(new_name, is_live)
+            )  # 順思想のオーダーを入れるクラス
         self.print_classes_and_count()
 
     def print_classes_and_count(self):
-        self.count_true = sum(1 for d in self.position_classes if hasattr(d, "life") and d.life)
+        self.count_true = sum(
+            1 for d in self.position_classes if hasattr(d, "life") and d.life
+        )
         i = 0
         print(" 現在のクラスの状況(True:", self.count_true, ")")
         for i, item in enumerate(self.position_classes):
@@ -65,7 +67,20 @@ class position_control:
                 comment = "m"
             else:
                 comment = "n"
-            print(" ", i, "OaMode:", item.oa_mode, "[", comment, "], Pno:", item.t_id, ",name:", item.name, ",life:", item.life)
+            print(
+                " ",
+                i,
+                "OaMode:",
+                item.oa_mode,
+                "[",
+                comment,
+                "], Pno:",
+                item.t_id,
+                ",name:",
+                item.name,
+                ",life:",
+                item.life,
+            )
 
         # テスト
         # allowed_position_slot = self.position_classes[self.mid_i_from:self.mid_i_to]
@@ -82,43 +97,72 @@ class position_control:
         # max_dict = max(order_dic_list, key=lambda d: d.get("priority", float("-inf")))
         # order_max_priority = max_dict['priority']
         max_instance = max(order_classes, key=lambda x: x.exe_order["priority"])
-        order_max_priority = max_instance.exe_order['priority']
-        if order_max_priority >=100:
-            order_priority_class = "high"
+        order_max_priority = max_instance.exe_order["priority"]
+        if order_max_priority >= 100:
             i_from = self.high_i_from
             i_to = self.high_i_to
         elif order_max_priority >= 10:
-            order_priority_class = "mid"
             i_from = self.mid_i_from
             i_to = self.mid_i_to
         else:
-            order_priority_class = "normal"
             i_from = self.normal_i_from
             i_to = self.normal_i_to
-        allowed_position_slot = self.position_classes[i_from:i_to]  # もらったオーダーの優先度で、許可されたスロット(positionList)
+        allowed_position_slot = self.position_classes[
+            i_from:i_to
+        ]  # もらったオーダーの優先度で、許可されたスロット(positionList)
 
         for i, order_class in enumerate(allowed_position_slot):
-            print(" Allowed　", i, "OaMode:", order_class.oa_mode, ",name:", order_class.name, ",life:", order_class.life)
+            print(
+                " Allowed　",
+                i,
+                "OaMode:",
+                order_class.oa_mode,
+                ",name:",
+                order_class.name,
+                ",life:",
+                order_class.life,
+            )
             i = i + 1
 
         # 現在のクラスで、生きている物のみ抽出
-        alive_classes = [c for c in allowed_position_slot if hasattr(c, "life") and c.life]
+        alive_classes = [
+            c for c in allowed_position_slot if hasattr(c, "life") and c.life
+        ]
         if len(alive_classes) == 0:
             print(" プログラム上既存のオーダーは存在しないため、オーダー発行へ")
             pass
         elif len(alive_classes) == len(allowed_position_slot):
-            tk.line_send("許容スロットがいっぱい（オーダー発行せず)", len(alive_classes), len(allowed_position_slot))
+            tk.line_send(
+                "許容スロットがいっぱい（オーダー発行せず)",
+                len(alive_classes),
+                len(allowed_position_slot),
+            )
             self.print_classes_and_count()
             return 0
         elif len(order_classes) + len(alive_classes) > len(allowed_position_slot):
-            tk.line_send("オーダー入れるとオーバーフロー（オーダー発行せず)", len(order_classes), len(alive_classes), len(allowed_position_slot))
+            tk.line_send(
+                "オーダー入れるとオーバーフロー（オーダー発行せず)",
+                len(order_classes),
+                len(alive_classes),
+                len(allowed_position_slot),
+            )
             self.print_classes_and_count()
             return 0
         else:
             # 生きているインスタンスの最高値と、指定のプライオリティより高いものを算出
-            max_instance = max(alive_classes, key=lambda c: getattr(c, "priority", float("-inf")))
-            over_n_classes = [c for c in alive_classes if hasattr(c, "priority") and c.priority > order_max_priority]
-            same_n_classes = [c for c in alive_classes if hasattr(c, "priority") and c.priority == order_max_priority]
+            max_instance = max(
+                alive_classes, key=lambda c: getattr(c, "priority", float("-inf"))
+            )
+            [
+                c
+                for c in alive_classes
+                if hasattr(c, "priority") and c.priority > order_max_priority
+            ]
+            [
+                c
+                for c in alive_classes
+                if hasattr(c, "priority") and c.priority == order_max_priority
+            ]
 
         # ■現在のクラスの状況の確認
         print("現在のクラスの状況を確認 (classPositionControl)")
@@ -150,24 +194,43 @@ class position_control:
                 for i, item in enumerate(order_class.lc_change):
                     if i == 2:
                         break
-                    lc_change_str = lc_change_str + ",(" + str(item['trigger']) + "-" + str(item['ensure']) + ")"
+                    lc_change_str = (
+                        lc_change_str
+                        + ",("
+                        + str(item["trigger"])
+                        + "-"
+                        + str(item["ensure"])
+                        + ")"
+                    )
 
-                if res_dic['order_id'] == 0:
+                if res_dic["order_id"] == 0:
                     print("オーダー失敗している（大量オーダー等）")
                     line_send = line_send + "オーダー失敗(" + str(order_i) + ")" + "\n"
                 else:
                     # ■オーダーが成功している場合
-                    if res_dic['order_id'] == -1:
+                    if res_dic["order_id"] == -1:
                         # ウォッチオーダー
                         print("オーダー通知")
                         # new
-                        line_send = line_send + position_slot.for_line_send + "[システム]classNo:" + str(class_index) + "\n"
+                        line_send = (
+                            line_send
+                            + position_slot.for_line_send
+                            + "[システム]classNo:"
+                            + str(class_index)
+                            + "\n"
+                        )
                         break
                     else:
                         # オーダーの生成完了をLINE通知する
-                        print("オーダー通知", res_dic['order_name'])
+                        print("オーダー通知", res_dic["order_name"])
                         # new
-                        line_send = line_send + position_slot.for_line_send + "[システム]classNo:" + str(class_index) + "\n"
+                        line_send = (
+                            line_send
+                            + position_slot.for_line_send
+                            + "[システム]classNo:"
+                            + str(class_index)
+                            + "\n"
+                        )
                         break
         return line_send
 
@@ -178,7 +241,7 @@ class position_control:
         """
         #  ### Update作業
         # update前
-        old_S = [obj.life for obj in self.position_classes]   # 更新前
+        [obj.life for obj in self.position_classes]  # 更新前
         # update作業
         for item in self.position_classes:
             if item.life:
@@ -191,7 +254,7 @@ class position_control:
         """
         #  ### Update作業
         # update前
-        old_S = [obj.life for obj in self.position_classes]   # 更新前
+        old_S = [obj.life for obj in self.position_classes]  # 更新前
         # update作業
         for item in self.position_classes:
             if item.life:
@@ -223,9 +286,13 @@ class position_control:
             avg = 0  # もしくは None
         if avg < 0:
             # 負けっぽくなっている時は、持っているポジションのどれかのTPをそれにする
-            if any(obj.life for obj in self.position_classes):  # 一つでもTrueでもある場合
-                remain_classes = [obj for obj in self.position_classes if obj.life is True]
-                remain_class_num = len(remain_classes)  # これで割れたら・・？
+            if any(
+                obj.life for obj in self.position_classes
+            ):  # 一つでもTrueでもある場合
+                remain_classes = [
+                    obj for obj in self.position_classes if obj.life is True
+                ]
+                len(remain_classes)  # これで割れたら・・？
                 for i, item in enumerate(remain_classes):
                     if item.t_state == "OPEN":
                         # できれば解消したポジションと逆の方向のポジションのTPを変更したい。
@@ -277,83 +344,142 @@ class position_control:
         max_position_time_sec = 0
         max_order_time_sec = 0
         watching_list = []
-        open_class_names = closed_class_names = pending_class_names = ""
+        open_class_names = pending_class_names = ""
         total_pl = 0
         for item in self.position_classes:
             if item.life:  # lifeがTrueの場合、ポジションかオーダーが存在
                 # 各情報
                 if item.o_state == "Watching":
-                    watching_list.append({"name": item.name,
-                                          "target": item.plan_json['target_price'],
-                                          "direction": item.plan_json['direction'],
-                                          "order_time": gene.time_to_str(item.order_register_time),
-                                          "state": item.step1_filled,
-                                          "keeping": round(item.step1_keeping_second, 0),
-                                          })
+                    watching_list.append(
+                        {
+                            "name": item.name,
+                            "target": item.plan_json["target_price"],
+                            "direction": item.plan_json["direction"],
+                            "order_time": gene.time_to_str(item.order_register_time),
+                            "state": item.step1_filled,
+                            "keeping": round(item.step1_keeping_second, 0),
+                        }
+                    )
                     continue
                 if item.t_state == "OPEN":
                     # ポジションがある場合、ポジションの情報を取得する
                     # プライオリティも最高値を取得
                     if item.priority > max_priority_position:
-                        max_priority_position = item.priority  # ポジションの有る最大のプライオリティを取得する
-                    open_positions.append({
-                        "name": item.name,
-                        "life": item.life,
-                        "priority": item.priority,
-                        "o_state": item.o_state,
-                        "t_state": item.t_state,
-                        "pl": item.t_pl_u,
-                        "realizedPL": item.t_json['realizedPL'],
-                        "direction": item.plan_json['direction'],
-                        "t_time_past_sec": item.t_time_past_sec
-                    })
+                        max_priority_position = (
+                            item.priority
+                        )  # ポジションの有る最大のプライオリティを取得する
+                    open_positions.append(
+                        {
+                            "name": item.name,
+                            "life": item.life,
+                            "priority": item.priority,
+                            "o_state": item.o_state,
+                            "t_state": item.t_state,
+                            "pl": item.t_pl_u,
+                            "realizedPL": item.t_json["realizedPL"],
+                            "direction": item.plan_json["direction"],
+                            "t_time_past_sec": item.t_time_past_sec,
+                        }
+                    )
                     # ポジションの所有時間（ポジションがある中で最大）も取得しておく
                     if item.t_time_past_sec > max_position_time_sec:
-                        max_position_time_sec = item.t_time_past_sec  # 何分間持たれているポジションか
+                        max_position_time_sec = (
+                            item.t_time_past_sec
+                        )  # 何分間持たれているポジションか
                     # トータルの含み損益を表示する
                     total_pl = total_pl + float(item.t_unrealize_pl)
                     # オーダー時間リストを作る（表示用）
-                    open_class_names = open_class_names + "," + gene.delYearDay(item.o_time) + "(oa" + str(item.oa_mode) + ")"
+                    open_class_names = (
+                        open_class_names
+                        + ","
+                        + gene.delYearDay(item.o_time)
+                        + "(oa"
+                        + str(item.oa_mode)
+                        + ")"
+                    )
                     # print("  ポジション状態", item.t_id, ",PL:", total_pl)
                 elif item.o_state == "PENDING":
                     # オーダーのみ（取得俟ちの場合）取得まち用の配列に入れておく
                     # プライオリティも最高値を取得
                     if item.priority > max_priority_order:
-                        max_priority_order = item.priority  # ポジションの有る最大のプライオリティを取得する
+                        max_priority_order = (
+                            item.priority
+                        )  # ポジションの有る最大のプライオリティを取得する
 
-                    not_open_positions.append({
-                        "name": item.name,
-                        "life": item.life,
-                        "priority": item.priority,
-                        "o_state": item.o_state,
-                        "t_state": item.t_state,
-                        "pl": item.t_pl_u,
-                        "direction": item.plan_json['direction']
-                    })
+                    not_open_positions.append(
+                        {
+                            "name": item.name,
+                            "life": item.life,
+                            "priority": item.priority,
+                            "o_state": item.o_state,
+                            "t_state": item.t_state,
+                            "pl": item.t_pl_u,
+                            "direction": item.plan_json["direction"],
+                        }
+                    )
                     # ポジションの所有時間（ポジションがある中で最大）も取得しておく
                     if item.o_time_past_sec > max_order_time_sec:
-                        max_order_time_sec = item.o_time_past_sec  # 何分間オーダー待ちか
+                        max_order_time_sec = (
+                            item.o_time_past_sec
+                        )  # 何分間オーダー待ちか
                     # オーダー時間リストを作成する（表示用）
-                    pending_class_names = pending_class_names + "," + gene.delYearDay(item.o_time) + "(oa" + str(item.oa_mode) + ")"
+                    pending_class_names = (
+                        pending_class_names
+                        + ","
+                        + gene.delYearDay(item.o_time)
+                        + "(oa"
+                        + str(item.oa_mode)
+                        + ")"
+                    )
                 else:
                     # どうやらt_stateが入っていない状態（オーダーエラーや謎の状態）
                     if item.o_state == "Watching":
                         # tk.line_send("ウォッチング中のオーダーあり　（５分毎処理）")
                         continue
-                    print(" 謎の状態　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:", item.name, ",life=",
-                          item.life, ",try_num", item.try_update_num)
+                    print(
+                        " 謎の状態　t_state=",
+                        item.t_state,
+                        ",o_state=",
+                        item.o_state,
+                        ", 名前:",
+                        item.name,
+                        ",life=",
+                        item.life,
+                        ",try_num",
+                        item.try_update_num,
+                    )
                     # tk.line_send(" 謎の状態(分岐前）　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:", item.name, ",life=", item.life, ",try_num", item.try_update_num)
                     if item.try_update_num <= item.try_update_limit:
                         # まだ何回か確認するまで、LifeはFalseにしない
-                        tk.line_send(" 謎の状態　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:",
-                                     item.name,
-                                     ",life=", item.life, ",try_num", item.try_update_num, "回目　⇒再トライ")
+                        tk.line_send(
+                            " 謎の状態　t_state=",
+                            item.t_state,
+                            ",o_state=",
+                            item.o_state,
+                            ", 名前:",
+                            item.name,
+                            ",life=",
+                            item.life,
+                            ",try_num",
+                            item.try_update_num,
+                            "回目　⇒再トライ",
+                        )
                         item.count_up_position_check()  # 対象ポジションのtry_update_numをカウントアップする
                     else:
                         item.life_set(False)  # 強制的にクローズ
-                        tk.line_send(" 謎の状態　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:",
-                                     item.name,
-                                     ",life=", item.life, ",try_num", item.try_update_num, "回目のため終了（lifeFalse)")
+                        tk.line_send(
+                            " 謎の状態　t_state=",
+                            item.t_state,
+                            ",o_state=",
+                            item.o_state,
+                            ", 名前:",
+                            item.name,
+                            ",life=",
+                            item.life,
+                            ",try_num",
+                            item.try_update_num,
+                            "回目のため終了（lifeFalse)",
+                        )
             # else:
             #     # Lifeが終わっているもの
 
@@ -373,7 +499,9 @@ class position_control:
             order_exist = False
 
         # 表示用の名前リストの作成
-        name_list = "\n[P待ち]" + pending_class_names + "\n[P中]" + open_class_names + "\n"
+        name_list = (
+            "\n[P待ち]" + pending_class_names + "\n[P中]" + open_class_names + "\n"
+        )
 
         return {
             "position_exist": position_exist,
@@ -386,7 +514,7 @@ class position_control:
             "max_order_time_sec": max_order_time_sec,
             "total_pl": total_pl,
             "name_list": name_list,
-            "watching_list": watching_list
+            "watching_list": watching_list,
         }
 
     def catch_up_position_and_del_order(self):
@@ -394,9 +522,9 @@ class position_control:
         最初に実行される
         """
         res = self.oa2.OpenTrades_exe()
-        if len(res['data']) == 0:
+        if len(res["data"]) == 0:
             return 0
-        trades = res['json']['trades']
+        trades = res["json"]["trades"]
         print("trades", len(trades))
         print(trades)
         if len(trades) == 0:
@@ -413,10 +541,8 @@ class position_control:
                     # Falseのところには代入して、
                     print(class_index)
                     each_exist_class.catch_exist_position(
-                        "既存" + str(i),
-                        2,
-                        5,
-                        exist_position_json)
+                        "既存" + str(i), 2, 5, exist_position_json
+                    )
                     break
         self.print_classes_and_count()
 
@@ -436,12 +562,9 @@ class position_control:
         """
         終わってしまったポジションから、残っているポジションを変えに行く、という方向。
         """
-        margin = 0.01
-        lc_range = 0.03
 
         # print("PositionControlのリンケージセクション", len(self.position_classes))
         for main_position in self.position_classes:
-
             # print("★★", main_position.name, "のリンケージ残存を確認")
             if main_position.linkage_done:
                 # print(main_position.name, " リンケージ調整済み(相手側を調整した,またはされた）")
@@ -456,7 +579,7 @@ class position_control:
                 continue
             elif main_position.o_json:  # この条件は、テストモードでおかしなことが起きるために追加した（本番悪影響なら消したい）
                 # print(main_position.o_json)
-                if main_position.o_json['state'] == "PENDING":
+                if main_position.o_json["state"] == "PENDING":
                     continue
 
             # elifだと通過してしまう（上のどれかに引っかかってしまっている）ため、独立して記述（o_jsonで引っ掛かってる？）
@@ -464,19 +587,36 @@ class position_control:
                 continue
 
             # これ正しい？
-            if not main_position.life and main_position.t_state == "CLOSED" and not main_position.linkage_done:
+            if (
+                not main_position.life
+                and main_position.t_state == "CLOSED"
+                and not main_position.linkage_done
+            ):
                 # ★クローズした初回のみ実施！！！？　フラグはここで建てておく。
-                print("★★初回リンケージチェック", main_position.name, main_position.t_realize_pl)
+                print(
+                    "★★初回リンケージチェック",
+                    main_position.name,
+                    main_position.t_realize_pl,
+                )
                 main_position.linkage_done_func()
 
-
-            #　自身がの勝敗によって、Linkageをするかどうか
+            # 自身がの勝敗によって、Linkageをするかどうか
             print("       確認用position control", main_position.t_realize_pl)
             if float(main_position.t_realize_pl) >= 0:
                 pass
-                print("自身はプラス", main_position.name, main_position.t_realize_pl, main_position.o_state)
+                print(
+                    "自身はプラス",
+                    main_position.name,
+                    main_position.t_realize_pl,
+                    main_position.o_state,
+                )
             else:
-                print("自身はマイナス", main_position.name, main_position.t_realize_pl, main_position.o_state)
+                print(
+                    "自身はマイナス",
+                    main_position.name,
+                    main_position.t_realize_pl,
+                    main_position.o_state,
+                )
                 # continue
 
             # 走査する
@@ -492,20 +632,43 @@ class position_control:
 
                 # 本処理(残されたリンケージオーダーへの対応）
                 for i, linkage_class in enumerate(main_position.linkage_order_classes):
-                    left_position = next((obj for obj in self.position_classes if obj.name == linkage_class.name), None)
+                    left_position = next(
+                        (
+                            obj
+                            for obj in self.position_classes
+                            if obj.name == linkage_class.name
+                        ),
+                        None,
+                    )
                     if left_position is None:
                         print("     レフトポジションがNone")
                         continue
-                    print("    ", linkage_class.name, "のオーダーが対象", left_position.life, left_position.t_pl_u)
+                    print(
+                        "    ",
+                        linkage_class.name,
+                        "のオーダーが対象",
+                        left_position.life,
+                        left_position.t_pl_u,
+                    )
                     if left_position is None:
-                        print("    ", linkage_class.name, "のリンケージオーダー[", linkage_class.name, "]が対象だが見つからない")
+                        print(
+                            "    ",
+                            linkage_class.name,
+                            "のリンケージオーダー[",
+                            linkage_class.name,
+                            "]が対象だが見つからない",
+                        )
                         # tk.line_send("リンケージ先がない物があった.", linkage_class.name, "のリンケージ", linkage_class.name)
                         main_position.linkage_done_func()  # 自身のリンケージも終了
                         continue
                     # 自分自身はポジションあるが、相手がクローズしてしまっている場合
                     if left_position.linkage_done:
                         # 既に残された側が、
-                        print("     ", left_position.name, " 既にリンケージ調整され済み", )
+                        print(
+                            "     ",
+                            left_position.name,
+                            " 既にリンケージ調整され済み",
+                        )
                         continue
 
                     # メインの種類によって、場合分け？？
@@ -513,16 +676,24 @@ class position_control:
                     if "Short" in main_position.name:
                         pl = float(main_position.t_pl_u)
                         if pl >= 0:
-                            print("プラスなので、プラス分を残存しているポジションのLCに設定する")
+                            print(
+                                "プラスなので、プラス分を残存しているポジションのLCに設定する"
+                            )
                             if left_position.life and left_position.t_state == "OPEN":
-                                left_position_take_price = left_position.plan_json['target_price']
-                                left_position_dir = left_position.plan_json['direction']
+                                left_position_take_price = left_position.plan_json[
+                                    "target_price"
+                                ]
+                                left_position_dir = left_position.plan_json["direction"]
                                 new_lc_price = left_position_take_price
                                 new_lc_range = pl
                                 if left_position_dir == 1:
-                                    new_lc_price = new_lc_price - new_lc_range  # -正の値で、ロスカを広げる
+                                    new_lc_price = (
+                                        new_lc_price - new_lc_range
+                                    )  # -正の値で、ロスカを広げる
                                 else:
-                                    new_lc_price = new_lc_price + new_lc_range  # -正の値で、ロスカを広げる
+                                    new_lc_price = (
+                                        new_lc_price + new_lc_range
+                                    )  # -正の値で、ロスカを広げる
                                 left_position.linkage_lc_change(new_lc_price)
                                 main_position.linkage_done_func()
                                 # tk.line_send("NewLcPrice", left_position_take_price)
@@ -531,12 +702,22 @@ class position_control:
                             print("マイナスなので何もしない")
 
                     elif "シンプルターン_r" in main_position.name:
-                        print("     rによるリンケージ操作", main_position.name, main_position.linkage_done, main_position.t_state, main_position.t_realize_pl, left_position.t_state)
+                        print(
+                            "     rによるリンケージ操作",
+                            main_position.name,
+                            main_position.linkage_done,
+                            main_position.t_state,
+                            main_position.t_realize_pl,
+                            left_position.t_state,
+                        )
                         if float(main_position.t_realize_pl) >= 0:
                             # プラス域の場合は、問答無用で相手をキャンセルする。
 
                             # 相手がまだオーダーの場合、オーダーをクローズする (自分の利確の分をLCにして継続するのもありかも）
-                            if left_position.t_state == "" and left_position.o_state == "PENDING":
+                            if (
+                                left_position.t_state == ""
+                                and left_position.o_state == "PENDING"
+                            ):
                                 # print(" まだlinage先のポジションが成立していないため、オーダー解除")
                                 left_position.close_order()
                                 main_position.linkage_done_func()  # 自身のリンケージも終了
@@ -550,22 +731,40 @@ class position_control:
                                 continue
                         else:
                             # 相手がまだオーダーの場合、オーダーをクローズする (自分の利確の分をLCにして継続するのもありかも）
-                            if left_position.t_state == "" and left_position.o_state == "PENDING":
-                                print(" まだlinage先のポジションが成立していないため、オーダー解除")
+                            if (
+                                left_position.t_state == ""
+                                and left_position.o_state == "PENDING"
+                            ):
+                                print(
+                                    " まだlinage先のポジションが成立していないため、オーダー解除"
+                                )
                                 left_position.close_order()
                                 main_position.linkage_done_func()  # 自身のリンケージも終了
                                 continue
                             # 相手がポジションの場合、プラスが予想される。自身がマイナスなので、相方のマイナス突入は死守。
                             if left_position.life and left_position.t_state == "OPEN":
-                                left_position_take_price = left_position.plan_json['target_price']
-                                tk.line_send("classPosition477テスト", left_position_take_price)
-                                print("     残りポジションのTargetPrice", left_position.name, left_position_take_price, left_position_dir)
-                                left_position_dir = left_position.plan_json['direction']
+                                left_position_take_price = left_position.plan_json[
+                                    "target_price"
+                                ]
+                                tk.line_send(
+                                    "classPosition477テスト", left_position_take_price
+                                )
+                                print(
+                                    "     残りポジションのTargetPrice",
+                                    left_position.name,
+                                    left_position_take_price,
+                                    left_position_dir,
+                                )
+                                left_position_dir = left_position.plan_json["direction"]
                                 new_lc_price = left_position_take_price
                                 if left_position_dir == 1:
-                                    new_lc_price = new_lc_price - 0.001  # -正の値で、ロスカを広げる
+                                    new_lc_price = (
+                                        new_lc_price - 0.001
+                                    )  # -正の値で、ロスカを広げる
                                 else:
-                                    new_lc_price = new_lc_price + 0.001  # -正の値で、ロスカを広げる
+                                    new_lc_price = (
+                                        new_lc_price + 0.001
+                                    )  # -正の値で、ロスカを広げる
                                 left_position.linkage_lc_change(new_lc_price)
                                 main_position.linkage_done_func()
                     #
@@ -613,7 +812,9 @@ class position_control_for_test(position_control):
         self.high_priority_num = 1  # ハイプライオリティのもの（max_position_numのうち）
 
         self.high_i_to = self.max_position_num
-        self.high_i_from = self.high_i_to - self.high_priority_num  # ハイプライオリティスロット(1つ限)の、添え字（最大5スロットの場合、添え字的には4番目スロット）
+        self.high_i_from = (
+            self.high_i_to - self.high_priority_num
+        )  # ハイプライオリティスロット(1つ限)の、添え字（最大5スロットの場合、添え字的には4番目スロット）
         self.mid_i_to = self.high_i_from  # python配列のTO指定は「未満」なので、ー１が不要。（以下の場合はマイナスが必要）
         self.mid_i_from = self.mid_i_to - self.middle_priority_num
         self.normal_i_to = self.mid_i_from
@@ -626,7 +827,9 @@ class position_control_for_test(position_control):
             # 複数のクラスを動的に生成する。クラス名は「C＋通し番号」とする。
             # クラス名を確定し、クラスを生成する。
             new_name = "c" + str(i)
-            self.position_classes.append(testClassPosition.order_information(new_name, is_live, filename))  # 順思想のオーダーを入れるクラス
+            self.position_classes.append(
+                testClassPosition.order_information(new_name, is_live, filename)
+            )  # 順思想のオーダーを入れるクラス
         self.print_classes_and_count()
 
     def order_class_add(self, order_classes):
@@ -639,27 +842,37 @@ class position_control_for_test(position_control):
         # max_dict = max(order_dic_list, key=lambda d: d.get("priority", float("-inf")))
         # order_max_priority = max_dict['priority']
         max_instance = max(order_classes, key=lambda x: x.exe_order["priority"])
-        order_max_priority = max_instance.exe_order['priority']
-        if order_max_priority >=100:
-            order_priority_class = "high"
+        order_max_priority = max_instance.exe_order["priority"]
+        if order_max_priority >= 100:
             i_from = self.high_i_from
             i_to = self.high_i_to
         elif order_max_priority >= 10:
-            order_priority_class = "mid"
             i_from = self.mid_i_from
             i_to = self.mid_i_to
         else:
-            order_priority_class = "normal"
             i_from = self.normal_i_from
             i_to = self.normal_i_to
-        allowed_position_slot = self.position_classes[i_from:i_to]  # もらったオーダーの優先度で、許可されたスロット(positionList)
+        allowed_position_slot = self.position_classes[
+            i_from:i_to
+        ]  # もらったオーダーの優先度で、許可されたスロット(positionList)
 
         for i, order_class in enumerate(allowed_position_slot):
-            print(" Allowed　", i, "OaMode:", order_class.oa_mode, ",name:", order_class.name, ",life:", order_class.life)
+            print(
+                " Allowed　",
+                i,
+                "OaMode:",
+                order_class.oa_mode,
+                ",name:",
+                order_class.name,
+                ",life:",
+                order_class.life,
+            )
             i = i + 1
 
         # 現在のクラスで、生きている物のみ抽出
-        alive_classes = [c for c in allowed_position_slot if hasattr(c, "life") and c.life]
+        alive_classes = [
+            c for c in allowed_position_slot if hasattr(c, "life") and c.life
+        ]
         if len(alive_classes) == 0:
             print(" プログラム上既存のオーダーは存在しないため、オーダー発行へ")
             pass
@@ -673,10 +886,19 @@ class position_control_for_test(position_control):
             return 0
         else:
             # 生きているインスタンスの最高値と、指定のプライオリティより高いものを算出
-            max_instance = max(alive_classes, key=lambda c: getattr(c, "priority", float("-inf")))
-            over_n_classes = [c for c in alive_classes if hasattr(c, "priority") and c.priority > order_max_priority]
-            same_n_classes = [c for c in alive_classes if hasattr(c, "priority") and c.priority == order_max_priority]
-
+            max_instance = max(
+                alive_classes, key=lambda c: getattr(c, "priority", float("-inf"))
+            )
+            [
+                c
+                for c in alive_classes
+                if hasattr(c, "priority") and c.priority > order_max_priority
+            ]
+            [
+                c
+                for c in alive_classes
+                if hasattr(c, "priority") and c.priority == order_max_priority
+            ]
 
         # ■現在のクラスの状況の確認
         print("現在のクラスの状況を確認 (classPositionControl)")
@@ -694,7 +916,7 @@ class position_control_for_test(position_control):
                     continue
 
                 # Falseのとこで実行する
-                res_dic = position_slot.order_plan_registration(order_class)
+                position_slot.order_plan_registration(order_class)
                 break
                 # if res_dic['order_id'] == 0:
                 #     print("オーダー失敗している（大量オーダー等）")

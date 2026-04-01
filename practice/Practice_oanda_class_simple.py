@@ -1,22 +1,12 @@
 ### 情報取得のテスト
 
-import threading  # 定時実行用
-import time
 import datetime
-import sys
-import os
+
 # import requests
-import pandas as pd
+
 # 自作ファイルインポート
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
-import programs.fTurnInspection as t  # とりあえずの関数集
 import programs.tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
 import programs.classOanda as oanda_class
-import programs.fGeneric as f
-from time import sleep
-import pytz
-from dateutil import tz
 
 # ★必須。Tokenの設定、クラスの実体化⇒これ以降、oa.関数名で呼び出し可能
 print("Start")
@@ -25,9 +15,15 @@ oa = oanda_class.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
 # oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, "live")
 
 # # ★現在価格の取得
-price_dic = oa.NowPrice_exe("USD_JPY")['data']
-print("【現在価格live】", price_dic['mid'], price_dic['ask'], price_dic['bid'], price_dic['spread'])
-print(oa.NowPrice_exe("USD_JPY")['data']['mid'])
+price_dic = oa.NowPrice_exe("USD_JPY")["data"]
+print(
+    "【現在価格live】",
+    price_dic["mid"],
+    price_dic["ask"],
+    price_dic["bid"],
+    price_dic["spread"],
+)
+print(oa.NowPrice_exe("USD_JPY")["data"]["mid"])
 
 euro_time = datetime.datetime(2021, 4, 1, 20, 22, 33) - datetime.timedelta(hours=9)
 euro_iso = str(euro_time.isoformat()) + ".000000000Z"

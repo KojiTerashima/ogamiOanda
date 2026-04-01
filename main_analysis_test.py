@@ -3,9 +3,6 @@ import tokens as tk  # Token等、各自環境の設定ファイル（git対象�
 import classOanda as oanda_class
 import fAnalysis_order_Main as am
 import classCandleAnalysis as ca
-import fTurnInspection as ti
-import pandas as pd
-import fGeneric as f
 
 
 # グローバルでの宣言
@@ -13,12 +10,20 @@ oa = oanda_class.Oanda(tk.accountIDl2, tk.access_tokenl, "live")  # クラスの
 print(oa.NowPrice_exe("USD_JPY"))
 gl_start_time = datetime.datetime.now()
 gl_now = datetime.datetime.now().replace(microsecond=0)  # 現在の時刻を取得
-gl_now_str = str(gl_now.month).zfill(2) + str(gl_now.day).zfill(2) + "_" + \
-            str(gl_now.hour).zfill(2) + str(gl_now.minute).zfill(2) + "_" + str(gl_now.second).zfill(2)
+gl_now_str = (
+    str(gl_now.month).zfill(2)
+    + str(gl_now.day).zfill(2)
+    + "_"
+    + str(gl_now.hour).zfill(2)
+    + str(gl_now.minute).zfill(2)
+    + "_"
+    + str(gl_now.second).zfill(2)
+)
+
 
 # 解析パート
 def analysis_part():
-    analysis_result_instance = am.wrap_all_analysis(gl_candleAnalysisClass, None, "inspection")
+    am.wrap_all_analysis(gl_candleAnalysisClass, None, "inspection")
     # analysis_result_instance = ti.range_analysis(gl_candleAnalysisClass)
 
 
@@ -33,23 +38,19 @@ def main():
 
     # （０）環境の準備
     global gl_candleAnalysisClass
-    mode = "2time"
-    f = 5
 
     # ■■調査用のDFの行数の指定
     res_part_low = gl_res_part_low  # 解析には50行必要(逆順DFでの直近R行が対象の為、[0:R]。check_mainと同値であること。
     analysis_part_low = gl_analysis_part_low  # 解析には200行必要(逆順DFで直近N行を結果パートに取られた後の為、[R:R+A])。check_mainと同値であること。
-    need_analysis_num = res_part_low + analysis_part_low  # 検証パートと結果参照パートの合計。count<=need_analysis_num。
+    (
+        res_part_low + analysis_part_low
+    )  # 検証パートと結果参照パートの合計。count<=need_analysis_num。
     # ■■取得する足数
-    count = gl_count  # 5000
-    times = gl_times  # 1  # Count(最大5000件）を何セット取るか
-    gr = gl_gr  # "M5"  # 取得する足の単位
     # ■■取得時間の指定
     now_time = gl_use_now  # False  # 現在時刻実行するかどうか False True　　Trueの場合は現在時刻で実行。target_timeを指定したいときはFalseにする。
-    target_time = gl_target_time  # datetime.datetime(2024, 3, 13, 16, 20, 6)  # 本当に欲しい時間 (以後ループの有無で調整が入る） 6秒があるため、00:00:06の場合、00:05:00までの足が取れる
 
     # (１)情報の取得
-    print('###')
+    print("###")
     if now_time:
         # 直近の時間で検証
         # df = oa.InstrumentsCandles_multi_exe("USD_JPY", {"granularity": gr, "count": count}, times)
@@ -67,8 +68,12 @@ def main():
         # df = oa.InstrumentsCandles_exe("USD_JPY", param)  # 時間指定
     # データの成型と表示
     df = gl_candleAnalysisClass.d5_df_r  # data部のみを取得
-    df.to_csv(tk.folder_path + 'main_analysis_original_data.csv', index=False, encoding="utf-8")  # 直近保存用
-    df_r = df.sort_index(ascending=False)  # 逆順に並び替え（直近が上側に来るように）
+    df.to_csv(
+        tk.folder_path + "main_analysis_original_data.csv",
+        index=False,
+        encoding="utf-8",
+    )  # 直近保存用
+    df.sort_index(ascending=False)  # 逆順に並び替え（直近が上側に来るように）
     # print("全", len(df_r), "行(test用表示↓")
     # print(df_r.head(2))
     # print(df_r.tail(2))
@@ -78,6 +83,7 @@ def main():
     # print(df_r.head(2))
     analysis_part()  # 取得したデータ（直近上位順）をそのまま渡す。検証に必要なのは現在200行
     # print("test用表示ここまで")
+
 
 gl_gr = "M5"  # 取得する足の単位
 gl_inspection_start_time = 0

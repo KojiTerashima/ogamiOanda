@@ -1,74 +1,71 @@
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
-import pandas as pd
-import os
-from scipy.signal import argrelmin, argrelmax
-from numpy import linalg as LA
-import numpy as np
 import datetime
-import math
-import matplotlib.pyplot as plt
+import os
 
-import programs.tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
+import pandas as pd
 import programs.classOanda as oanda_class
 import programs.fTurnInspection as f  # とりあえずの関数集
+import programs.tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
 
 
 def input_base_data(ans_dic):
-    latest_turn = ans_dic['figure_turn_result']['latest_turn_dic']
-    figure_latest = ans_dic['figure_turn_result']['latest_turn_dic']['latest_ans']
-    figure_oldest = ans_dic['figure_turn_result']['latest_turn_dic']['oldest_ans']
-    line_base = ans_dic['figure_turn_result']['order_dic']['target_price']  # 基準となる価格（=直近のクローズ価格）
-    expect_direction = ans_dic['figure_turn_result']['order_dic']['direction']
-    macd = ans_dic['macd_result']
+    latest_turn = ans_dic["figure_turn_result"]["latest_turn_dic"]
+    figure_latest = ans_dic["figure_turn_result"]["latest_turn_dic"]["latest_ans"]
+    figure_oldest = ans_dic["figure_turn_result"]["latest_turn_dic"]["oldest_ans"]
+    ans_dic["figure_turn_result"]["order_dic"][
+        "target_price"
+    ]  # 基準となる価格（=直近のクローズ価格）
+    ans_dic["figure_turn_result"]["order_dic"]["direction"]
+    macd = ans_dic["macd_result"]
     # ★★★★検証
     each_res_dic = {
-        "order_entry_time": figure_latest['data'].iloc[0]["time_jp"],
-        "turn_ans": ans_dic['figure_turn_result']['result_dic']['turn_ans'],  # ★変更時注意
-        "oldest_range": figure_oldest['gap'],
-        "oldest_count": figure_oldest['count'],
-        "oldest_oldest": figure_oldest['oldest_price'],
-        "oldest_latest": figure_oldest['latest_price'],
-        "oldest_oldest_image_price": figure_oldest['oldest_image_price'],
-        "oldest_latest_image_price": figure_oldest['latest_image_price'],
-        "oldest_body": figure_oldest['support_info']["body_ave"],
-        "oldest_move": figure_oldest['support_info']["move_abs"],
-        "latest_range": figure_latest['gap'],
-        "latest_count": figure_latest['count'],
-        "latest_oldest": figure_latest['oldest_price'],
-        "latest_latest": figure_latest['latest_price'],
-        "latest_oldest_image_price": figure_latest['oldest_image_price'],
-        "latest_latest_image_price": figure_latest['latest_image_price'],
-        "latest_body": figure_latest['support_info']["body_ave"],
-        "latest_move": figure_latest['support_info']["move_abs"],
-        "direction_latest": figure_latest['direction'],
-        "return_ratio": latest_turn['return_ratio'],  # ★変更時注意
-        "pattern_num": figure_latest['support_info']["pattern_num"],
-        "pattern_num_abs": abs(figure_latest['support_info']["pattern_num"]),
-        "pattern": figure_latest['support_info']["pattern_comment"],
-        "range_judge": figure_latest['support_info']["range_expected"],
-        "macd": macd['macd'],
-        "macd_mae": macd['cross_mae'],
-        "macd_cross": macd['cross'],
-        "macd_cross_latest": macd['latest_cross'],
-        "macd_cross_time": macd['latest_cross_time'],
-        "macd_range": macd['range'],
-        "macd_range_counter": macd['range_counter']
+        "order_entry_time": figure_latest["data"].iloc[0]["time_jp"],
+        "turn_ans": ans_dic["figure_turn_result"]["result_dic"][
+            "turn_ans"
+        ],  # ★変更時注意
+        "oldest_range": figure_oldest["gap"],
+        "oldest_count": figure_oldest["count"],
+        "oldest_oldest": figure_oldest["oldest_price"],
+        "oldest_latest": figure_oldest["latest_price"],
+        "oldest_oldest_image_price": figure_oldest["oldest_image_price"],
+        "oldest_latest_image_price": figure_oldest["latest_image_price"],
+        "oldest_body": figure_oldest["support_info"]["body_ave"],
+        "oldest_move": figure_oldest["support_info"]["move_abs"],
+        "latest_range": figure_latest["gap"],
+        "latest_count": figure_latest["count"],
+        "latest_oldest": figure_latest["oldest_price"],
+        "latest_latest": figure_latest["latest_price"],
+        "latest_oldest_image_price": figure_latest["oldest_image_price"],
+        "latest_latest_image_price": figure_latest["latest_image_price"],
+        "latest_body": figure_latest["support_info"]["body_ave"],
+        "latest_move": figure_latest["support_info"]["move_abs"],
+        "direction_latest": figure_latest["direction"],
+        "return_ratio": latest_turn["return_ratio"],  # ★変更時注意
+        "pattern_num": figure_latest["support_info"]["pattern_num"],
+        "pattern_num_abs": abs(figure_latest["support_info"]["pattern_num"]),
+        "pattern": figure_latest["support_info"]["pattern_comment"],
+        "range_judge": figure_latest["support_info"]["range_expected"],
+        "macd": macd["macd"],
+        "macd_mae": macd["cross_mae"],
+        "macd_cross": macd["cross"],
+        "macd_cross_latest": macd["latest_cross"],
+        "macd_cross_time": macd["latest_cross_time"],
+        "macd_range": macd["range"],
+        "macd_range_counter": macd["range_counter"],
     }
     # 一部の情報を上書きして修正する
-    if figure_latest['support_info']["range_expected"] == 1:  # 順思想に行く場合
-        if figure_oldest['gap'] > 0.15:  # 15pips以上の変動後の場合
-            each_res_dic['range_judge'] = 0
-            each_res_dic['range_judje_re'] = "Change0"
+    if figure_latest["support_info"]["range_expected"] == 1:  # 順思想に行く場合
+        if figure_oldest["gap"] > 0.15:  # 15pips以上の変動後の場合
+            each_res_dic["range_judge"] = 0
+            each_res_dic["range_judje_re"] = "Change0"
         else:
-            each_res_dic['range_judge'] = 1
-            each_res_dic['range_judje_re'] = ""
+            each_res_dic["range_judge"] = 1
+            each_res_dic["range_judje_re"] = ""
     else:  # Trend予想＝latestの方向に行く
-        each_res_dic['range_judge'] = 0
-        each_res_dic['range_judje_re'] = ""
+        each_res_dic["range_judge"] = 0
+        each_res_dic["range_judje_re"] = ""
 
-    print(figure_latest['data'].iloc[0]["time_jp"])
-    print(figure_latest['data'])
+    print(figure_latest["data"].iloc[0]["time_jp"])
+    print(figure_latest["data"])
 
     return each_res_dic
 
@@ -84,15 +81,25 @@ def get_inspection_data(time_base):
     folder_path_cache = tk.inspection_data_cache_folder_path  # キャッシュ保存用
     detail_range_sec = 3600  # ★　N行×5S の検証を行う。 この数字は、検証をしたい分数×60
     latest_row_time_dt = f.str_to_time(time_base[:26])  # 時刻を変換する
-    detail_from_time_dt = latest_row_time_dt + datetime.timedelta(minutes=0)  # 開始時刻は分単位で調整可
-    detail_from_time_iso = str(detail_from_time_dt.isoformat()) + ".000000000Z"  # API形式の時刻へ（ISOで文字型。.0z付き）
+    detail_from_time_dt = latest_row_time_dt + datetime.timedelta(
+        minutes=0
+    )  # 開始時刻は分単位で調整可
+    detail_from_time_iso = (
+        str(detail_from_time_dt.isoformat()) + ".000000000Z"
+    )  # API形式の時刻へ（ISOで文字型。.0z付き）
     # print(" ききき")
     # print(latest_row_time_dt, detail_from_time_dt, detail_from_time_iso)
     detail_from_time_str = str(detail_from_time_dt)  # キャッシュを考慮
-    detail_from_time_str = detail_from_time_str.replace('-', '')  # キャッシュファイル名の為、記号を削除
-    detail_from_time_str = detail_from_time_str.replace(' ', '')  # キャッシュファイル名の為、記号を削除
-    detail_from_time_str = detail_from_time_str.replace(':', '')  # キャッシュファイル名の為、記号を削除
-    file_name = folder_path_cache + detail_from_time_str + '.csv'
+    detail_from_time_str = detail_from_time_str.replace(
+        "-", ""
+    )  # キャッシュファイル名の為、記号を削除
+    detail_from_time_str = detail_from_time_str.replace(
+        " ", ""
+    )  # キャッシュファイル名の為、記号を削除
+    detail_from_time_str = detail_from_time_str.replace(
+        ":", ""
+    )  # キャッシュファイル名の為、記号を削除
+    file_name = folder_path_cache + detail_from_time_str + ".csv"
     print(detail_from_time_str)
 
     # ★★検証データの取得(キャッシュ　または　APIで取りに行く）　os.path.isfile(file_path)
@@ -103,10 +110,15 @@ def get_inspection_data(time_base):
     else:
         # キャッシュがない場合はAPIで取得する
         print("  キャッシュ無しの為取得")
-        detail_df = oa.InstrumentsCandles_exe("USD_JPY",
-                                              {"granularity": 'S5', "count": int(detail_range_sec / 5),
-                                               "from": detail_from_time_iso})  # ★★検証範囲の取得★★
-        detail_df.drop(columns=['time'], inplace=True)
+        detail_df = oa.InstrumentsCandles_exe(
+            "USD_JPY",
+            {
+                "granularity": "S5",
+                "count": int(detail_range_sec / 5),
+                "from": detail_from_time_iso,
+            },
+        )  # ★★検証範囲の取得★★
+        detail_df.drop(columns=["time"], inplace=True)
         detail_df.to_csv(file_name, index=False, encoding="utf-8")  # キャッシュ保存
 
     return detail_df
@@ -122,18 +134,24 @@ def judge_entry(ans_dic):
     """
     order_temp = {}  # ちょっと調整用（分岐する用）
     # ■実際の動きをそのままコピペ
-    ans = ans_dic['judgment']
-    turn_ans_temp = ans_dic['figure_turn_result']['result_dic']['turn_ans']  # 直近のターンがあるかどうか（連続性の考慮無し）
-    turn_ans = ans_dic['figure_turn_result']['result_dic']['total_ans']  # 連続性を考慮したうえでのターン判定
-    turn_target_price = ans_dic['figure_turn_result']['order_dic']['target_price']
-    turn_expect_direction = ans_dic['figure_turn_result']['order_dic']['direction']
-    macd_ans = ans_dic['macd_result']['cross']
-    latest3_ans = ans_dic['latest3_figure_result']['result']
-    latest3_target_price = ans_dic['latest3_figure_result']['order_dic']['target_price']
-    latest3_expect_direction = ans_dic['latest3_figure_result']['order_dic']['direction']
-    one_candle_move_mean = ans_dic['figure_turn_result']['latest_turn_dic']['oldest_ans']['move_abs']
-    one_candle_body_mean = ans_dic['figure_turn_result']['latest_turn_dic']['oldest_ans']['body_ave']
-    oldest_gap = ans_dic['figure_turn_result']['latest_turn_dic']['oldest_ans']['gap']
+    ans = ans_dic["judgment"]
+    turn_ans_temp = ans_dic["figure_turn_result"]["result_dic"][
+        "turn_ans"
+    ]  # 直近のターンがあるかどうか（連続性の考慮無し）
+    turn_ans = ans_dic["figure_turn_result"]["result_dic"][
+        "total_ans"
+    ]  # 連続性を考慮したうえでのターン判定
+    turn_target_price = ans_dic["figure_turn_result"]["order_dic"]["target_price"]
+    turn_expect_direction = ans_dic["figure_turn_result"]["order_dic"]["direction"]
+    ans_dic["macd_result"]["cross"]
+    latest3_ans = ans_dic["latest3_figure_result"]["result"]
+    latest3_target_price = ans_dic["latest3_figure_result"]["order_dic"]["target_price"]
+    latest3_expect_direction = ans_dic["latest3_figure_result"]["order_dic"][
+        "direction"
+    ]
+    ans_dic["figure_turn_result"]["latest_turn_dic"]["oldest_ans"]["move_abs"]
+    ans_dic["figure_turn_result"]["latest_turn_dic"]["oldest_ans"]["body_ave"]
+    ans_dic["figure_turn_result"]["latest_turn_dic"]["oldest_ans"]["gap"]
 
     if turn_ans_temp == 1:  # ターンが確認された場合（最優先）
         print("  ターンを確認")
@@ -150,7 +168,7 @@ def judge_entry(ans_dic):
                 "tp": 0.09,
                 "margin": 0.02,
                 "memo": "ターン起点",
-                "kinds": 1
+                "kinds": 1,
             }
     elif latest3_ans == 1:  # ターン未遂が確認された場合（早い場合）
         print("  ターン未遂を確認　★オーダー発行")
@@ -166,9 +184,9 @@ def judge_entry(ans_dic):
 
     # ■オーダーセッティングセクション(マージンの考慮）
     if "memo" in order_temp:  # 成立して、情報が付与された場合
-        direction = order_temp['expect_dir']
-        base_line = order_temp['line_base']
-        margin = order_temp['margin']
+        direction = order_temp["expect_dir"]
+        base_line = order_temp["line_base"]
+        margin = order_temp["margin"]
         if direction == 1:  # 買いの場合
             base_line = base_line + margin
         else:  # 売りの場合
@@ -177,9 +195,9 @@ def judge_entry(ans_dic):
             "judgment": 1,
             "base_line_with_margin": base_line,
             "direction": direction,
-            "kinds": order_temp['kinds'],
-            "memo": order_temp['memo'],
-            "order_info": order_temp, # 以降order_info['line_base']=オリジナルのLineBase、order_info['']
+            "kinds": order_temp["kinds"],
+            "memo": order_temp["memo"],
+            "order_info": order_temp,  # 以降order_info['line_base']=オリジナルのLineBase、order_info['']
         }
     else:
         # 成立してない場合
@@ -336,56 +354,63 @@ def order_future_inspection(detail_df, ans_dic):
     # 検証用のDFを表示する
     print(detail_df.head(2))  # 検証データ取得！
     print(detail_df.tail(2))  # 検証データ取得！
-    print(" [検証時刻:", detail_df.iloc[0]['time_jp'], "終了", detail_df.iloc[-1]["time_jp"])
+    print(
+        " [検証時刻:",
+        detail_df.iloc[0]["time_jp"],
+        "終了",
+        detail_df.iloc[-1]["time_jp"],
+    )
 
     # 検証に必要なデータを短い変数に入れておく
-    original_base_line = ans_dic['order_info']['line_base']
-    p = ans_dic['base_line_with_margin']
-    d = ans_dic['direction']
-    k = ans_dic['kinds']
-    lc_range = ans_dic['order_info']['lc']
-    tp_range = ans_dic['order_info']['tp']
+    ans_dic["order_info"]["line_base"]
+    p = ans_dic["base_line_with_margin"]
+    d = ans_dic["direction"]
+    k = ans_dic["kinds"]
+    lc_range = ans_dic["order_info"]["lc"]
+    tp_range = ans_dic["order_info"]["tp"]
     if d == 1:  # 買い方向の場合
         tp = p + tp_range
         lc = p - lc_range
     else:
         tp = p - tp_range
         lc = p + lc_range
-    res_dic['entry_price_default'] = p
-    res_dic['tp_default'] = tp
-    res_dic['lc_default'] = lc
-    res_dic['direction_default'] = d
-    res_dic['kind_default'] = k
+    res_dic["entry_price_default"] = p
+    res_dic["tp_default"] = tp
+    res_dic["lc_default"] = lc
+    res_dic["direction_default"] = d
+    res_dic["kind_default"] = k
 
     # 【検証開始】ポジションを持っていない場合、規定価格でポジションを取得する
     for index, item in detail_df.iterrows():
         # Positionを持っていない場合、取得する
         if position == 0:
-            if item['low'] < p < item['high']:  # ★ポジションを取得する
+            if item["low"] < p < item["high"]:  # ★ポジションを取得する
                 position = 1  # ポジションフラグを立てる
-                res_dic['entry_time_default'] = item['time_jp']  # 取得時間を取得
+                res_dic["entry_time_default"] = item["time_jp"]  # 取得時間を取得
                 # 即時決済もありうるため、ここでもLCとTPを確かめる
-                if item['low'] < lc < item['high']:  # ★LC価格に引っかかる場合
-                    res_dic['close_time_default'] = item['time_jp']  # 取得時間を取得
+                if item["low"] < lc < item["high"]:  # ★LC価格に引っかかる場合
+                    res_dic["close_time_default"] = item["time_jp"]  # 取得時間を取得
                     result = -1
                     break
-                elif item['low'] < tp < item['high']:  # ★TP価格に引っかかる場合
-                    res_dic['close_time_default'] = item['time_jp']  # 取得時間を取得
+                elif item["low"] < tp < item["high"]:  # ★TP価格に引っかかる場合
+                    res_dic["close_time_default"] = item["time_jp"]  # 取得時間を取得
                     result = 1
                     break
             else:
-                res_dic['entry_time_default'] = 0  # 何もない時は０を残すため、０を入れておく
+                res_dic["entry_time_default"] = (
+                    0  # 何もない時は０を残すため、０を入れておく
+                )
         # Positionを持っていない場合、
         else:
-            if item['low'] < lc < item['high']:  # ★LC価格に引っかかる場合
-                res_dic['close_time_default'] = item['time_jp']  # 取得時間を取得
+            if item["low"] < lc < item["high"]:  # ★LC価格に引っかかる場合
+                res_dic["close_time_default"] = item["time_jp"]  # 取得時間を取得
                 result = -1
                 break
-            elif item['low'] < tp < item['high']:  # ★TP価格に引っかかる場合
-                res_dic['close_time_default'] = item['time_jp']  # 取得時間を取得
+            elif item["low"] < tp < item["high"]:  # ★TP価格に引っかかる場合
+                res_dic["close_time_default"] = item["time_jp"]  # 取得時間を取得
                 result = 1
                 break
-    res_dic['result_default'] = result
+    res_dic["result_default"] = result
     return res_dic
 
 
@@ -393,41 +418,40 @@ def order_future_inspection_loop(detail_df, ans_dic):
     # 検証結果格納用のDicや、検証に必要な変数を準備する
     res_dic = {}  # 初期化
     position = 0
-    p_result_arr = []
-    l_result_arr = []
-    info_arr = []
-    result_max = 0
-    max_search = 0.10
 
     # エントリーデータ
-    res_dic['decision_time'] =  detail_df.iloc[0]['time_jp']
-    line_base_origin = ans_dic['order_info']['line_base']  # オリジナルの価格
-    d = ans_dic['direction']
-    m_original = ans_dic['order_info']['margin']
-    lc_range_original = ans_dic['order_info']['lc']
-    tp_range_original = ans_dic['order_info']['tp']
+    res_dic["decision_time"] = detail_df.iloc[0]["time_jp"]
+    line_base_origin = ans_dic["order_info"]["line_base"]  # オリジナルの価格
+    d = ans_dic["direction"]
+    ans_dic["order_info"]["margin"]
+    ans_dic["order_info"]["lc"]
+    ans_dic["order_info"]["tp"]
     # エントリーデータの保存
 
     # 各条件をを変動していく
     each_condition_result_dic_arr = []
     for m in range(5):  # marginを増やしていく
         # 検証に必要なデータを短い変数に入れておく
-        margin_yen = m/100 + 0.01  # 1pipsずつ増やしていく
+        margin_yen = m / 100 + 0.01  # 1pipsずつ増やしていく
         # c_name = c_name + "M" + str(m)
 
         for lc_loop in range(10):
-            lc_yen = lc_loop/100 + 0.02  # 1pips増やしていく
+            lc_yen = lc_loop / 100 + 0.02  # 1pips増やしていく
             # c_name = c_name + "TP" + str(tp_loop)
 
             for tp_loop in range(10):
                 tp_yen = tp_loop / 100 + 0.02  # 1pips増やしていく
                 # 条件の算出
                 if d == 1:  # 買い方向の場合
-                    p = round(line_base_origin + margin_yen, 3)  # ポジションを取りにくい方向に移す
+                    p = round(
+                        line_base_origin + margin_yen, 3
+                    )  # ポジションを取りにくい方向に移す
                     tp_price = p + tp_yen
                     lc_price = p - lc_yen
                 else:
-                    p = round(line_base_origin - margin_yen, 3)  # ポジションを取りにくい方向に移す
+                    p = round(
+                        line_base_origin - margin_yen, 3
+                    )  # ポジションを取りにくい方向に移す
                     tp_price = p - tp_yen
                     lc_price = p + lc_yen
 
@@ -439,31 +463,39 @@ def order_future_inspection_loop(detail_df, ans_dic):
                 for index, item in detail_df.iterrows():
                     # Positionを持っていない場合、取得する
                     if position == 0:
-                        if item['low'] < p < item['high']:  # ★ポジションを取得する
+                        if item["low"] < p < item["high"]:  # ★ポジションを取得する
                             # print("★★ポジション取得", item['time_jp'])
                             position = 1  # ポジションフラグを立てる（ポジション取得）
-                            entry_time = item['time_jp']  # 取得時間を取得
+                            entry_time = item["time_jp"]  # 取得時間を取得
                             # 即時決済もありうるため、ここでもLCとTPを確かめる
-                            if item['low'] < lc_price < item['high']:  # ★LC価格に引っかかる場合
+                            if (
+                                item["low"] < lc_price < item["high"]
+                            ):  # ★LC価格に引っかかる場合
                                 # print("★ポジション解除　即", item['time_jp'])
-                                close_time = item['time_jp']  # 取得時間を取得
+                                close_time = item["time_jp"]  # 取得時間を取得
                                 result = -1
-                            elif item['low'] < tp_price < item['high']:  # ★TP価格に引っかかる場合
+                            elif (
+                                item["low"] < tp_price < item["high"]
+                            ):  # ★TP価格に引っかかる場合
                                 # print("  ★ポジション解除　即", item['time_jp'])
-                                close_time = item['time_jp']  # 取得時間を取得
+                                close_time = item["time_jp"]  # 取得時間を取得
                                 result = 1
                         else:
                             # print("★★ポジションとらず", item['low'], p, item['high'])
                             pass
                     # Positionを持っている場合クローズの処理
                     else:
-                        if item['low'] < lc_price < item['high']:  # ★LC価格に引っかかる場合
+                        if (
+                            item["low"] < lc_price < item["high"]
+                        ):  # ★LC価格に引っかかる場合
                             # print("★ポジション解除", item['time_jp'])
-                            close_time = item['time_jp']  # 取得時間を取得
+                            close_time = item["time_jp"]  # 取得時間を取得
                             result = -1
-                        elif item['low'] < tp_price < item['high']:  # ★TP価格に引っかかる場合
+                        elif (
+                            item["low"] < tp_price < item["high"]
+                        ):  # ★TP価格に引っかかる場合
                             # print("★ポジション解除", item['time_jp'])
-                            close_time = item['time_jp']  # 取得時間を取得
+                            close_time = item["time_jp"]  # 取得時間を取得
                             result = 1
                         else:
                             # print(" ★★ポジ解消なし")
@@ -495,39 +527,43 @@ def order_future_inspection_loop(detail_df, ans_dic):
 
     # 最終的な欲しい情報を記入する
     # TP版
-    tp_list = list(filter(lambda item: item['result'] == 1, each_condition_result_dic_arr))
+    tp_list = list(
+        filter(lambda item: item["result"] == 1, each_condition_result_dic_arr)
+    )
     if len(tp_list) >= 1:
-        tp_sort = sorted(tp_list, key=lambda x: x['tp_yen'], reverse=True)  # TP値で降順
+        tp_sort = sorted(tp_list, key=lambda x: x["tp_yen"], reverse=True)  # TP値で降順
         tp_max = tp_sort[0]  # TPが一番大きい時の値を取得する
-        res_dic['maxTP_res'] = tp_max['result']
-        res_dic['maxTP_tp'] = tp_max['tp_yen']
-        res_dic['maxTP_lc'] = tp_max['lc_yen']
-        res_dic['maxTP_mar'] = tp_max['margin']
-        res_dic['maxTP_entry_count'] = tp_max['entry_count']
-        res_dic['maxTP_close_count'] = tp_max['close_count']
+        res_dic["maxTP_res"] = tp_max["result"]
+        res_dic["maxTP_tp"] = tp_max["tp_yen"]
+        res_dic["maxTP_lc"] = tp_max["lc_yen"]
+        res_dic["maxTP_mar"] = tp_max["margin"]
+        res_dic["maxTP_entry_count"] = tp_max["entry_count"]
+        res_dic["maxTP_close_count"] = tp_max["close_count"]
     else:
-        res_dic['maxTP_tp'] = 0
-        res_dic['maxTP_lc'] = 0
-        res_dic['maxTP_mar'] = 0
-        res_dic['maxTP_entry_count'] = 0
-        res_dic['maxTP_close_count'] = 0
+        res_dic["maxTP_tp"] = 0
+        res_dic["maxTP_lc"] = 0
+        res_dic["maxTP_mar"] = 0
+        res_dic["maxTP_entry_count"] = 0
+        res_dic["maxTP_close_count"] = 0
     #
-    lc_list = list(filter(lambda item: item['result'] == -1, each_condition_result_dic_arr))
+    lc_list = list(
+        filter(lambda item: item["result"] == -1, each_condition_result_dic_arr)
+    )
     if len(lc_list) >= 1:
-        lc_sort = sorted(lc_list, key=lambda x: x['lc_yen'], reverse=True)  # TP値で降順
+        lc_sort = sorted(lc_list, key=lambda x: x["lc_yen"], reverse=True)  # TP値で降順
         lc_max = lc_sort[0]  # TPが一番大きい時の値を取得する
-        res_dic['maxLC_res'] = lc_max['result']
-        res_dic['maxLC_tp'] = lc_max['tp_yen']
-        res_dic['maxLC_lc'] = lc_max['lc_yen']
-        res_dic['maxLC_mar'] = lc_max['margin']
-        res_dic['maxLC_entry_count'] = lc_max['entry_count']
-        res_dic['maxLC_close_count'] = lc_max['close_count']
+        res_dic["maxLC_res"] = lc_max["result"]
+        res_dic["maxLC_tp"] = lc_max["tp_yen"]
+        res_dic["maxLC_lc"] = lc_max["lc_yen"]
+        res_dic["maxLC_mar"] = lc_max["margin"]
+        res_dic["maxLC_entry_count"] = lc_max["entry_count"]
+        res_dic["maxLC_close_count"] = lc_max["close_count"]
     else:
-        res_dic['maxLC_tp'] = 0
-        res_dic['maxLC_lc'] = 0
-        res_dic['maxLC_mar'] = 0
-        res_dic['maxLC_entry_count'] = 0
-        res_dic['maxLC_close_count'] = 0
+        res_dic["maxLC_tp"] = 0
+        res_dic["maxLC_lc"] = 0
+        res_dic["maxLC_mar"] = 0
+        res_dic["maxLC_entry_count"] = 0
+        res_dic["maxLC_close_count"] = 0
 
     # 重くなるかもしれないが、全データ（Result＝０以外）を入れておく
     # res_dic['data_TP'] = tp_list
@@ -538,7 +574,11 @@ def order_future_inspection_loop(detail_df, ans_dic):
 
 def main_inspection():
     # データの取得 and peak情報付加　＋　グラフ作成
-    mid_df = oa.InstrumentsCandles_multi_exe("USD_JPY", {"granularity": gl['candle_unit'], "count": gl['candle_num']}, gl['num'])
+    mid_df = oa.InstrumentsCandles_multi_exe(
+        "USD_JPY",
+        {"granularity": gl["candle_unit"], "count": gl["candle_num"]},
+        gl["num"],
+    )
     # データの取得２
     # jp_time = datetime.datetime(2023, 6, 5, 11, 5, 00)
     # euro_time_datetime = jp_time - datetime.timedelta(hours=9)
@@ -547,47 +587,55 @@ def main_inspection():
     # mid_df = oa.InstrumentsCandles_exe("USD_JPY", param)
     # mid_df.to_csv('C:/Users/taker/Desktop/Peak_TEST_DATA.csv', index=False, encoding="utf-8")
 
-
-
     # 調査を行う
     # ①調査に利用する変数を定義
     count_for_view = 0
     res_dic_arr = []
-    inspection_range = 40  # 一回にN行分を取得して検討する (mid_dfは古いデータが上に存在。）
+    inspection_range = (
+        40  # 一回にN行分を取得して検討する (mid_dfは古いデータが上に存在。）
+    )
     for i in range(len(mid_df)):
-        d = mid_df[len(mid_df)-inspection_range-i: len(mid_df)-i]  # 旧側(index0）を固定。新側をインクリメントしていきたい。最大３０行
+        d = mid_df[
+            len(mid_df) - inspection_range - i : len(mid_df) - i
+        ]  # 旧側(index0）を固定。新側をインクリメントしていきたい。最大３０行
         # 対象の範囲を調査する (実際ではdが取得された範囲）
         if len(d) >= inspection_range:
             print("★★★★★★★★★★★★★★★★★★★★", len(mid_df), i)
             count_for_view = count_for_view + 1
-            index_graph = d.index.values[-1]  # インデックスを確認(列の仕分けに利用する）
-            dr = d.sort_index(ascending=False)  # ★dが毎回の取得と同義⇒それを逆(最新が上)にする（逆を意味するrをつける）
+            d.index.values[-1]  # インデックスを確認(列の仕分けに利用する）
+            dr = d.sort_index(
+                ascending=False
+            )  # ★dが毎回の取得と同義⇒それを逆(最新が上)にする（逆を意味するrをつける）
 
             # ■直近のデータから、分析を実施。エントリの可否とエントリー価格と方向を取得する。
             inspection_condition = {
-                "now_price": dr.iloc[0]['open'],  # 現在価格を渡す
+                "now_price": dr.iloc[0]["open"],  # 現在価格を渡す
                 "data_r": dr,  # 時刻降順（直近が上）のデータを渡す
                 "figure": {"ignore": 1, "latest_n": 2, "oldest_n": 30},
                 "macd": {"short": 20, "long": 30},
                 "save": False,  # データをCSVで保存するか（検証ではFalse推奨。Trueの場合は以下は必須）
                 "time_str": "",  # 記録用の現在時刻
             }
-            ans_dic = f.inspection_candle(inspection_condition)  # 状況を検査する（買いフラグの確認）
+            ans_dic = f.inspection_candle(
+                inspection_condition
+            )  # 状況を検査する（買いフラグの確認）
             entry_jd = judge_entry(ans_dic)
 
-            if entry_jd['judgment'] != 0:
+            if entry_jd["judgment"] != 0:
                 # タイミング発生★★★
                 print("★★★★")
                 # ■基本的なデータを取得する（Dicに格納する）
                 each_res_dic = input_base_data(ans_dic)  # 基本的な情報を入れる
 
                 # ■①　検証データの取得や、グラフ化や出力を先に行う
-                detail_df = get_inspection_data(dr.iloc[0]['time'])
+                detail_df = get_inspection_data(dr.iloc[0]["time"])
 
                 # 20分程度で検証結果を取得(default)
                 short_detail_df = detail_df[0:]  # 20分の場合、20分×60秒÷5 = 240
                 indpection_dic_ans = order_future_inspection(short_detail_df, entry_jd)
-                each_res_dic.update(indpection_dic_ans)  # 結果の辞書同士を結合(個別同士）
+                each_res_dic.update(
+                    indpection_dic_ans
+                )  # 結果の辞書同士を結合(個別同士）
 
                 # ループ分を付与する
                 short_dic_ans = order_future_inspection_loop(short_detail_df, entry_jd)
@@ -600,9 +648,14 @@ def main_inspection():
     print(res_dic_arr)
     res_dic_df = pd.DataFrame(res_dic_arr)
     try:
-        res_dic_df.to_csv(tk.folder_path + 'inspection.csv', index=False, encoding="utf-8")
-    except:
-        res_dic_df.to_csv(tk.folder_path + 'inspection_sub.csv', index=False, encoding="utf-8")
+        res_dic_df.to_csv(
+            tk.folder_path + "inspection.csv", index=False, encoding="utf-8"
+        )
+    except Exception:
+        res_dic_df.to_csv(
+            tk.folder_path + "inspection_sub.csv", index=False, encoding="utf-8"
+        )
+
 
 gl = {
     # 5分足対象
@@ -614,7 +667,7 @@ gl = {
     "tilt_horizon": 0.0029,  # 単品の傾きが左記以下の場合、水平と判断。　　0.005だと少し傾き気味。。
     "tilt_pending": 0.03,  # 単品の傾きが左記以下の場合、様子見の傾きと判断。これ以上で急な傾きと判断。
     "candle_num": 5000,
-    "num": 2, # cndle
+    "num": 2,  # cndle
     "candle_unit": "M5",
 }
 
@@ -622,7 +675,6 @@ oa = oanda_class.Oanda(tk.accountID, tk.access_token, "practice")
 start_time = datetime.datetime.now().replace(microsecond=0)  # 現在の時刻を取得
 main_inspection()  # ほんちゃん
 end_time = datetime.datetime.now().replace(microsecond=0)  # 現在の時刻を取得
-print((end_time-start_time).seconds, start_time, end_time)
+print((end_time - start_time).seconds, start_time, end_time)
 
 # # graph()
-
