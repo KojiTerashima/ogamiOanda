@@ -1,16 +1,17 @@
+import datetime
 import threading  # 定時実行用
 import time
-import datetime
+
+import classCandleAnalysis as ca
+import classOanda as classOanda
+import classOrderCreate as OCreate
+import classPosition as classPosition  # とりあえずの関数集
+import classPositionControl as classPositionControl
+import fAnalysis_order_Main as am
+import fGeneric as f
 
 # 自作ファイルインポート
 import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
-import classOanda as classOanda
-import classPosition as classPosition  # とりあえずの関数集
-import classOrderCreate as OCreate
-import fGeneric as f
-import fAnalysis_order_Main as am
-import classCandleAnalysis as ca
-import classPositionControl as classPositionControl
 
 
 class main:
@@ -77,7 +78,6 @@ class main:
         while True:
             # 現在時刻の取得
             self.get_time_info()
-            # t = threading.Thread(target=fun)
             t = threading.Thread(target=self.exe_manage)
             t.start()
             if wait:  # 時間経過待ち処理？
@@ -170,58 +170,6 @@ class main:
                 self.start_time_str,
             )
 
-    # def get_df_data(self):
-    #     """
-    #     データを取得する
-    #     """
-    #     # 5分足のデータ
-    #     d5_df_res = self.base_oa.InstrumentsCandles_multi_exe("USD_JPY",
-    #                                             {"granularity": "M5", "count": self.need_df_num},
-    #                                             1)  # 時間昇順(直近が最後尾）
-    #     if d5_df_res['error'] == -1:
-    #         print("error Candle")
-    #         tk.line_send("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
-    #         return -1
-    #     else:
-    #         d5_df_latest_bottom = d5_df_res['data']
-    #     tc = (datetime.datetime.now().replace(microsecond=0) - classOanda.str_to_time(
-    #         d5_df_latest_bottom.iloc[-1]['time_jp'])).seconds
-    #     if tc > 420:  # 何故か直近の時間がおかしい時がる
-    #         print(" ★★直近データがおかしい", d5_df_latest_bottom.iloc[-1]['time_jp'], f.now())
-    #     if len(d5_df_latest_bottom) <= 10:
-    #         print("　取得したデータフレームの行数がおかしい", len(d5_df_latest_bottom))
-    #         print(d5_df_latest_bottom)
-    #         print("ｄｆここまで")
-    #     else:
-    #         print("取得したデータは正常と思われる")
-    #
-    #     self.d5_df = d5_df_latest_bottom.sort_index(ascending=False)  # 直近が上の方にある＝時間降順に変更
-    #     self.d5_df.to_csv(tk.folder_path + 'main_data5.csv', index=False, encoding="utf-8")  # 直近保存用
-    #
-    #     # 60分足のデータ
-    #     d60_df_res = self.base_oa.InstrumentsCandles_multi_exe("USD_JPY",
-    #                                             {"granularity": "H1", "count": self.need_df_num},
-    #                                             1)  # 時間昇順(直近が最後尾）
-    #     if d60_df_res['error'] == -1:
-    #         print("error Candle")
-    #         tk.line_send("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
-    #         return -1
-    #     else:
-    #         d60_df_latest_bottom = d60_df_res['data']
-    #     tc = (datetime.datetime.now().replace(microsecond=0) - classOanda.str_to_time(
-    #         d60_df_latest_bottom.iloc[-1]['time_jp'])).seconds
-    #     if tc > 420:  # 何故か直近の時間がおかしい時がる
-    #         print(" ★★直近データがおかしい", d60_df_latest_bottom.iloc[-1]['time_jp'], f.now())
-    #     if len(d60_df_latest_bottom) <= 10:
-    #         print("　取得したデータフレームの行数がおかしい", len(d60_df_latest_bottom))
-    #         print(d60_df_latest_bottom)
-    #         print("ｄｆここまで")
-    #     else:
-    #         print("取得したデータは正常と思われる")
-    #
-    #     self.d60_df = d60_df_latest_bottom.sort_index(ascending=False)  # 直近が上の方にある＝時間降順に変更
-    #     self.d60_df.to_csv(tk.folder_path + 'main_data60.csv', index=False, encoding="utf-8")  # 直近保存用
-
     def mode1(self):
         """
         5分に一度行わる処理
@@ -306,9 +254,6 @@ class main:
                         rpl = item["t_time_past_sec"]
                         pl = item["pl"]
                         if len(current_positions["watching_list"]) > 0:
-                            # print("warcknglisi kakunin")
-                            # print(current_positions['watching_list'])
-                            # w = ", ".join(["|".join(map(str, d.values())) for d in current_positions['watching_list'][i]])
                             w = ", ".join(
                                 d["name"] for d in current_positions["watching_list"]
                             )
@@ -329,7 +274,6 @@ class main:
                             + ")"
                         )
                 print("   ⇒", c)
-                # print("     ", life_check_res['one_line_comment'])
 
     def exe_manage(self):
         """
@@ -340,7 +284,6 @@ class main:
         # ■土日は実行しない（ループにはいるが、API実行はしない）
         is_only_update_mode = False
         if self.now.weekday() == 6:
-            # print("■土日の為、全ての実行無し")
             return 0
         elif self.now.weekday() == 5:
             if self.time_hour >= 4:
@@ -348,25 +291,12 @@ class main:
                     print(
                         "■土曜の朝4時で終了（ポジションは開放しない・・？）(4時０分2秒まで表示)"
                     )
-                # return 0
                 is_only_update_mode = True
         elif self.now.weekday() == 0:
             if self.time_hour <= 7:
                 if self.time_min == 0 and self.time_sec <= 1:
                     print("■月曜になった深夜～朝までは実行無し", self.time_hour)
                 is_only_update_mode = True
-                # return 0
-
-        # ■深夜帯(6時～7時)は実行しない　（ポジションやオーダーも全て解除）
-        # if 6 <= self.time_hour <= 7:
-        #     if self.midnight_close_flag == 0:  # 繰り返し実行しないよう、フラグで管理する
-        #         # self.positions_control_class.reset_all_position()
-        #         tk.line_send("■深夜のオーダー解消を実施")
-        #         self.base_oa.OrderCancel_All_exe()
-        #         self.midnight_close_flag = 1  # 実施済みフラグを立てる
-        #     return 0
-        # else:
-        #     self.midnight_close_flag = 0  # 実行可能開始時以降は深夜フラグを解除（毎回やってしまうけどいいや）
 
         # ■時間内でスプレッドが広がっている場合は強制終了し実行しない　（現価を取得しスプレッドを算出する＋グローバル価格情報を取得する）
         price_dic = self.base_oa.NowPrice_exe("USD_JPY")
@@ -376,8 +306,6 @@ class main:
         else:
             price_dic = price_dic["data"]
             if price_dic["spread"] > self.ARROW_SPREAD:
-                # print("    ▲スプレッド異常", self.now, price_dic['spread'])
-                # return -1  # 強制終了
                 is_only_update_mode = True
             self.now_price_mid = price_dic[
                 "mid"
@@ -396,11 +324,9 @@ class main:
 
             if is_only_update_mode:
                 # スプレッド大等の場合でも、Updateのみは実施（クローズ時点での連絡が欲しい。ただ本来はポジションを解消してるべき、、）
-                # print("今回はスプレッド大のため、変更を伴わないアップデートのみ", is_only_update_mode)
                 self.positions_control_class.all_update_information_at_out_time()
             else:
                 # ↓秒指定だと飛ぶので、前回から●秒経過&秒数に余裕を追加
-                # print("　　　　", "通常の実行")
                 if (
                     self.time_min % 5 == 0
                     and 6 <= self.time_sec < 30

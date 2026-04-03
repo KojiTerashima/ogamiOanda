@@ -8,7 +8,6 @@ import oandapyV20.endpoints.instruments as instruments
 import oandapyV20.endpoints.transactions as trans
 import pandas as pd
 import pytz
-import tokens as tk  # エラーをLINEするため。。
 from numpy import linalg as LA
 from oandapyV20 import API
 from oandapyV20.endpoints.orders import (
@@ -20,6 +19,8 @@ from oandapyV20.endpoints.orders import (
 from oandapyV20.endpoints.positions import OpenPositions, PositionClose, PositionDetails
 from oandapyV20.endpoints.pricing import PricingInfo
 from oandapyV20.endpoints.trades import OpenTrades, TradeClose, TradeCRCDO, TradeDetails
+
+import tokens as tk  # エラーをLINEするため。。
 
 
 class Oanda:
@@ -218,9 +219,7 @@ class Oanda:
         temp_df.drop(["index"], axis=1, inplace=True)  # 不要項目の削除
         # 解析用の列を追加する（不要列の削除も含む）
         data_df = add_basic_data(temp_df)  # 【関数/必須】基本項目を追加する
-        # data_df = add_ema_data(data_df)
         data_df = add_bb_data(data_df)
-        # data_df = self.add_peak(data_df)
         # 返却
         return {"data": data_df, "error": 0}
 
@@ -247,7 +246,6 @@ class Oanda:
             return {"error": 0, "data": data_df}
 
         except Exception as e:
-            # print(e)
             e_info = self.error_method("ローソク取得", start_time, e)
             return e_info
 
@@ -283,14 +281,10 @@ class Oanda:
         start_time = datetime.datetime.now().replace(
             microsecond=0
         )  # エラー頻発の為、ログ
-        # print(" 最終オーダー@classOanda 241")
-        # print(for_api_json)
         # ★★実行
         try:
             ep = OrderCreate(accountID=self.accountID, data=for_api_json)  #
             res_json = eval(json.dumps(self.api.request(ep), indent=2))
-            # print("oandaClass246")
-            # print(res_json)
             if "orderCancelTransaction" in res_json:
                 print("   ■■■OrderCANCELあり(エラーによるorderReject)")
                 print(res_json)
@@ -306,14 +300,11 @@ class Oanda:
                 order_time = iso_to_jstdt_single(
                     res_json["orderCreateTransaction"]["time"]
                 )
-                # print("ISO時刻_ordertime", res_json['orderCreateTransaction']['time'])
-                # print("JT時刻", order_time)
                 # オーダーと同時に約定した場合、orderFillTransactionから約定価格を取得する。
                 if "orderFillTransaction" in res_json:
                     execution_price = float(res_json["orderFillTransaction"]["price"])
                 else:  # 約定がない場合、planの値通りか、成り行きの場合は（通常の指値注文等の場合）
                     execution_price = 0  #
-                # print("   ★Order発行完了", order_id, order_time, execution_price)
 
             # オーダー情報履歴をまとめておく
             order_info = {
@@ -349,7 +340,6 @@ class Oanda:
             return {"data": res_json, "error": 0}
         except Exception as e:  # エラー文短め
             print("OrderCansel_APIerror", order_id)
-            # print(e)
             e_info = self.error_method(
                 "OrderCancel_APIerror" + str(order_id), start_time, e
             )
@@ -380,12 +370,8 @@ class Oanda:
                     row["type"] == "STOP_LOSS" or row["type"] == "TAKE_PROFIT"
                 ):  # or row['type'] == 'STOP' or row['type'] == 'LIMIT':
                     pass
-                    # typeがMARKET_IF_TOUCHEDの場合（いわゆるポジションを取るための注文）
-                    # cancel_res = self.OrderCancel_exe(row["id"])  # 【関数】単品をクローズする
-                    # close_df = pd.concat([close_df , res_df])#新決済情報を縦結合
                 else:  # LIMIT注文、STOP注文の場合（ここでいうLIMITは利確、STOPはロスカ トレールもこっち
                     self.OrderCancel_exe(row["id"])  # 【関数】単品をクローズする
-                    # close_df = pd.concat([close_df , res_df])#新決済情報を縦結合
                     pass
 
             return close_df
@@ -397,7 +383,6 @@ class Oanda:
         :return:
         """
         open_df_dic = self.OrdersPending_exe()
-        # close_df = None
         count = 0
         if open_df_dic["error"] == -1:
             print("Error")
@@ -439,7 +424,6 @@ class Oanda:
             )
             return {"data": res_json, "error": 0}
         except Exception as e:
-            # print(e)
             e_info = self.error_method("OrderDetail" + str(order_id), start_time, e)
             e_info["o_id"] = order_id
             return {"data": e_info, "error": 1}
@@ -466,7 +450,6 @@ class Oanda:
             if (
                 "tradeClosedIDs" in order_dic["order"]
             ):  # 既にクローズまで行っている場合、これがPositionID
-                # print("  Closeあり　今までのAPIエラーケース")
                 position_id = order_dic["order"]["tradeClosedIDs"][
                     0
                 ]  # PositionIDを取得
@@ -474,7 +457,6 @@ class Oanda:
             elif (
                 "tradeReducedID" in order_dic["order"]
             ):  # 約定価格が同じ場合、グルーピングされる場合がある？？！
-                # print("  Closeあり　今までのAPIエラーケース")
                 position_id = order_dic["order"]["tradeReducedID"]
                 position_type = "group"
             else:
@@ -499,7 +481,6 @@ class Oanda:
                 # オーダー無し（エラー含む）の場合
                 print(" ★OrderDetailState- orderDetail ミス", order_id)
                 res_json_dic["method"] = " ★OrderDetailState- orderDetail ミス"
-                # return res_json_dic  # エラーの返却
                 order_id = 0  # エラー同等
                 error_flag = -1
             else:
@@ -527,7 +508,6 @@ class Oanda:
                     if (
                         "tradeClosedIDs" in res_json["order"]
                     ):  # 既にクローズまで行っている場合、これがPositionID
-                        # print("  Closeあり　今までのAPIエラーケース")
                         position_id = res_json["order"]["tradeClosedIDs"][
                             0
                         ]  # PositionIDを取得
@@ -535,7 +515,6 @@ class Oanda:
                     elif (
                         "tradeReducedID" in res_json["order"]
                     ):  # 約定価格が同じ場合、グルーピングされる場合がある？？！
-                        # print("  Closeあり　今までのAPIエラーケース")
                         position_id = res_json["order"]["tradeReducedID"]
                         position_type = "group"
                     else:

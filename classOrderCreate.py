@@ -70,7 +70,6 @@ class Order:
         self.candle_analysis = None
         self.move_ave = 0
         if "candle_analysis_class" in order_json:
-            # print("candle_analysis_classがあるよ", round(order_json['candle_analysis_class'].candle_class.cal_move_ave(1), 3))
             self.move_ave = order_json[
                 "candle_analysis_class"
             ].candle_class.cal_move_ave(1)
@@ -113,10 +112,6 @@ class Order:
                         round(self.lc_price, self.u)
                     ),  # 小数点3桁の文字列（それ以外はエラーとなる）
                 },
-                # "trailingStopLossOnFill": {
-                #     "timeInForce": "GTC",
-                #     "distance": "0"  # 5pips以上,かつ,小数点3桁の文字列
-                # }
             }
         }
         # ■ポジション管理用含めた情報
@@ -212,7 +207,6 @@ class Order:
         self.candle_analysis = None
         self.move_ave = 0
         if "candle_analysis_class" in order_json:
-            # print("candle_analysis_classがあるよ", round(order_json['candle_analysis_class'].candle_class.cal_move_ave(1), 3))
             self.move_ave = order_json[
                 "candle_analysis_class"
             ].candle_class.cal_move_ave(1)
@@ -315,7 +309,6 @@ class Order:
         if "units" in order_json:
             if order_json["units"] < 100:
                 # 100以下の数字は倍率とみなす
-                # print("   UNITが倍数として処理されています", order_json['units'])
                 self.units = round(self.basic_unit * order_json["units"])
                 self.units_adj = order_json["units"]
             else:
@@ -323,7 +316,6 @@ class Order:
                 self.units = self.order_json["units"]
                 self.units_adj = 1
         else:
-            # print("Unit指定がないため、Unitsを基本のものを入れておく")
             self.units = self.basic_unit
 
         # 注文方式を指定する
@@ -464,36 +456,19 @@ class Order:
         else:
             self.memo = ""
 
-        # アラート機能
-        # if "alert" in order_json and "range" in order_json['alert']:
-        #     # if isinstance(plan['alert']['range'], int)
-        #     temp_range = round(order_json['alert']['range'], self.u)
-        #     temp_price = round(order_json['target_price'] - (
-        #                 order_json['alert']['range'] * order_json['direction']), self.u)
-        #     # 改めて入れなおしてしまう（別に上書きでもいいんだけど）
-        #     order_json['alert'] = {"range": temp_range, "alert_price": temp_price, "time": 0}
-        # else:
-        #     order_json['alert'] = {"range": 0, "time": 0, "alert_price": 0}
-
         # ref(無いと、検証の時にエラーになる)
         if "ref" in order_json:
             pass
         else:
             pass
-            # order_json['ref'] = {"move_ave": 0, "peak1_target_gap": 0}
 
     def add_linkage(self, another_order_class):
-        # print("OrderCreate334")
-        # print(self.linkage_classes)
         self.linkage_order_classes.append(another_order_class)
 
     def lc_change_control(self):
         order_json = self.order_json
         # LC_Changeを付与する 検証環境の都合で、必須。(finalizedに直接追加）
         # lc_changeは数字か辞書が入る。辞書の場合、lc_changeの先頭にそれが入る
-        # self.finalized_order['lc_change'] = [] # 初期化
-        # print("lc_change order create 324")
-        # print(self.order_json)
 
         if "lc_change" not in order_json:
             # typeしていない場合はノーマルを追加
@@ -502,7 +477,6 @@ class Order:
             self.add_lc_change_start_with_dic(order_json["lc_change"])
         else:
             if isinstance(order_json["lc_change"], int):
-                # print("処理A: int型です", order_json['lc_change_type'])
                 # 指定されている場合は、指定のLC_Change処理へ
                 if order_json["lc_change"] == 1:
                     print("ディフェンスLCチェンジ")
@@ -564,25 +538,6 @@ class Order:
         （一度20pips位上がった後に、LCまで戻っており、悔しかった。上がるのは大体直前
         ・30分以降は、ローソク形状の効果が切れたとみなし、プラスにいる場合はとにかく利確に向けた動きをする
         """
-        # print("   特殊LCChange")
-
-        [
-            # {"exe": True, "time_after": 0, "trigger": 1, "ensure": 1},
-            # {"exe": True, "time_after": 600, "trigger": 0.025, "ensure": 0.005},
-            # {"exe": True, "time_after": 0, "trigger": 0.04, "ensure": 0.010},
-            # {"exe": True, "time_after": 600, "trigger": first_trigger, "ensure": first_ensure},
-            # {"exe": True, "time_after": 0, "trigger": 0.08, "ensure": 0.05},
-            # {"exe": True, "time_after": 0, "trigger": 0.15, "ensure": 0.1},
-            # {"exe": True, "time_after": 0, "trigger": 0.20, "ensure": 0.15},
-            # {"exe": True, "time_after": 600, "trigger": 0.40, "ensure": 0.35},
-            # {"exe": True, "time_after": 2 * 5 * 60, "trigger": 0.60, "ensure": 0.55},
-            # {"exe": True, "time_after": 2 * 5 * 60, "trigger": 0.70, "ensure": 0.65},
-            # {"exe": True, "time_after": 2 * 5 * 60, "trigger": 0.80, "ensure": 0.75},
-            # {"exe": True, "time_after": 2 * 5 * 60, "trigger": 0.90, "ensure": 0.85},
-            {"exe": True, "time_after": 2 * 5 * 60, "trigger": 4.00, "ensure": 4},
-        ]
-        # print("   渡されたLcChange", dic_arr)
-        # print("　　最終的なLcChange", add)
         self.lc_change = dic_arr
 
     def add_lc_change_defence(self):

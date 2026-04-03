@@ -1,9 +1,10 @@
 import datetime
-import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
-import classOanda as oanda_class
-import pandas as pd
-import fGeneric as f
 
+import pandas as pd
+
+import classOanda as oanda_class
+import fGeneric as f
+import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
 
 # グローバルでの宣言
 oa = oanda_class.Oanda(tk.accountIDl2, tk.access_tokenl, "live")  # クラスの定義
@@ -21,7 +22,6 @@ gl_now_str = (
 )
 
 # 過去履歴のまとめ検討
-# date_num_view = date_num_pivot = 50
 date_num_view = 30
 date_num_pivot = 100
 # 生データ送信
@@ -33,7 +33,6 @@ lines = []
 a_sum = sum(int(x) for x in df_part["res"])
 max_width = max(len(str(int(x))) for x in df_part["res"])
 for _, row in df_part.iterrows():
-    # res_val = int(row['res']) if isinstance(row['res'], (int, float)) else row['res']
     res_val = f"{int(row['res']):>{max_width}}"
     uni_val = int(row["units"] / abs(row["units"]))
     hh_mm = ":".join(f.str_to_time_hms(row["end_time"]).split(":")[:2])
@@ -71,15 +70,4 @@ for _, row in summary.iterrows():
     lines.append(line)
 
 pivot_str = "\n".join(lines)
-# print(pivot_str)
 tk.line_send("■■■検証期間LONG:", "\n", pivot_str)
-
-# res = oa.OpenTrades_exe()
-# print(res['json'])
-# trades = res['json']
-#
-# if len(trades) == 0:
-#     print("現状のポジションなし")
-# else:
-#     for i, item in enumerate(trades):
-#         pass

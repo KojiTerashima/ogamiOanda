@@ -1,6 +1,7 @@
 import datetime
-import fTurnInspection as ti
+
 import classOrderCreate as OCreate
+import fTurnInspection as ti
 
 
 class wrap_all_analysis:
@@ -8,8 +9,6 @@ class wrap_all_analysis:
         self, candle_analysis_class, position_control_class=None, mode="inspection"
     ):
         # 調査に必要な変数
-        # self.df_r = df_r
-        # self.oa = oa
         self.ca = candle_analysis_class  # CandleAnalysisインスタンスの生成
         self.mode = mode  # Liveとアナリシスでは微妙に扱いが異なる場所がある
         self.position_control_class = position_control_class
@@ -51,22 +50,10 @@ class wrap_all_analysis:
         """
         position_control_class = self.position_control_class
 
-        # turn_analysis_instance = ti.BbAnalysis2(self.ca)
-
         # ターン起点のオーダー
         turn_analysis_instance = ti.MainAnalysis(self.ca, position_control_class, mode)
         if turn_analysis_instance.take_position_flag:
             self.orders_add_this_class(turn_analysis_instance.exe_order_classes)
-
-        # テスト用
-        # range_analysis_instance = ti.predict_turn_analysis(self.ca)
-        # if range_analysis_instance.take_position_flag:
-        #     self.orders_add_this_class(range_analysis_instance.exe_order_classes)
-
-        # # 時間起点のオーダー（深夜12時～2時前にかけて、下がる傾向がある気がする）
-        # time_analysis_instance = time_analysis(self.ca)
-        # if time_analysis_instance.take_position_flag:
-        #     self.orders_replace_this_class(time_analysis_instance.exe_order_classes)  # オーダー置換
 
 
 class time_analysis:

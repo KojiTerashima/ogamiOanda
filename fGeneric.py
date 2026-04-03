@@ -80,8 +80,6 @@ def draw_graph(mid_df):
         fig.add_trace(add_graph)
 
     fig.show()
-    # 参考＜マーカーの種類＞
-    # symbols = ('circle', 'circle-open', 'circle-dot', 'circle-open-dot','square', 'diamond', 'cross', 'triangle-up')
 
 
 def str_merge(*msg):
@@ -141,7 +139,6 @@ def time_to_str(dt_time):
     2024-08-10 19:40:00の形式を、20240810194000にする
     """
     ans = dt_time.strftime("%Y%m%d%H%M%S")
-    # print("時刻を文字に変換テスト")
     return ans
 
 
@@ -188,7 +185,6 @@ def cal_str_time_gap(time_str_1, time_str_2):
         older_time = time1
         r = -1
     gap_abs = later_time - older_time  # 正の値が保証された差分
-    # gap = time1 - time2  # 渡されたものをそのまま引き算（これエラーになりそうだから消しておく）
 
     return {
         "gap_abs": gap_abs.total_seconds(),
@@ -258,7 +254,6 @@ def delYearDay(original_time):
     :return:
     """
     # 2023/01/01 09:10:12　⇒　9:10
-    # print(" 渡された値", original_time)
     day = original_time[5:10]  # 01/01
     day = day.replace("0", "")  # 1/1
     time = original_time[11:16]  # 09:10
@@ -282,9 +277,7 @@ def print_arr(*arr):
 
     # 実表示 arr[0] が本体
     for i in range(len(arr[0])):
-        # print("ー",  i,"ーーーーーーーーーーーーーーーーー")
         print(indent, i, arr[0][i])
-    # print("↑ーーーーーーーーーーーーーーーーーーーーーーー")
 
 
 def print_json(dic):
@@ -298,23 +291,19 @@ def print_json(dic):
 
 def cal_at_least(min_value, now_value):
     # 基本的にはnow_valueを返したいが、min_valueよりnow_valueが小さい場合はmin_vauleを返す
-    # min_value = 2pips  now_value=3の場合は、３、min_value = 2pips  now_value=1 の場合　２を。
     if now_value >= min_value:
         ans = now_value
     else:
         ans = min_value
-    # print(" CAL　MIN", ans)
     return ans
 
 
 def cal_at_most(max_value, now_value):
     # 基本的にはnow_valueを返却したいが、max_valueよりnow_vaueが大きい場合はmax_valueを返却
-    # max_value = 2pips  now_value=3の場合は2, max_value = 2pips  now_value=1 の場合　1を。
     if now_value >= max_value:
         ans = max_value
     else:
         ans = now_value
-    # print(" CAL　MAX", ans)
     return ans
 
 
@@ -334,12 +323,9 @@ def dict_compare(dic1, dic2):
     :param dic2:
     :return:
     """
-    # print(dic1,dic2)
     if list(sorted(dic1)) == list(sorted(dic2)):
-        # print(" 完全一致")
         return True
     else:
-        # print(" 不完全一致")
         return False
 
 

@@ -1,11 +1,11 @@
+import copy
+from collections import deque  # 最大10個の情報を持つためのもの。
+
 import classOanda
-import tokens as tk
-import fGeneric as gene
 import classPosition as classPosition  # とりあえずの関数集
 import classPositionForTest as testClassPosition
-
-from collections import deque  # 最大10個の情報を持つためのもの。
-import copy
+import fGeneric as gene
+import tokens as tk
 
 
 class position_control:
@@ -82,20 +82,12 @@ class position_control:
                 item.life,
             )
 
-        # テスト
-        # allowed_position_slot = self.position_classes[self.mid_i_from:self.mid_i_to]
-        # for i, item in enumerate(allowed_position_slot):
-        #     print(" ", i, "OaMode:", item.oa_mode, "Pno:", item.t_id, ",name:", item.name, ",life:", item.life)
-
     def order_class_add(self, order_classes):
         """
         調査結果を受け取り、他のオーダーを比較し、オーダーを追加するかを判定する
         """
         # ■オーダーのプライオリティの関係
         # 渡されたオーダーの中で、最大のプライオリティのものと、そのプライオリティを算出
-        # max_dict = max(order_dic_list, key=lambda d: d["priority"], default=None)
-        # max_dict = max(order_dic_list, key=lambda d: d.get("priority", float("-inf")))
-        # order_max_priority = max_dict['priority']
         max_instance = max(order_classes, key=lambda x: x.exe_order["priority"])
         order_max_priority = max_instance.exe_order["priority"]
         if order_max_priority >= 100:
@@ -167,15 +159,6 @@ class position_control:
         # ■現在のクラスの状況の確認
         print("現在のクラスの状況を確認 (classPositionControl)")
         self.print_classes_and_count()
-        # 通常のオーダーの場合
-        # if self.count_true >= self.normal_priority_num:
-        #     # 10個以上オーダーがある場合はオーダーしない。
-        #     print("★★既に10個以上オーダーがあるため、オーダー発行しない")
-        #     return 0
-        # elif self.count_true + len(order_classes) > self.max_position_num:  # ２はテキトーな数字。
-        #     # 新規のオーダー合わせて13個以上になる場合もオーダーしない（新規オーダーがエラーで複数個出てる可能性のため）
-        #     print("★★既存の物＋新規の合わせて12個以上になるため、オーダー発行しない(新規オーダー数:", len(order_classes))
-        #     return 0
 
         # クラスに余りがある場合、その中で添え字が一番若いオーダーに上書き、または、追加をする
         line_send = ""
@@ -767,28 +750,6 @@ class position_control:
                                     )  # -正の値で、ロスカを広げる
                                 left_position.linkage_lc_change(new_lc_price)
                                 main_position.linkage_done_func()
-                    #
-                    # elif "シンプルターン" in main_position.name:
-                    #     print("     シンプルターンによるリンケージ操作", main_position.name, ",", main_position.t_state, ",",main_position.t_realize_pl, ",",left_position.t_state)
-                    #     # 相手がポジションの場合、プラスが予想される。自身がマイナスなので、相方のマイナス突入は死守。
-                    #     if left_position.life and left_position.t_state == "OPEN":
-                    #         left_position_take_price = left_position.plan_json['target_price']
-                    #         tk.line_send("classPosition488テスト", left_position_take_price)
-                    #         print("     残りポジションのTargetPrice", left_position.name, left_position_take_price)
-                    #         new_lc_price = left_position_take_price
-                    #         left_position.linkage_lc_change(new_lc_price)
-                    #         main_position.linkage_done_func()
-                    #     if left_position.t_state == "" and left_position.o_state == "PENDING":
-                    #         # print(" まだlinage先のポジションが成立していないため、オーダー解除")
-                    #         left_position.close_order()
-                    #         main_position.linkage_done_func()  # 自身のリンケージも終了
-                    #         continue
-                    # elif "rシンプルターン" in main_position.name:
-                    #     print("    rシンプルターン_rが先に終了。rシンプルターンも終わらせないと？？")
-                    #     # 利確してるときは、確実に終了させる　または、　少しでもマイナスが少ないようにする
-                    #     if left_position.life and left_position.t_state == "OPEN":
-                    #         left_position_take_price = left_position.plan_json['target_price']
-                    #         tk.line_send("classPosition521テスト", left_position_take_price)
 
             else:
                 pass
@@ -838,9 +799,6 @@ class position_control_for_test(position_control):
         """
         # ■オーダーのプライオリティの関係
         # 渡されたオーダーの中で、最大のプライオリティのものと、そのプライオリティを算出
-        # max_dict = max(order_dic_list, key=lambda d: d["priority"], default=None)
-        # max_dict = max(order_dic_list, key=lambda d: d.get("priority", float("-inf")))
-        # order_max_priority = max_dict['priority']
         max_instance = max(order_classes, key=lambda x: x.exe_order["priority"])
         order_max_priority = max_instance.exe_order["priority"]
         if order_max_priority >= 100:
@@ -918,46 +876,6 @@ class position_control_for_test(position_control):
                 # Falseのとこで実行する
                 position_slot.order_plan_registration(order_class)
                 break
-                # if res_dic['order_id'] == 0:
-                #     print("オーダー失敗している（大量オーダー等）")
-                #     line_send = line_send + "オーダー失敗(" + str(order_i) + ")" + "\n"
-                # else:
-                #     # ■オーダーが成功している場合
-                #     if res_dic['order_id'] == -1:
-                #         # ウォッチオーダー
-                #         print("オーダー通知")
-                #         # print(res_dic)
-                #         # line_sendは利確や損切の指定が無い場合はエラーになりそう（ただそんな状態は基本存在しない）
-                #         # TPrangeとLCrangeの表示は「inspection_result_dic」を参照している。
-                #         # print(res_dic['order_name'])
-                #         # print(res_dic)
-                #         line_send = line_send + "◆【" + str(res_dic['order_name']) + "】を即時ポジションなしで発行" + \
-                #                     "指定価格:【" + str(round(res_dic['order_result']['price'], 3)) + "】" + \
-                #                     ",DIR:" + str(res_dic['order_result']['direction']) + \
-                #                     ", 数量:" + str(res_dic['order_result']['units']) + \
-                #                     ", TP:" + str(round(res_dic['order_result']['tp_price'], 3)) + \
-                #                     "(" + str(round(res_dic['order_result']['tp_range'], 3)) + ")" + \
-                #                     ", LC:" + str(round(res_dic['order_result']['lc_price'], 3)) + \
-                #                     "(" + str(round(res_dic['order_result']['lc_range'], 3)) + ")" + \
-                #                     ", AveMove:" + str(round(res_dic['ref']['move_ave'], 3)) + \
-                #                     "[システム]classNo:" + str(class_index) + ",\n"
-                #         break
-                #     else:
-                #         # オーダーの生成完了をLINE通知する
-                #         print("オーダー通知", res_dic['order_name'])
-                #         print(res_dic)
-                #         o_trans = res_dic['order_result']['json']['orderCreateTransaction']  # 短縮のための変数化
-                #         line_send = line_send + "【" + str(res_dic['order_name']) + "】,\n" +\
-                #                     "指定価格:【" + str(res_dic['order_result']['price']) + "】"+\
-                #                     ", 数量:" + str(o_trans['units']) + \
-                #                     ", タイプ:" + order_class.ls_type + \
-                #                     ", TP:" + str(o_trans['takeProfitOnFill']['price']) + \
-                #                     "(" + str(round(abs(float(o_trans['takeProfitOnFill']['price']) - float(res_dic['order_result']['price'])), 3)) + ")" + \
-                #                     ", LC:" + str(o_trans['stopLossOnFill']['price']) + \
-                #                     "(" + str(round(abs(float(o_trans['stopLossOnFill']['price']) - float(res_dic['order_result']['price'])), 3)) + ")" + \
-                #                     ", AveMove:" + str(round(res_dic['ref']['move_ave'], 3)) + \
-                #                     ", OrderID:" + str(res_dic['order_id']) + \
-                #                     ", 取得価格:" + str(res_dic['order_result']['execution_price']) + "[システム]classNo:" + str(class_index) + ",\n"
                 #                     # "\n"
                 #         break
         return line_send
