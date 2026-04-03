@@ -1,15 +1,14 @@
 import datetime
+import gc
+import os
 from datetime import timedelta
 
-import classOanda
-import tokens as tk
-import fGeneric as gene
-import gc
 import numpy as np
-import os
 import pandas as pd
 
-# from test_loop import get_instances_of_class
+import classOanda
+import fGeneric as gene
+import tokens as tk
 
 
 class order_information:

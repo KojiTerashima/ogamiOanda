@@ -1,15 +1,14 @@
 import datetime
-from datetime import timedelta
-
-import classOanda
-import tokens as tk
-import fGeneric as gene
 import gc
 import os
-import pandas as pd
 from collections import deque  # 最大10個の情報を持つためのもの。
+from datetime import timedelta
 
-# from test_loop import get_instances_of_class
+import pandas as pd
+
+import classOanda
+import fGeneric as gene
+import tokens as tk
 
 
 class order_information:
