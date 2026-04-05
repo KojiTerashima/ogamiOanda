@@ -10,11 +10,11 @@ import classOanda
 import fGeneric as gene
 from config.notifier import Notifier, get_notifier
 from tokens import (
+    access_token,
+    access_tokenl,
     accountID,
     accountIDl,
     accountIDl2,
-    access_token,
-    access_tokenl,
     environment,
     environmentl,
 )

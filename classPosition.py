@@ -9,14 +9,13 @@ import pandas as pd
 import classOanda
 import fGeneric as gene
 import tokens as tk  # TODO CFG-05: 残存tk.line_sendをself._notifier.notifyに置換後に削除
-
 from config.notifier import Notifier, get_notifier
 from tokens import (
+    access_token,
+    access_tokenl,
     accountID,
     accountIDl,
     accountIDl2,
-    access_token,
-    access_tokenl,
     environment,
     environmentl,
 )

@@ -1,5 +1,4 @@
 import fGeneric as gene
-
 from config.notifier import Notifier, get_notifier
 
 

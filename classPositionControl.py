@@ -6,7 +6,7 @@ import classPosition as classPosition  # とりあえずの関数集
 import classPositionForTest as testClassPosition
 import fGeneric as gene
 from config.notifier import Notifier, get_notifier
-from tokens import accountIDl, accountIDl2, access_tokenl, environmentl
+from tokens import access_tokenl, accountIDl, accountIDl2, environmentl
 
 
 class position_control:

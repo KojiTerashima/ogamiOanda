@@ -6,7 +6,6 @@ import pandas as pd
 
 import fGeneric as f
 import fGeneric as gene
-
 from config.notifier import Notifier, get_notifier
 
 

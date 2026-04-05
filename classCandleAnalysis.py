@@ -4,7 +4,6 @@ from pympler import asizeof
 
 import classCandlePeaks as peaksClass
 import fGeneric as gene
-
 from config.notifier import Notifier, get_notifier
 
 
