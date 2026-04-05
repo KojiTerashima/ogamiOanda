@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from config.notifier import DiscordNotifier, NullNotifier, Notifier
+from config.notifier import DiscordNotifier, Notifier, NullNotifier
 
 
 def test_null_notifier_is_no_op():
