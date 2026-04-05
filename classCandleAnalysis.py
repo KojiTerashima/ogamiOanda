@@ -182,7 +182,6 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if s5_df_res["error"] == -1:
                 print("error Candle")
-                # tk.line_send("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 s5_df_latest_bottom = s5_df_res["data"]
@@ -205,7 +204,6 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if s5_df_res["error"] == -1:
                 print("error Candle")
-                # tk.line_send("60分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 s5_df_latest_bottom = s5_df_res["data"]
@@ -477,7 +475,6 @@ class eachCandleAnalysis:
             ):
                 # 変動が大きく、カウントは3まで（だらだらと長く進んでいる変動は突発的なビッグムーブではない）
                 self.peaks_class.is_big_move_peak = True
-                # tk.line_send("ビッグムーブ観測　cal_move_size関数@classPeaks")
             else:
                 self.peaks_class.is_big_move_peak = False
 

@@ -1123,13 +1123,11 @@ class MainAnalysis:
                                 "既存オーダーとターゲットが近くなる見込み(同方向）"
                                 + temp
                             )
-                            # tk.line_send("既存オーダーとターゲットが近くなる見込み(同方向）", position.t_unrealize_pl)
                         else:
                             exist_res_com = (
                                 "既存オーダーとターゲットが近くなる見込み(別方向）"
                                 + temp
                             )
-                            # tk.line_send("既存オーダーとターゲットが近くなる見込み(別方向）", position.t_unrealize_pl)
                 # 負けの最高額を求める
                 if i <= 6:  # 過去6回以内での
                     if abs(position.t_pl_u) >= max_minus:
@@ -1830,13 +1828,11 @@ class MainAnalysis:
                                 "既存オーダーとターゲットが近くなる見込み(同方向）"
                                 + temp
                             )
-                            # tk.line_send("既存オーダーとターゲットが近くなる見込み(同方向）", position.t_unrealize_pl)
                         else:
                             exist_res_com = (
                                 "既存オーダーとターゲットが近くなる見込み(別方向）"
                                 + temp
                             )
-                            # tk.line_send("既存オーダーとターゲットが近くなる見込み(別方向）", position.t_unrealize_pl)
                 # 負けの最高額を求める
                 if i <= 6:  # 過去6回以内での
                     if abs(position.t_pl_u) >= max_minus:

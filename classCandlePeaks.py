@@ -640,7 +640,6 @@ class PeaksClass:
         else:
             print("direction == -1 のデータが見つかりませんでした")
             gene.print_arr(peaks)
-            # tk.line_send(" Maxに対する　peak_strength （classPeaks 395行目） のエラー発生（-1が見つからなかった）")
         # max_price_neg1_dict['peak_strength'] = self.ps_most_max  # minになってたけど・・・？
 
         # directionが1の中で最小のprice
@@ -655,7 +654,6 @@ class PeaksClass:
         else:
             print("direction == 1 のデータが見つかりませんでした")
             gene.print_arr(peaks)
-            # tk.line_send(" Minに対する　peak_strength （classPeaks 404行目） のエラー発生（1が見つからなかった）")
 
     def peak_strength_sort(self):
         """

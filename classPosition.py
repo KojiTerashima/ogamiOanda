@@ -1064,7 +1064,6 @@ class order_information:
         # if len(self.linkage_order_classes) != 0:
         #     target_order = self.linkage_order_classes[0]
         #     if "_r_" in self.name and self.t_realize_pl >= 0:
-        #         tk.line_send("rがプラスで終わったので、ポジションリンケージ先を解消", self.t_realize_pl, "解消先",
         #                      target_order)
         #         target_position_class =
 
@@ -1108,7 +1107,6 @@ class order_information:
         # 改行で結合
         lines.append(f"{a_sum:>{max_width}}")
         "\n".join(lines)
-        # tk.line_send("■■■:", "\n", output_str)
 
         # ③ピボット結果の送信
         temp = pd.read_csv(history_path)
@@ -1129,7 +1127,6 @@ class order_information:
             lines.append(line)
         pivot_str = "\n".join(lines)
         print(pivot_str)
-        # tk.line_send("■■■:", "\n", pivot_str)
 
     def close_trade(self, units=None):
         # ポジションをクローズする関数 (情報のリセットは行わなず、Lifeの変更のみ）
@@ -2165,13 +2162,11 @@ class order_information:
                         self.step1_filled_time = now_time
                         self.step1_filled_over_price = temp_price - now_price
                         # print("　STEP1初回成立　買い方向の逆張りで、初めて下回った　⇒逆方向伸び状態", now_time)
-                        # tk.line_send("LIMIT step1達成（買い逆）", self.name)
                     if o_dir == -1 and now_price > temp_price:
                         self.step1_filled = True
                         self.step1_filled_time = now_time
                         self.step1_filled_over_price = now_price - temp_price
                         # print("　STEP1初回成立　売り方向の逆張りで、初めて上回っている　⇒逆方向伸び状態", now_time)
-                        # tk.line_send("LIMIT　step1達成（売り逆）", self.name)
 
             # ■Step2(一度ボーダーをオーダーと逆方向に越えた後、オーダーしたい方向に戻ってきている)の状況を確認
             order_exe = False
@@ -2350,7 +2345,6 @@ class order_information:
     #         alert_pl = self.alert_price - current_price
     #     # ■状態通知用
     #     if not self.alert_line_send_done:
-    #         tk.line_send("初回のウアラートォッチモード突入:", self.name, "ボーダー", round(self.alert_price, 3), "現在価格", current_price,
     #                      "ポジション方向", direction, "越えPips", round(alert_pl, 4))
     #         self.alert_line_send_done = True
     #
@@ -2742,14 +2736,12 @@ class order_information:
             if new_lc_price < self.plan_json["lc_price"]:
                 pass
             else:
-                # tk.line_send("LCChangeCandle_dir-1 価格合わず未遂", new_lc_price , ">", self.plan_json['lc_price'])
                 return 0
         else:
             # 買いポジションの場合、現在のLC価格よりも高い場合、実行する
             if new_lc_price > self.plan_json["lc_price"]:
                 pass
             else:
-                # tk.line_send("LCChangeCandle_dir1 価格合わず未遂", new_lc_price, "<", self.plan_json['lc_price'])
                 return 0
 
         data = {
@@ -3185,7 +3177,6 @@ def position_check_no_args():
             else:
                 # どうやらt_stateが入っていない状態（オーダーエラーや謎の状態）
                 if item.o_state == "Watching":
-                    # tk.line_send("ウォッチング中のオーダーあり　（５分毎処理）")
                     continue
                 print(
                     " 謎の状態　t_state=",
@@ -3199,7 +3190,6 @@ def position_check_no_args():
                     ",try_num",
                     item.try_update_num,
                 )
-                # tk.line_send(" 謎の状態(分岐前）　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:", item.name, ",life=", item.life, ",try_num", item.try_update_num)
                 if item.try_update_num <= item.try_update_limit:
                     # まだ何回か確認するまで、LifeはFalseにしない
                     item._notifier.notify(

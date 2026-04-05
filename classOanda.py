@@ -1098,7 +1098,6 @@ class Oanda:
             self._notifier.notify("オーダーエラー")
         else:
             pass
-            # tk.line_send("エラー")
         # if type(e) == 'oandapyV20.exceptions.V20Error':
         #     e
 

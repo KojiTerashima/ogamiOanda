@@ -291,7 +291,6 @@ class position_control:
                     if item.t_state == "OPEN":
                         # できれば解消したポジションと逆の方向のポジションのTPを変更したい。
                         # ただ同時に複数のポジションを解消する可能性もあり、どうしよう
-                        # tk.line_send("一部負けが確定したので、所持しているポジションを利確に持っていく ポジ数", remain_class_num)
                         # item.change_tp(abs(avg))  #TP変更
                         # item.del_lc_change()
                         break  # 1つ変更したら終了
@@ -428,7 +427,6 @@ class position_control:
                 else:
                     # どうやらt_stateが入っていない状態（オーダーエラーや謎の状態）
                     if item.o_state == "Watching":
-                        # tk.line_send("ウォッチング中のオーダーあり　（５分毎処理）")
                         continue
                     print(
                         " 謎の状態　t_state=",
@@ -442,7 +440,6 @@ class position_control:
                         ",try_num",
                         item.try_update_num,
                     )
-                    # tk.line_send(" 謎の状態(分岐前）　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:", item.name, ",life=", item.life, ",try_num", item.try_update_num)
                     if item.try_update_num <= item.try_update_limit:
                         # まだ何回か確認するまで、LifeはFalseにしない
                         self._notifier.notify(
@@ -652,7 +649,6 @@ class position_control:
                             linkage_class.name,
                             "]が対象だが見つからない",
                         )
-                        # tk.line_send("リンケージ先がない物があった.", linkage_class.name, "のリンケージ", linkage_class.name)
                         main_position.linkage_done_func()  # 自身のリンケージも終了
                         continue
                     # 自分自身はポジションあるが、相手がクローズしてしまっている場合
@@ -690,7 +686,6 @@ class position_control:
                                     )  # -正の値で、ロスカを広げる
                                 left_position.linkage_lc_change(new_lc_price)
                                 main_position.linkage_done_func()
-                                # tk.line_send("NewLcPrice", left_position_take_price)
                         else:
                             pass
                             print("マイナスなので何もしない")
@@ -857,11 +852,9 @@ class position_control_for_test(position_control):
             print(" プログラム上既存のオーダーは存在しないため、オーダー発行へ")
             pass
         elif len(alive_classes) == len(allowed_position_slot):
-            # tk.line_send("許容スロットがいっぱい（オーダー発行せず)", len(alive_classes), len(allowed_position_slot))
             self.print_classes_and_count()
             return 0
         elif len(order_classes) + len(alive_classes) > len(allowed_position_slot):
-            # tk.line_send("オーダー入れるとオーバーフロー（オーダー発行せず)", len(order_classes), len(alive_classes), len(allowed_position_slot))
             self.print_classes_and_count()
             return 0
         else:

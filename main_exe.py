@@ -205,7 +205,6 @@ class main:
             )
             if exe_res == 0:
                 pass
-                # tk.line_send(" オーダー発行せず　or 失敗　main 175")
             else:
                 self._notifier.notify(
                     "★★★オーダー発行",
