@@ -12,6 +12,7 @@ import tokens as tk
 
 
 class order_information:
+    oanda_factory = classOanda.Oanda
     total_yen = 0  # トータルの円
     total_yen_max = 0  # これは０以上を検出したいので、float(-inf)ではNG
     total_yen_min = float("inf")
@@ -56,20 +57,22 @@ class order_information:
         if self.is_live:
             if self.oa_mode == 1:
                 # 通常アカウント
-                self.oa = classOanda.Oanda(
+                self.oa = self.oanda_factory(
                     tk.accountIDl, tk.access_tokenl, tk.environmentl
                 )
             else:
                 # 両建て用アカウント
-                self.oa = classOanda.Oanda(
+                self.oa = self.oanda_factory(
                     tk.accountIDl2, tk.access_tokenl, tk.environmentl
                 )
         else:
             # デモ口座
-            self.oa = classOanda.Oanda(tk.accountID, tk.access_token, tk.environment)
+            self.oa = self.oanda_factory(tk.accountID, tk.access_token, tk.environment)
 
-    def __init__(self, name, is_live):
-        self.oa = classOanda.Oanda(
+    def __init__(self, name, is_live, oanda_factory=None):
+        if oanda_factory is not None:
+            self.oanda_factory = oanda_factory
+        self.oa = self.oanda_factory(
             tk.accountIDl2, tk.access_tokenl, tk.environmentl
         )  # 仮の値
         self.oa_mode = 2  # アカウント選択（１が通常、２が両建てアカウント） 初期値は１

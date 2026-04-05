@@ -1,19 +1,27 @@
-import fGeneric as gene
-from pympler import asizeof
-import pandas as pd
-import classOrderCreate as OCreate
-import tokens as tk
-from datetime import datetime
-import requests
 import statistics
+from datetime import datetime
 
-this_file_line_send = False
-gl_previous_exe_df60_row = None
-gl_previous_exe_df60_order_time = None
-gl_previous_bb_h1_class = None
-gl_latest_trend_trigger_time = None
+import pandas as pd
+import requests
+from pympler import asizeof
 
-gl_unis_std = 1  # OrderCreateのベーシックUnitは10000ドル。それにかける倍率
+import classOrderCreate as OCreate
+import fGeneric as gene
+import tokens as tk
+import turn_analysis_core as ta_core
+
+
+class _AnalysisRuntimeState:
+    def __init__(self):
+        self.line_send_enabled = False
+        self.previous_exe_df60_row = None
+        self.previous_exe_df60_order_time = None
+        self.previous_bb_h1_class = None
+        self.latest_trend_trigger_time = None
+        self.units_std = 1  # OrderCreateのベーシックUnitは10000ドル。それにかける倍率
+
+
+runtime_state = _AnalysisRuntimeState()
 
 
 class MainAnalysis:
@@ -28,7 +36,7 @@ class MainAnalysis:
             from_i = 1
             from_i_price = 1
         self.position_control_class = position_control_class
-        self.line_send_exe = this_file_line_send
+        self.line_send_exe = runtime_state.line_send_enabled
         self.line_send_mes = ""
         self.s = "    "
         self.round_digit = 3
@@ -162,7 +170,7 @@ class MainAnalysis:
         # Unit調整用
         self.units_mini = 0.1
         self.units_reg = 0.5
-        self.units_str = 1 * gl_unis_std  # 0.1
+        self.units_str = 1 * runtime_state.units_std  # 0.1
         self.units_hedge = self.units_str
         # 汎用性高め
         self.lc_change_test = [
@@ -333,10 +341,6 @@ class MainAnalysis:
         ターン直後での判断。
         """
         # 変数化
-        global gl_previous_exe_df60_row
-        global gl_previous_exe_df60_order_time
-        global gl_previous_bb_h1_class
-
         candle_analysis = self.ca
         peaks = self.peaks_class.peaks_original
         # 変数化（BB）
@@ -1961,7 +1965,7 @@ class BaseAnalysisClass:
         print(" ")
         print(" ★★ターンアナリシス")
         # ■■■基本情報の取得
-        self.line_send_exe = this_file_line_send
+        self.line_send_exe = runtime_state.line_send_enabled
         self.line_send_mes = ""
         self.s = "    "
         self.oa = candle_analysis.base_oa
@@ -2040,7 +2044,7 @@ class BbAnalysis2:
         # Unit調整用
         self.units_mini = 0.1
         self.units_reg = 0.5
-        self.units_str = 1 * gl_unis_std  # 0.1
+        self.units_str = 1 * runtime_state.units_std  # 0.1
         self.units_hedge = self.units_str
 
         self.hour1_analysis()
@@ -2982,7 +2986,7 @@ class BbAnalysis:
         # Unit調整用
         self.units_mini = 0.1
         self.units_reg = 0.5
-        self.units_str = 1 * gl_unis_std  # 0.1
+        self.units_str = 1 * runtime_state.units_std  # 0.1
         self.units_hedge = self.units_str
 
         # ■■■結果等の入力
@@ -3171,7 +3175,6 @@ class BbAnalysis:
         """
         いくつかの関数の結果をラップアップする
         """
-        global gl_latest_trend_trigger_time
         # 変数化
         df_r = self.df_r  # 0が消されているdf_r
         foot = self.foot
@@ -3216,7 +3219,7 @@ class BbAnalysis:
             if loop_glass_res["is_ordered"] or loop_trumpet_res["is_ordered"]:
                 is_previous = True
                 previous_time = target_df.iloc[0]["time_jp"]
-                gl_latest_trend_trigger_time = previous_time  # 直近ではっせいしたトレンド時刻を入れておく（glass,trumpet出ない場合はここで入るイメージでOK？）
+                runtime_state.latest_trend_trigger_time = previous_time  # 直近ではっせいしたトレンド時刻を入れておく（glass,trumpet出ない場合はここで入るイメージでOK？）
                 bef_i = i
                 break  # 13時間以内で見つけたら終了
             else:
@@ -3263,22 +3266,13 @@ class BbAnalysis:
         big = df_r.iloc[0]["bb_upper"]
         small = df_r.iloc[0]["bb_lower"]
         N = df_r.iloc[0]["close"]
-        diff_big = abs(big - N)
-        diff_small = abs(N - small)
-        # 判定
-        if diff_big < diff_small:
-            bb_latest_position_in_bb = 1  # 大きいほうに近い
-        else:
-            bb_latest_position_in_bb = -1  # 小さいほうに近い
-
-        return bb_latest_position_in_bb
+        return ta_core.latest_price_position_in_bb(big, small, N)
 
     def bb_glass_analysis(self, df_r, do_print):
         """
         固定された行ではなく、最初のN行の中で、形状を判定する
         （固定された行を使う関数は、S,N,M行の３点を固定し、形状を判定する）
         """
-        global gl_latest_trend_trigger_time  # トレンドを確認した初回の時刻を入れておく
         # 変数化
         s = self.s
         # df_r_10 = copy.deepcopy(self.df_r[:15])
@@ -3329,26 +3323,18 @@ class BbAnalysis:
         before_cond = not before_cond_rows.empty
         after_cond = not after_cond_rows.empty
         # 両方を満たす場合True
-        result = before_cond and after_cond
-        # 最終のカウント
         latest_count = peaks_skip[0]["count"]
-        if result and not head_is_minimum:
-            # 砂時計型にも2種類
-            if latest_count <= 4:
-                is_glass_shape = True
-                is_glass_shape_long = False
-            else:
-                is_glass_shape = True
-                is_glass_shape_long = True
-            # 初回の砂時計型か？
-            if len(before_cond_rows) == 1:
-                is_first_glass_shape = True  # 形が砂時計、かつ、最新
-            else:
-                is_first_glass_shape = False  # 形は砂時計だが、最新の砂時計ではない
-        else:
-            is_glass_shape = False
-            is_glass_shape_long = False
-            is_first_glass_shape = False  # 形も違う
+        shape_flags = ta_core.evaluate_glass_shape_flags(
+            has_before_expansion=before_cond,
+            has_after_expansion=after_cond,
+            head_is_minimum=head_is_minimum,
+            latest_count=latest_count,
+            before_expansion_rows=len(before_cond_rows),
+        )
+        result = shape_flags["result"]
+        is_glass_shape = shape_flags["is_glass_shape"]
+        is_glass_shape_long = shape_flags["is_glass_shape_long"]
+        is_first_glass_shape = shape_flags["is_first_glass_shape"]
 
         order_class = None
         is_ordered = False
@@ -3375,7 +3361,7 @@ class BbAnalysis:
                     }
                 )
                 is_ordered = True
-                gl_latest_trend_trigger_time = latest_time
+                runtime_state.latest_trend_trigger_time = latest_time
             elif is_glass_shape and is_glass_shape_long:
                 # 従来の型ではないが、検証する（長いトレンドの後）
                 order_class = OCreate.Order(
@@ -3398,7 +3384,7 @@ class BbAnalysis:
                     }
                 )
                 is_ordered = True
-                gl_latest_trend_trigger_time = latest_time
+                runtime_state.latest_trend_trigger_time = latest_time
         if do_print:
             print("　 --BBアナリシス(Flex）")
             print(s, "直近の対象時間", df_r.iloc[0]["time_jp"])
@@ -3435,7 +3421,7 @@ class BbAnalysis:
                 peaks_skip[0]["latest_time_jp"],
             )
             print(s, "先頭が最小か？", head_is_minimum)
-            print(s, "発生時刻", gl_latest_trend_trigger_time)
+            print(s, "発生時刻", runtime_state.latest_trend_trigger_time)
             print(
                 s,
                 "オーダー判定条件",
@@ -3472,7 +3458,6 @@ class BbAnalysis:
         """
         トランペット形状
         """
-        global gl_latest_trend_trigger_time
         # 変数化
         s = self.s
         # df_r_10 = copy.deepcopy(self.df_r[:15])
@@ -3526,7 +3511,7 @@ class BbAnalysis:
                 }
             )
             is_ordered = True
-            gl_latest_trend_trigger_time = latest_time
+            runtime_state.latest_trend_trigger_time = latest_time
             # print("オーダーの中身", order_class.exe_order)
 
         return {

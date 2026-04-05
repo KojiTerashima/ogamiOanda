@@ -1,25 +1,33 @@
 import datetime
 
-import tokens as tk
 from pympler import asizeof
 
 import classCandlePeaks as peaksClass
 import fGeneric as gene
+import tokens as tk
+
+
+class _CandleAnalysisCache:
+    def __init__(self):
+        self.avoid_dup_5min_kara_time = 0
+        self.avoid_dup_5min_made_time = 0
+        self.latest_df_d5_df_r = None
+        self.latest_peaks_class = None
+        self.latest_candle_class = None
+        self.latest_df_d60_df_r = None
+        self.latest_peaks_class_hour = None
+        self.latest_candle_class_hour = None
+        self.latest_df_d30_df_r = None
+        self.latest_peaks_class_m30 = None
+        self.latest_candle_class_m30 = None
 
 
 class candleAnalysis:
-    # 重複のAPIたたきを極力減らしたい
-    avoid_dup_5min_kara_time = 0  # 重複での処理作業防止用（最新で取得した5分足のデータのカラマデの時間を所持。クラス生成時、同じ場合は新規処理しない）
-    avoid_dup_5min_made_time = 0
-    latest_df_d5_df_r = None
-    latest_peaks_class = None  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
-    latest_candle_class = None
-    latest_df_d60_df_r = None
-    latest_peaks_class_hour = None  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
-    latest_candle_class_hour = None
-    latest_df_d30_df_r = None
-    latest_peaks_class_m30 = None  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
-    latest_candle_class_m30 = None
+    cache = _CandleAnalysisCache()
+
+    @classmethod
+    def reset_cache(cls):
+        cls.cache = _CandleAnalysisCache()
 
     def __init__(self, base_oa, target_time_jp):
         """
@@ -36,13 +44,14 @@ class candleAnalysis:
         self.d30_df_r = None
 
         # # ■■　重複でAPIを打つことを避けたい
-        if candleAnalysis.latest_df_d5_df_r is None:
+        cache = candleAnalysis.cache
+        if cache.latest_df_d5_df_r is None:
             print("データ取得（同じデータがないため、新規で取得）")
             t1 = 0
             pass
         else:
             t1 = datetime.datetime.strptime(
-                candleAnalysis.latest_df_d5_df_r.iloc[0]["time_jp"], "%Y/%m/%d %H:%M:%S"
+                cache.latest_df_d5_df_r.iloc[0]["time_jp"], "%Y/%m/%d %H:%M:%S"
             )
             t2 = datetime.datetime.now()
             same = (
@@ -54,7 +63,7 @@ class candleAnalysis:
             )
             print(
                 "既存のデータのfrom",
-                candleAnalysis.latest_df_d5_df_r.iloc[0]["time_jp"],
+                cache.latest_df_d5_df_r.iloc[0]["time_jp"],
             )
             print("既存のDataFrameと同じかどうか？", same, t1, t2)
             if same:
@@ -65,17 +74,17 @@ class candleAnalysis:
                     t2,
                 )
                 # データを移植する（5分足）
-                self.d5_df_r = candleAnalysis.latest_df_d5_df_r
-                self.peaks_class = candleAnalysis.latest_peaks_class
-                self.candle_class = candleAnalysis.latest_candle_class
+                self.d5_df_r = cache.latest_df_d5_df_r
+                self.peaks_class = cache.latest_peaks_class
+                self.candle_class = cache.latest_candle_class
                 # データを移植する（60分足）
-                self.d60_df_r = candleAnalysis.latest_df_d60_df_r
-                self.peaks_class_hour = candleAnalysis.latest_peaks_class_hour
-                self.candle_class_hour = candleAnalysis.latest_candle_class_hour
+                self.d60_df_r = cache.latest_df_d60_df_r
+                self.peaks_class_hour = cache.latest_peaks_class_hour
+                self.candle_class_hour = cache.latest_candle_class_hour
                 # データを移植する（30分足）
-                self.d30_df_r = candleAnalysis.latest_df_d30_df_r
-                self.peaks_class_m30 = candleAnalysis.latest_peaks_class_m30
-                self.candle_class_m30 = candleAnalysis.latest_candle_class_m30
+                self.d30_df_r = cache.latest_df_d30_df_r
+                self.peaks_class_m30 = cache.latest_peaks_class_m30
+                self.candle_class_m30 = cache.latest_candle_class_m30
                 return
 
         # ■■データ取得
@@ -139,17 +148,17 @@ class candleAnalysis:
             pass
         else:
             # クラス変数に、最新の値だけを入れておく
-            candleAnalysis.avoid_dup_5min_kara_time = self.d5_df_r.iloc[-1]["time_jp"]
-            candleAnalysis.avoid_dup_5min_made_time = self.d5_df_r.iloc[0]["time_jp"]
-            candleAnalysis.latest_df_d5_df_r = self.d5_df_r
-            candleAnalysis.latest_peaks_class = self.peaks_class  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
-            candleAnalysis.latest_candle_class = self.candle_class
-            candleAnalysis.latest_df_d60_df_r = self.d60_df_r
-            candleAnalysis.latest_peaks_class_hour = self.peaks_class_hour  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
-            candleAnalysis.latest_candle_class_hour = self.candle_class_hour
-            candleAnalysis.latest_df_d30_df_r = self.d30_df_r
-            candleAnalysis.latest_peaks_class_m30 = self.peaks_class_m30  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
-            candleAnalysis.latest_candle_class_m30 = self.candle_class_m30
+            cache.avoid_dup_5min_kara_time = self.d5_df_r.iloc[-1]["time_jp"]
+            cache.avoid_dup_5min_made_time = self.d5_df_r.iloc[0]["time_jp"]
+            cache.latest_df_d5_df_r = self.d5_df_r
+            cache.latest_peaks_class = self.peaks_class  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
+            cache.latest_candle_class = self.candle_class
+            cache.latest_df_d60_df_r = self.d60_df_r
+            cache.latest_peaks_class_hour = self.peaks_class_hour  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
+            cache.latest_candle_class_hour = self.candle_class_hour
+            cache.latest_df_d30_df_r = self.d30_df_r
+            cache.latest_peaks_class_m30 = self.peaks_class_m30  # 最新の物を持っておく（判定用に冗長に持っていて、そとからはインスタンス変数を参照がメイン。）
+            cache.latest_candle_class_m30 = self.candle_class_m30
 
     def inspect_instance_memory(self, obj):
         print(f"== {type(obj).__name__} メモリ使用量 ==")

@@ -20,6 +20,7 @@ from oandapyV20.endpoints.positions import OpenPositions, PositionClose, Positio
 from oandapyV20.endpoints.pricing import PricingInfo
 from oandapyV20.endpoints.trades import OpenTrades, TradeClose, TradeCRCDO, TradeDetails
 
+import classOandaSupport as oanda_support
 import tokens as tk  # エラーをLINEするため。。
 
 
@@ -170,10 +171,10 @@ class Oanda:
                 res_json["candles"]
             )  # Jsonの一部(candles)をDataframeに変換
             data_df["time_jp"] = data_df.apply(
-                lambda x: iso_to_jstdt(x, "time"), axis=1
+                lambda x: oanda_support.iso_to_jstdt(x, "time"), axis=1
             )  # 日本時刻の表示
-            data_df = add_basic_data(data_df)  # 【関数/必須】基本項目を追加する
-            data_df = add_bb_data(data_df)
+            data_df = oanda_support.add_basic_data(data_df)  # 【関数/必須】基本項目を追加する
+            data_df = oanda_support.add_bb_data(data_df)
             # 返却
             return {"data": data_df, "error": 0}
         except Exception as e:
@@ -218,8 +219,8 @@ class Oanda:
         )  # インデックスをリセットし、ML用のデータフレームへ
         temp_df.drop(["index"], axis=1, inplace=True)  # 不要項目の削除
         # 解析用の列を追加する（不要列の削除も含む）
-        data_df = add_basic_data(temp_df)  # 【関数/必須】基本項目を追加する
-        data_df = add_bb_data(data_df)
+        data_df = oanda_support.add_basic_data(temp_df)  # 【関数/必須】基本項目を追加する
+        data_df = oanda_support.add_bb_data(data_df)
         # 返却
         return {"data": data_df, "error": 0}
 
@@ -239,7 +240,12 @@ class Oanda:
                 res_json["candles"]
             )  # Jsonの一部(candles)をDataframeに変換
             data_df.insert(
-                0, "time_jp", data_df.apply(lambda x: iso_to_jstdt(x, "time"), axis=1)
+                0,
+                "time_jp",
+                data_df.apply(
+                    lambda x: oanda_support.iso_to_jstdt(x, "time"),
+                    axis=1,
+                ),
             )
             # data_df['time_jp'] = data_df.apply(lambda x: iso_to_jstdt(x, 'time'), axis=1)  # 日本時刻の表示
             # 返却
@@ -297,7 +303,7 @@ class Oanda:
                 # 正確にオーダーが入ったためオーダーIDを取得
                 canceled = False
                 order_id = res_json["orderCreateTransaction"]["id"]
-                order_time = iso_to_jstdt_single(
+                order_time = oanda_support.iso_to_jstdt_single(
                     res_json["orderCreateTransaction"]["time"]
                 )
                 # オーダーと同時に約定した場合、orderFillTransactionから約定価格を取得する。
@@ -420,7 +426,7 @@ class Oanda:
             res_json = eval(json.dumps(self.api.request(ep), indent=2))
             # 経過時間
             res_json["order"]["time_past"] = cal_past_time_single(
-                iso_to_jstdt_single(res_json["order"]["createTime"])
+                oanda_support.iso_to_jstdt_single(res_json["order"]["createTime"])
             )
             return {"data": res_json, "error": 0}
         except Exception as e:
@@ -487,9 +493,11 @@ class Oanda:
                 # オーダーありの場合、オーダー情報を取得する
                 res_json = res_json_dic["data"]
                 # orderの情報を取得する
-                order_createtime = iso_to_jstdt_single(res_json["order"]["createTime"])
+                order_createtime = oanda_support.iso_to_jstdt_single(
+                    res_json["order"]["createTime"]
+                )
                 order_time_past = cal_past_time_single(
-                    iso_to_jstdt_single(res_json["order"]["createTime"])
+                    oanda_support.iso_to_jstdt_single(res_json["order"]["createTime"])
                 )
                 order_units = res_json["order"]["units"]
                 order_state = res_json["order"]["state"]  # オーダーのステータスを確認
@@ -563,10 +571,10 @@ class Oanda:
                             position_realize_pl = (
                                 float(position_js["trade"]["realizedPL"]) / split_num
                             )
-                            position_time = iso_to_jstdt_single(
+                            position_time = oanda_support.iso_to_jstdt_single(
                                 position_js["trade"]["openTime"]
                             )  # ポジションした時間がうまる
-                            position_close_time = iso_to_jstdt_single(
+                            position_close_time = oanda_support.iso_to_jstdt_single(
                                 position_js["trade"]["closeTime"]
                             )  # ポジションがクローズした時間がうまる
                             position_price = position_js["trade"]["price"]  # 現在価格
@@ -589,7 +597,7 @@ class Oanda:
                                 "currentUnits"
                             ]
                             position_realize_pl = position_js["trade"]["unrealizedPL"]
-                            position_time = iso_to_jstdt_single(
+                            position_time = oanda_support.iso_to_jstdt_single(
                                 position_js["trade"]["openTime"]
                             )  # ポジションした時間がうまる
                             position_close_time = 0
@@ -645,7 +653,7 @@ class Oanda:
             else:
                 # いくつか情報を付与する
                 res_df["order_time_jp"] = res_df.apply(
-                    lambda x: iso_to_jstdt(x, "createTime"), axis=1
+                    lambda x: oanda_support.iso_to_jstdt(x, "createTime"), axis=1
                 )  # 日本時刻の表示
                 res_df["past_time_sec"] = res_df.apply(
                     lambda x: cal_past_time(x), axis=1
@@ -676,7 +684,7 @@ class Oanda:
                 return {"data": res_df, "error": 0}
             else:
                 res_df["order_time_jp"] = res_df.apply(
-                    lambda x: iso_to_jstdt(x, "createTime"), axis=1
+                    lambda x: oanda_support.iso_to_jstdt(x, "createTime"), axis=1
                 )  # 日本時刻の表示
                 # 注文からの経過時間を秒で算出する
                 res_df["past_time_sec"] = res_df.apply(
@@ -727,7 +735,7 @@ class Oanda:
                 return {"data": res_df, "error": 0}
             else:
                 res_df["order_time_jp"] = res_df.apply(
-                    lambda x: iso_to_jstdt(x, "openTime"), axis=1
+                    lambda x: oanda_support.iso_to_jstdt(x, "openTime"), axis=1
                 )  # 日本時刻の表示
                 # 注文からの経過時間を秒で算出する
                 res_df["past_time_sec"] = res_df.apply(
@@ -756,7 +764,7 @@ class Oanda:
             # いくつか項目を追加しておく
             # timepastを追加する
             res_json["trade"]["time_past"] = cal_past_time_single(
-                iso_to_jstdt_single(res_json["trade"]["openTime"])
+                oanda_support.iso_to_jstdt_single(res_json["trade"]["openTime"])
             )
             # PL / unit を追加する(Open時はunrealizedPL,Close時はrealizePLを利用する)
             temp = res_json["trade"]
@@ -771,7 +779,7 @@ class Oanda:
             else:
                 print("    Tradeの状態を確認＠oandaClass TradeDetails_exe")
                 res_json["trade"]["PLu"] == 0
-            res_json["trade"]["openTime"] = iso_to_jstdt_single(
+            res_json["trade"]["openTime"] = oanda_support.iso_to_jstdt_single(
                 res_json["trade"]["openTime"]
             )  # OpenTimeを日本時刻に変換
             return {
@@ -1057,7 +1065,7 @@ class Oanda:
 
             t_df = pd.DataFrame(all_info)
             t_df["time_jp"] = t_df.apply(
-                lambda x: iso_to_jstdt(x, "time"), axis=1
+                lambda x: oanda_support.iso_to_jstdt(x, "time"), axis=1
             )  # 日本時刻を追加する
 
             for_ans = pd.concat(
@@ -1262,10 +1270,10 @@ def func_make_dic(res_json):
     ]
     res_df = pd.DataFrame(res)  # DFに変換
     res_df["order_time_jp"] = res_df.apply(
-        lambda x: iso_to_jstdt(x, "order_time"), axis=1
+        lambda x: oanda_support.iso_to_jstdt(x, "order_time"), axis=1
     )  # 日本時刻の表示
     res_df["position_time_jp"] = res_df.apply(
-        lambda x: iso_to_jstdt(x, "position_time"), axis=1
+        lambda x: oanda_support.iso_to_jstdt(x, "position_time"), axis=1
     )  # 日本時刻の表示
 
     res_df = res_df.drop(["order_time", "position_time"], axis=1)  # unixtime?を削除

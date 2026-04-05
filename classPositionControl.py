@@ -16,15 +16,20 @@ class position_control:
     # 常に最新のデータを取得してクラス変数に入れておく（毎回の取得はしないように工夫する。（してもいい気もするけど））
 
     # 履歴ファイル
-    def __init__(self, is_live):
+    def __init__(self, is_live, oanda_factory=None):
         self.result_class_arr = deque(maxlen=10)
+        self.oanda_factory = oanda_factory or classOanda.Oanda
 
         # 変数の宣言
         self.u = 3
         self.position_classes = []
         self.count_true = 0
-        self.oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
-        self.oa2 = classOanda.Oanda(tk.accountIDl2, tk.access_tokenl, tk.environmentl)
+        self.oa = self.oanda_factory(tk.accountIDl, tk.access_tokenl, tk.environmentl)
+        self.oa2 = self.oanda_factory(
+            tk.accountIDl2,
+            tk.access_tokenl,
+            tk.environmentl,
+        )
 
         self.peaks_class = ""  # クラスアップデートの時に利用する（ポジションクラスに引数として渡すため）
 
@@ -50,7 +55,11 @@ class position_control:
             # クラス名を確定し、クラスを生成する。
             new_name = "c" + str(i)
             self.position_classes.append(
-                classPosition.order_information(new_name, is_live)
+                classPosition.order_information(
+                    new_name,
+                    is_live,
+                    oanda_factory=self.oanda_factory,
+                )
             )  # 順思想のオーダーを入れるクラス
         self.print_classes_and_count()
 
@@ -757,13 +766,18 @@ class position_control:
 
 
 class position_control_for_test(position_control):
-    def __init__(self, is_live, filename):
+    def __init__(self, is_live, filename, oanda_factory=None):
         # 変数の宣言
         print("test用　positioncontorol")
+        self.oanda_factory = oanda_factory or classOanda.Oanda
         self.position_classes = []
         self.count_true = 0
-        self.oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
-        self.oa2 = classOanda.Oanda(tk.accountIDl2, tk.access_tokenl, tk.environmentl)
+        self.oa = self.oanda_factory(tk.accountIDl, tk.access_tokenl, tk.environmentl)
+        self.oa2 = self.oanda_factory(
+            tk.accountIDl2,
+            tk.access_tokenl,
+            tk.environmentl,
+        )
         self.filename = filename
         # self.temp_file_name = memo
 
@@ -789,7 +803,12 @@ class position_control_for_test(position_control):
             # クラス名を確定し、クラスを生成する。
             new_name = "c" + str(i)
             self.position_classes.append(
-                testClassPosition.order_information(new_name, is_live, filename)
+                testClassPosition.order_information(
+                    new_name,
+                    is_live,
+                    filename,
+                    oanda_factory=self.oanda_factory,
+                )
             )  # 順思想のオーダーを入れるクラス
         self.print_classes_and_count()
 
