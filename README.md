@@ -26,6 +26,9 @@ Runtime settings are loaded from `settings.yaml` (ignored by git).
 See [docs/configuration.md](docs/configuration.md) for the full setup guide,
 required keys, and troubleshooting.
 
+Issue/PR template examples for the current refactoring backlog are available at
+[docs/issue_pr_templates.md](docs/issue_pr_templates.md).
+
 ## Running
 
 ```bash

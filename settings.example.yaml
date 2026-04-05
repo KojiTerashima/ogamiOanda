@@ -7,6 +7,9 @@ oanda:
     account_id: ""
     access_token: ""
     environment: "live"
+  live_sub:
+    # Optional. If omitted, accountIDl2 falls back to oanda.live.account_id.
+    account_id: ""
 
 discord:
   webhook_main: ""

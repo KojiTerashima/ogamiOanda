@@ -87,6 +87,10 @@ def _normalize_raw(raw: dict[str, Any]) -> dict[str, Any]:
             "access_token": normalized.get("access_tokenl", ""),
             "environment": normalized.get("environmentl", "live"),
         }
+    if "live_sub" not in oanda and "accountIDl2" in normalized:
+        oanda["live_sub"] = {
+            "account_id": normalized.get("accountIDl2", ""),
+        }
     if oanda:
         normalized["oanda"] = oanda
 

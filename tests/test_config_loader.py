@@ -66,7 +66,43 @@ paths:
     loaded = load_settings(path=valid)
 
     assert loaded.settings.live.account_id == "l-id"
+    assert loaded.settings.live_sub_account_id == "l-id"
     assert loaded.settings.discord.main == "https://example.com/main"
+
+
+def test_load_settings_live_sub_override(tmp_path: Path):
+    valid = tmp_path / "settings.yaml"
+    _write_yaml(
+        valid,
+        """
+oanda:
+  practice:
+    account_id: "p-id"
+    access_token: "p-token"
+    environment: "practice"
+  live:
+    account_id: "l-id"
+    access_token: "l-token"
+    environment: "live"
+  live_sub:
+    account_id: "l2-id"
+discord:
+  webhook_main: "https://example.com/main"
+  webhook_sub: "https://example.com/sub"
+paths:
+  log: "log.txt"
+  csv: ""
+  folder: "oanda_logs/"
+  history_folder: "oanda_logs/history/"
+  setting_folder: ""
+  inspection_data_cache_folder: ""
+""".strip(),
+    )
+
+    loaded = load_settings(path=valid)
+
+    assert loaded.settings.live.account_id == "l-id"
+    assert loaded.settings.live_sub_account_id == "l2-id"
 
 
 def test_resolve_settings_path_raises_when_not_found(tmp_path: Path, monkeypatch):

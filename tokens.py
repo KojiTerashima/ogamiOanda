@@ -32,6 +32,7 @@ environment = _settings.practice.environment
 
 # 本番環境
 accountIDl = _settings.live.account_id
+accountIDl2 = _settings.live_sub_account_id
 access_tokenl = _settings.live.access_token
 environmentl = _settings.live.environment
 

@@ -9,6 +9,9 @@ This project now loads runtime settings from YAML.
 
 `tokens.py` is now a compatibility layer that reads YAML and exposes the same names (`accountIDl`, `access_tokenl`, `line_send`, etc.).
 
+If your runtime uses a second live account (`accountIDl2`), configure it at `oanda.live_sub.account_id`.
+When omitted, `accountIDl2` automatically falls back to `oanda.live.account_id`.
+
 ## Setup
 1. Copy the template:
    - `cp settings.example.yaml settings.yaml`

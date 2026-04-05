@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Configuration Guide
+    url: ./docs/configuration.md
+    about: Please check project configuration docs before opening an issue.
