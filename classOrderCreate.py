@@ -1,5 +1,6 @@
 import fGeneric as gene
-import tokens as tk
+
+from config.notifier import Notifier, get_notifier
 
 
 class Order:
@@ -13,7 +14,8 @@ class Order:
 
     """
 
-    def __init__(self, order_json):
+    def __init__(self, order_json, notifier: Notifier | None = None):
+        self._notifier = notifier if notifier is not None else get_notifier()
         # オーダー発行用のJsonを生成する。
         self.order_json_original = order_json  # オーダー用json
         self.order_json = self.order_json_original
@@ -75,7 +77,7 @@ class Order:
             ].candle_class.cal_move_ave(1)
             self.candle_analysis = order_json["candle_analysis_class"]
         else:
-            tk.line_send("【注意】キャンドルアナリシスが添付されていない注文が発生")
+            self._notifier.notify("【注意】キャンドルアナリシスが添付されていない注文が発生")
             print("candle_analysis_classがない")
             print(order_json)
 
@@ -212,7 +214,7 @@ class Order:
             ].candle_class.cal_move_ave(1)
             self.candle_analysis = order_json["candle_analysis_class"]
         else:
-            tk.line_send(
+            self._notifier.notify(
                 "【注意】キャンドルアナリシスが添付されていない注文が発生 in updatePlan"
             )
             print("candle_analysis_classがない")

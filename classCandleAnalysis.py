@@ -4,7 +4,8 @@ from pympler import asizeof
 
 import classCandlePeaks as peaksClass
 import fGeneric as gene
-import tokens as tk
+
+from config.notifier import Notifier, get_notifier
 
 
 class _CandleAnalysisCache:
@@ -29,10 +30,11 @@ class candleAnalysis:
     def reset_cache(cls):
         cls.cache = _CandleAnalysisCache()
 
-    def __init__(self, base_oa, target_time_jp):
+    def __init__(self, base_oa, target_time_jp, notifier: Notifier | None = None):
         """
         target_time_jpまでの時間を取得する
         """
+        self._notifier = notifier if notifier is not None else get_notifier()
         # オアンダクラス
         self.base_oa = base_oa
         self.need_df_num = 250
@@ -222,7 +224,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if d5_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 d5_df_latest_bottom = d5_df_res["data"]
@@ -236,7 +238,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if d60_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("60分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("60分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 d60_df_latest_bottom = d60_df_res["data"]
@@ -250,7 +252,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if s5_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 s5_df_latest_bottom = s5_df_res["data"]
@@ -264,7 +266,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if d30_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("30分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("30分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 m30_df_latest_bottom = d30_df_res["data"]
@@ -291,7 +293,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if d5_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("5分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 d5_df_latest_bottom = d5_df_res["data"]
@@ -310,7 +312,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if d60_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("60分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("60分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 d60_df_latest_bottom = d60_df_res["data"]
@@ -325,7 +327,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if s5_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("60分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("60分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 s5_df_latest_bottom = s5_df_res["data"]
@@ -344,7 +346,7 @@ class candleAnalysis:
             )  # 時間昇順(直近が最後尾）
             if d30_df_res["error"] == -1:
                 print("error Candle")
-                tk.line_send("30分ごと調査最初のデータフレーム取得に失敗（エラー）")
+                self._notifier.notify("30分ごと調査最初のデータフレーム取得に失敗（エラー）")
                 return -1
             else:
                 m30_df_latest_bottom = d30_df_res["data"]

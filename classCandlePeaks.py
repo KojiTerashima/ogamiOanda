@@ -6,11 +6,12 @@ import pandas as pd
 
 import fGeneric as f
 import fGeneric as gene
-import tokens as tk
+
+from config.notifier import Notifier, get_notifier
 
 
 class PeaksClass:
-    def __init__(self, original_df_r, granularity):
+    def __init__(self, original_df_r, granularity, notifier: Notifier | None = None):
         """
         処理解説
         make_peakでdf_rの直近一つのブロック（Peakと呼ぶ。同方向へローソクが進む範囲のこと。）を取得する。
@@ -21,6 +22,7 @@ class PeaksClass:
         算出されたPeakは粒度が細かすぎるため、skip_peaksを使い、粒度を荒くする。
         なおこの処理が実行されるのは、渡されたデータフレームが、登録されれているデータフレームと異なる場合のみ
         """
+        self._notifier = notifier if notifier is not None else get_notifier()
         # ■■初期値の設定（Peak解析の基準）
         self.s = "     "
         # ■足の幅によって変わらない値
@@ -193,7 +195,7 @@ class PeaksClass:
 
         # たまに起きる謎のエラー対応
         if len(self.peaks_original) <= 2:
-            tk.line_send("データがうまくとれていない。", len(original_df_r), "行のみ")
+            self._notifier.notify("データがうまくとれていない。", len(original_df_r), "行のみ")
         self.skipped_peaks = self.skip_peaks()  # スキップピークの算出
         self.skipped_peaks_hard = self.skip_peaks_hard()
         self.recalculation_peak_strength_for_peaks()  # ピークストレングスの算出
