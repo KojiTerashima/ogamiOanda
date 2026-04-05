@@ -8,7 +8,16 @@ import pandas as pd
 
 import classOanda
 import fGeneric as gene
-import tokens as tk
+from config.notifier import Notifier, get_notifier
+from tokens import (
+    accountID,
+    accountIDl,
+    accountIDl2,
+    access_token,
+    access_tokenl,
+    environment,
+    environmentl,
+)
 
 
 class order_information:
@@ -53,22 +62,23 @@ class order_information:
             if self.oa_mode == 1:
                 # 通常アカウント
                 self.oa = self.oanda_factory(
-                    tk.accountIDl, tk.access_tokenl, tk.environmentl
+                        accountIDl, access_tokenl, environmentl
                 )
             else:
                 # 両建て用アカウント
                 self.oa = self.oanda_factory(
-                    tk.accountIDl2, tk.access_tokenl, tk.environmentl
+                        accountIDl2, access_tokenl, environmentl
                 )
         else:
             # デモ口座
-            self.oa = self.oanda_factory(tk.accountID, tk.access_token, tk.environment)
+                self.oa = self.oanda_factory(accountID, access_token, environment)
 
-    def __init__(self, name, is_live, filepath, oanda_factory=None):
+    def __init__(self, name, is_live, filepath, oanda_factory=None, notifier: Notifier | None = None):
+        self._notifier = notifier if notifier is not None else get_notifier()
         if oanda_factory is not None:
             self.oanda_factory = oanda_factory
         self.oa = self.oanda_factory(
-            tk.accountIDl2, tk.access_tokenl, tk.environmentl
+            accountIDl2, access_tokenl, environmentl
         )  # 仮の値
         self.oa_mode = 2  # アカウント選択（１が通常、２が両建てアカウント） 初期値は１
         self.is_live = is_live  # 本番環境か練習か（Boolean）
@@ -379,7 +389,7 @@ class order_information:
         各メソッドからsendすると、「本番環境の場合はLINE送ってPracticeの場合に送らない」が面倒くさいので、いったんここを噛ませる
         """
         if self.is_live:  # is_liveがTrueは本番（lifeと紛らわしいが、、）
-            tk.line_send(*args)
+            self._notifier.notify(*args)
         else:
             print(" 練習用送信関数")
             # 練習用であることの接頭語の追加
@@ -388,14 +398,14 @@ class order_information:
                 # 中身を編集するため、一度リストに変換
                 args_list = list(args)
                 args_list[1] = "□□□解消:"  # ぱっとわかりやすいように変更
-                tk.line_send(*tuple(args_list))
+                self._notifier.notify(*tuple(args_list))
             elif args[1] == "■■■オーダー解消":
                 # 中身を編集するため、一度リストに変換
                 args_list = list(args)
                 args_list[1] = "□□□解消:"  # ぱっとわかりやすいように変更
-                tk.line_send(*tuple(args_list))
+                self._notifier.notify(*tuple(args_list))
             else:
-                tk.line_send(*args)
+                self._notifier.notify(*args)
 
     def order_plan_registration(self, order_class):
         """
@@ -462,11 +472,11 @@ class order_information:
             self.lc_change_dic_arr = plan["lc_change"]  # 辞書を丸ごと
             # おかしいのでテスト用
             if "time_done" in self.lc_change_dic_arr[0]:
-                tk.line_send(
+                    self._notifier.notify(
                     "最初からLCChangeのDone時間が入っているNG classPosition.py ３３０行目付近"
                 )
         else:
-            tk.line_send("lcLineミス classPosition.py ３３０行目付近")
+                self._notifier.notify("lcLineミス classPosition.py ３３０行目付近")
 
         # (7)ポジションがある基準を超えている時間を継続する(デフォルトではコンストラクタで０が入る）
         if "win_lose_border_range" in plan:

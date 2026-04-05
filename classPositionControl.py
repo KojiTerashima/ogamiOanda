@@ -5,7 +5,8 @@ import classOanda
 import classPosition as classPosition  # とりあえずの関数集
 import classPositionForTest as testClassPosition
 import fGeneric as gene
-import tokens as tk
+from config.notifier import Notifier, get_notifier
+from tokens import accountIDl, accountIDl2, access_tokenl, environmentl
 
 
 class position_control:
@@ -16,7 +17,8 @@ class position_control:
     # 常に最新のデータを取得してクラス変数に入れておく（毎回の取得はしないように工夫する。（してもいい気もするけど））
 
     # 履歴ファイル
-    def __init__(self, is_live, oanda_factory=None):
+    def __init__(self, is_live, oanda_factory=None, notifier: Notifier | None = None):
+        self._notifier = notifier if notifier is not None else get_notifier()
         self.result_class_arr = deque(maxlen=10)
         self.oanda_factory = oanda_factory or classOanda.Oanda
 
@@ -24,11 +26,11 @@ class position_control:
         self.u = 3
         self.position_classes = []
         self.count_true = 0
-        self.oa = self.oanda_factory(tk.accountIDl, tk.access_tokenl, tk.environmentl)
+        self.oa = self.oanda_factory(accountIDl, access_tokenl, environmentl)
         self.oa2 = self.oanda_factory(
-            tk.accountIDl2,
-            tk.access_tokenl,
-            tk.environmentl,
+            accountIDl2,
+            access_tokenl,
+            environmentl,
         )
 
         self.peaks_class = ""  # クラスアップデートの時に利用する（ポジションクラスに引数として渡すため）
@@ -133,7 +135,7 @@ class position_control:
             print(" プログラム上既存のオーダーは存在しないため、オーダー発行へ")
             pass
         elif len(alive_classes) == len(allowed_position_slot):
-            tk.line_send(
+            self._notifier.notify(
                 "許容スロットがいっぱい（オーダー発行せず)",
                 len(alive_classes),
                 len(allowed_position_slot),
@@ -141,7 +143,7 @@ class position_control:
             self.print_classes_and_count()
             return 0
         elif len(order_classes) + len(alive_classes) > len(allowed_position_slot):
-            tk.line_send(
+            self._notifier.notify(
                 "オーダー入れるとオーバーフロー（オーダー発行せず)",
                 len(order_classes),
                 len(alive_classes),
@@ -443,7 +445,7 @@ class position_control:
                     # tk.line_send(" 謎の状態(分岐前）　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:", item.name, ",life=", item.life, ",try_num", item.try_update_num)
                     if item.try_update_num <= item.try_update_limit:
                         # まだ何回か確認するまで、LifeはFalseにしない
-                        tk.line_send(
+                        self._notifier.notify(
                             " 謎の状態　t_state=",
                             item.t_state,
                             ",o_state=",
@@ -459,7 +461,7 @@ class position_control:
                         item.count_up_position_check()  # 対象ポジションのtry_update_numをカウントアップする
                     else:
                         item.life_set(False)  # 強制的にクローズ
-                        tk.line_send(
+                        self._notifier.notify(
                             " 謎の状態　t_state=",
                             item.t_state,
                             ",o_state=",
@@ -738,7 +740,7 @@ class position_control:
                                 left_position_take_price = left_position.plan_json[
                                     "target_price"
                                 ]
-                                tk.line_send(
+                                self._notifier.notify(
                                     "classPosition477テスト", left_position_take_price
                                 )
                                 print(
@@ -766,17 +768,18 @@ class position_control:
 
 
 class position_control_for_test(position_control):
-    def __init__(self, is_live, filename, oanda_factory=None):
+    def __init__(self, is_live, filename, oanda_factory=None, notifier: Notifier | None = None):
         # 変数の宣言
         print("test用　positioncontorol")
+        self._notifier = notifier if notifier is not None else get_notifier()
         self.oanda_factory = oanda_factory or classOanda.Oanda
         self.position_classes = []
         self.count_true = 0
-        self.oa = self.oanda_factory(tk.accountIDl, tk.access_tokenl, tk.environmentl)
+        self.oa = self.oanda_factory(accountIDl, access_tokenl, environmentl)
         self.oa2 = self.oanda_factory(
-            tk.accountIDl2,
-            tk.access_tokenl,
-            tk.environmentl,
+            accountIDl2,
+            access_tokenl,
+            environmentl,
         )
         self.filename = filename
         # self.temp_file_name = memo
