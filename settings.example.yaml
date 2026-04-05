@@ -1,0 +1,21 @@
+oanda:
+  practice:
+    account_id: ""
+    access_token: ""
+    environment: "practice"
+  live:
+    account_id: ""
+    access_token: ""
+    environment: "live"
+
+discord:
+  webhook_main: ""
+  webhook_sub: ""
+
+paths:
+  log: "log.txt"
+  csv: ""
+  folder: "oanda_logs/"
+  history_folder: "oanda_logs/history/"
+  setting_folder: ""
+  inspection_data_cache_folder: ""
