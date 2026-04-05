@@ -5,7 +5,7 @@ import pandas as pd
 import classOanda as oanda_class
 import fGeneric as f
 from config.notifier import get_notifier
-from tokens import accountIDl2, access_tokenl, folder_path
+from tokens import access_tokenl, accountIDl2, folder_path
 
 _NOTIFIER = get_notifier()
 

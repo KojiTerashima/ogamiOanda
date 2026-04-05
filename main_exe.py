@@ -10,7 +10,7 @@ import classPositionControl as classPositionControl
 import fAnalysis_order_Main as am
 import fGeneric as f
 from config.notifier import get_notifier
-from tokens import accountIDl2, access_tokenl, environmentl
+from tokens import access_tokenl, accountIDl2, environmentl
 
 
 class main:

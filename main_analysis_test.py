@@ -3,7 +3,7 @@ import datetime
 import classCandleAnalysis as ca
 import classOanda as oanda_class
 import fAnalysis_order_Main as am
-from tokens import accountIDl2, access_tokenl, folder_path
+from tokens import access_tokenl, accountIDl2, folder_path
 
 # グローバルでの宣言
 oa = oanda_class.Oanda(accountIDl2, access_tokenl, "live")  # クラスの定義
