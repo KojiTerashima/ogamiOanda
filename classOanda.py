@@ -21,7 +21,7 @@ from oandapyV20.endpoints.pricing import PricingInfo
 from oandapyV20.endpoints.trades import OpenTrades, TradeClose, TradeCRCDO, TradeDetails
 
 import classOandaSupport as oanda_support
-import tokens as tk  # エラーをLINEするため。。
+from config.notifier import Notifier, get_notifier
 
 
 class Oanda:
@@ -63,10 +63,11 @@ class Oanda:
     #  cal_past_time_single：経過時間の算出
     #  等の関数有
 
-    def __init__(self, accountID, access_token, env):
+    def __init__(self, accountID, access_token, env, notifier: Notifier | None = None):
         self.accountID = accountID  # インスタンス生成時に、引数で受け取る
         self.access_token = access_token  # インスタンス生成時に、引数で受け取る
         self.environment = env  # インスタンス生成時に、引数で受け取る
+        self._notifier: Notifier = notifier if notifier is not None else get_notifier()
         self.api = API(
             access_token=access_token, environment=self.environment
         )  # API基盤の準備
@@ -294,7 +295,7 @@ class Oanda:
             if "orderCancelTransaction" in res_json:
                 print("   ■■■OrderCANCELあり(エラーによるorderReject)")
                 print(res_json)
-                tk.line_send("オーダーエラー", res_json)
+                self._notifier.notify("オーダーエラー", res_json)
                 canceled = True
                 order_id = 0
                 order_time = 0
@@ -1086,7 +1087,7 @@ class Oanda:
         # エラーの種類によって表示やLINE送信を行う。
         if "OrderDetail" in name and not self.already_error_send1:
             self.already_error_send1 = True  # 一度きりの送信
-            tk.line_send("おかしなオーダーdetailエラー発生⇒", e)
+            self._notifier.notify("おかしなオーダーdetailエラー発生⇒", e)
 
         # if name == "価格情報取得":
         #     print(e)
@@ -1094,7 +1095,7 @@ class Oanda:
         if past_sec > 10:
             print("   時間切れエラー？")
         elif name == "オーダー" or name == "TradeClose":
-            tk.line_send("オーダーエラー")
+            self._notifier.notify("オーダーエラー")
         else:
             pass
             # tk.line_send("エラー")

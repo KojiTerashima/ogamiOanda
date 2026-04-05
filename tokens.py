@@ -2,7 +2,6 @@ import datetime  # 時刻の取得用
 from pathlib import Path
 
 import pandas as pd
-import requests  # Line送信用
 
 from config.loader import (
     DEFAULT_SETTINGS_FILE,
@@ -10,6 +9,7 @@ from config.loader import (
     SettingsFileNotFoundError,
     load_settings,
 )
+from config.notifier import DiscordNotifier as _DiscordNotifier
 from config.schema import SettingsValidationError
 
 try:
@@ -35,59 +35,22 @@ accountIDl = _settings.live.account_id
 access_tokenl = _settings.live.access_token
 environmentl = _settings.live.environment
 
-# DiscordURL
+# DiscordURL (後方互換のため公開変数として維持)
 WEBHOOK_URL_main = _settings.discord.main
 WEBHOOK_URL_sub = _settings.discord.sub
 
+# 通知はDiscordNotifierに委譲
+_notifier = _DiscordNotifier(WEBHOOK_URL_main, WEBHOOK_URL_sub)
+
 
 def line_send(*msg):
-    # 関数は可変複数のコンマ区切りの引数を受け付ける
-    message = ""
-    # 複数の引数を一つにする（数字が含まれる場合があるため、STRで文字化しておく）
-    for item in msg:
-        message = message + " " + str(item)
-    # 時刻の表示を作成する
-    now_str = f"{datetime.datetime.now():%Y/%m/%d %H:%M:%S}"
-    day = now_str[5:10]  # 01/01
-    time = now_str[11:19]  # 09:10
-    day_time = " (" + day + "_" + time + ")"
-    # メッセージの最後尾に付ける
-    message = message + day_time
-
-    if len(message) >= 2000:
-        print("@@文字オーバー")
-        message = (
-            "Discord受信許容文字数オーバー" + str(len(message)) + "@" + message[:50]
-        )
-
-    # ■■■  通常のDiscord送信　■■■　　最悪これ以下だけあればいい
-    WEBHOOK_URL = WEBHOOK_URL_main
-    data = {
-        "content": "@everyone " + message,
-        "allowed_mentions": {"parse": ["everyone"]},
-    }
-    requests.post(WEBHOOK_URL, json=data)
-
-    # ■Discord2 共有サーバーに送付(テストなので25/8には消去)
-    line_to_friend(
-        message
-    )  # オプション（オーダーと結果のみを送信する。人に送りたくなければなくて負い）
-
-    # ■コマンドラインに表示
-    print("     [Disc]", message)  # コマンドラインにも表示
+    """後方互換の通知ラッパー。内部では DiscordNotifier.notify を呼び出す。"""
+    _notifier.notify(*msg)
 
 
 def line_to_friend(meg):
-    """
-    メッセージを受け取り、内容によって共有のDiscordに通知を送信する
-    """
-    if "■■■解消:" in meg or "★オーダー発行" in meg or "test from Webfook" in meg:
-        # 指定の文字を含む場合のみ、送信
-        WEBHOOK_URL = WEBHOOK_URL_sub
-        data = {"content": meg}
-        requests.post(WEBHOOK_URL, json=data)
-    else:
-        pass
+    """後方互換ラッパー。現在は line_send / DiscordNotifier 内で処理済み。"""
+    pass  # サブch転送は DiscordNotifier.notify 内で実施
 
 
 def f_write(path, msg):
