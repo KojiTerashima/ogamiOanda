@@ -8,7 +8,6 @@ import pandas as pd
 
 import classOanda
 import fGeneric as gene
-import tokens as tk  # TODO CFG-05: 残存tk.line_sendをself._notifier.notifyに置換後に削除
 from config.notifier import Notifier, get_notifier
 from tokens import (
     access_token,
@@ -18,6 +17,7 @@ from tokens import (
     accountIDl2,
     environment,
     environmentl,
+    history_folder_path,
 )
 
 
@@ -1070,7 +1070,7 @@ class order_information:
 
         # 共通処理
         # ①共通処理（ファイルへの書き込み）
-        history_path = tk.history_folder_path + "history.csv"
+        history_path = history_folder_path + "history.csv"
         try:
             # ファイル書き込み
             if not os.path.exists(history_path):
@@ -1350,7 +1350,7 @@ class order_information:
                     "move_ave60": self.move_ave60,
                     "memo": "Order強制キャンセル",
                 }
-                history_path = tk.history_folder_path + "history.csv"
+                history_path = history_folder_path + "history.csv"
                 try:
                     # ファイル書き込み
                     if not os.path.exists(history_path):
@@ -1447,7 +1447,7 @@ class order_information:
         # [分岐]初期にオーダー確定しない場合は、life=Trueだがオーダー等がない。
         if self.waiting_order:
             if candle_analysis_class is None:
-                tk.line_send("waitingにキャンドルが渡されていない")
+                self._notifier.notify("waitingにキャンドルが渡されていない")
             self.watching_for_position(candle_analysis_class)
             return 0
 
@@ -1472,7 +1472,7 @@ class order_information:
                         and self.o_id == self.update_information_error_o_id
                     ):
                         # 3回以上、同じIDでエラーが発生している場合、キャンセル
-                        tk.line_send(
+                        self._notifier.notify(
                             "オーダーDetailエラー(繰り返し)⇒Orderクローズ", self.o_id
                         )
                         self.close_order()
@@ -1512,7 +1512,7 @@ class order_information:
                         # ただし、tradeCloseIDsもある場合は、このオーダーが他のオーダーを相殺した場合に発生する項目
                         # ★トレード有かつ相殺有の場合は、このオーダーがトレードよりも多いユニット注文があったことを意味する。
                         #  その為、オーダーのユニットの一部が相殺され、残るユニットがトレードとして存在する（その為Lifeを消さない）
-                        tk.line_send(
+                        self._notifier.notify(
                             "■■■オーダー解消（このオーダーは他のトレードを相殺＆残存ユニットのトレードへ↓）",
                             self.name,
                             "(",
@@ -1546,7 +1546,7 @@ class order_information:
                     # print("トレード")
                     # print(trade_latest)
                     # 以下相殺発生分のみの情報に置き換え
-                    tk.line_send(
+                    self._notifier.notify(
                         "■■■オーダー解消（相殺で消滅）",
                         self.name,
                         "(",
@@ -1580,7 +1580,7 @@ class order_information:
                     # tradeCloseIDsがある場合は、このオーダーが他のオーダーを相殺した場合に発生する項目
                     # ★この場合は、このオーダーでの通知（クローズ処理）は実施不要で、Lifeをクローズにする
                     self.life_set(False)
-                    tk.line_send(
+                    self._notifier.notify(
                         "■■■オーダー解消（このオーダーは他のトレードと完全相殺し終了）",
                         self.name,
                         "(",
@@ -1664,7 +1664,7 @@ class order_information:
         # [分岐]初期にオーダー確定しない場合は、life=Trueだがオーダー等がない。
         if self.waiting_order:
             if candle_analysis_class is None:
-                tk.line_send("waitingにキャンドルが渡されていない")
+                self._notifier.notify("waitingにキャンドルが渡されていない")
             self.watching_for_position(candle_analysis_class)
             return 0
 
@@ -1689,7 +1689,7 @@ class order_information:
                         and self.o_id == self.update_information_error_o_id
                     ):
                         # 3回以上、同じIDでエラーが発生している場合、キャンセル
-                        tk.line_send(
+                        self._notifier.notify(
                             "オーダーDetailエラー(繰り返し)⇒Orderクローズ", self.o_id
                         )
                         self.close_order()
@@ -1729,7 +1729,7 @@ class order_information:
                         # ただし、tradeCloseIDsもある場合は、このオーダーが他のオーダーを相殺した場合に発生する項目
                         # ★トレード有かつ相殺有の場合は、このオーダーがトレードよりも多いユニット注文があったことを意味する。
                         #  その為、オーダーのユニットの一部が相殺され、残るユニットがトレードとして存在する（その為Lifeを消さない）
-                        tk.line_send(
+                        self._notifier.notify(
                             "■■■オーダー解消（このオーダーは他のトレードを相殺＆残存ユニットのトレードへ↓）",
                             self.name,
                             "(",
@@ -1763,7 +1763,7 @@ class order_information:
                     # print("トレード")
                     # print(trade_latest)
                     # 以下相殺発生分のみの情報に置き換え
-                    tk.line_send(
+                    self._notifier.notify(
                         "■■■オーダー解消（相殺で消滅）",
                         self.name,
                         "(",
@@ -1797,7 +1797,7 @@ class order_information:
                     # tradeCloseIDsがある場合は、このオーダーが他のオーダーを相殺した場合に発生する項目
                     # ★この場合は、このオーダーでの通知（クローズ処理）は実施不要で、Lifeをクローズにする
                     self.life_set(False)
-                    tk.line_send(
+                    self._notifier.notify(
                         "■■■オーダー解消（このオーダーは他のトレードと完全相殺し終了）",
                         self.name,
                         "(",
@@ -3202,7 +3202,7 @@ def position_check_no_args():
                 # tk.line_send(" 謎の状態(分岐前）　t_state=", item.t_state, ",o_state=", item.o_state, ", 名前:", item.name, ",life=", item.life, ",try_num", item.try_update_num)
                 if item.try_update_num <= item.try_update_limit:
                     # まだ何回か確認するまで、LifeはFalseにしない
-                    tk.line_send(
+                    item._notifier.notify(
                         " 謎の状態　t_state=",
                         item.t_state,
                         ",o_state=",
@@ -3218,7 +3218,7 @@ def position_check_no_args():
                     item.count_up_position_check()  # 対象ポジションのtry_update_numをカウントアップする
                 else:
                     item.life_set(False)  # 強制的にクローズ
-                    tk.line_send(
+                    item._notifier.notify(
                         " 謎の状態　t_state=",
                         item.t_state,
                         ",o_state=",
