@@ -4,10 +4,13 @@ import pandas as pd
 
 import classOanda as oanda_class
 import fGeneric as f
-import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
+from config.notifier import get_notifier
+from tokens import accountIDl2, access_tokenl, folder_path
+
+_NOTIFIER = get_notifier()
 
 # グローバルでの宣言
-oa = oanda_class.Oanda(tk.accountIDl2, tk.access_tokenl, "live")  # クラスの定義
+oa = oanda_class.Oanda(accountIDl2, access_tokenl, "live")  # クラスの定義
 print(oa.NowPrice_exe("USD_JPY"))
 gl_start_time = datetime.datetime.now()
 gl_now = datetime.datetime.now().replace(microsecond=0)  # 現在の時刻を取得
@@ -25,7 +28,7 @@ gl_now_str = (
 date_num_view = 30
 date_num_pivot = 100
 # 生データ送信
-path = tk.folder_path + "history.csv"
+path = folder_path + "history.csv"
 temp = pd.read_csv(path)
 df_part = temp.tail(date_num_view)
 df_part = df_part[~df_part["name"].str.contains("既存", na=False)]
@@ -46,11 +49,11 @@ for _, row in df_part.iterrows():
 lines.append(f"{a_sum:>{max_width}}, 合計, -")
 output_str = "\n".join(lines)
 print(output_str)
-tk.line_send("■■■検証期間LONG:", "\n", output_str)
+_NOTIFIER.notify("■■■検証期間LONG:", "\n", output_str)
 
 # pivot送信
 # ピボット：A列でまとめ、resは合計、woは件数（count）
-path = tk.folder_path + "history.csv"
+path = folder_path + "history.csv"
 temp = pd.read_csv(path)
 df_part = temp.tail(date_num_pivot)
 df_part = df_part[~df_part["name"].str.contains("既存", na=False)]
@@ -70,4 +73,4 @@ for _, row in summary.iterrows():
     lines.append(line)
 
 pivot_str = "\n".join(lines)
-tk.line_send("■■■検証期間LONG:", "\n", pivot_str)
+_NOTIFIER.notify("■■■検証期間LONG:", "\n", pivot_str)

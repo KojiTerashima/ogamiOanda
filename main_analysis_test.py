@@ -3,10 +3,10 @@ import datetime
 import classCandleAnalysis as ca
 import classOanda as oanda_class
 import fAnalysis_order_Main as am
-import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
+from tokens import accountIDl2, access_tokenl, folder_path
 
 # グローバルでの宣言
-oa = oanda_class.Oanda(tk.accountIDl2, tk.access_tokenl, "live")  # クラスの定義
+oa = oanda_class.Oanda(accountIDl2, access_tokenl, "live")  # クラスの定義
 print(oa.NowPrice_exe("USD_JPY"))
 gl_start_time = datetime.datetime.now()
 gl_now = datetime.datetime.now().replace(microsecond=0)  # 現在の時刻を取得
@@ -59,7 +59,7 @@ def main():
     # データの成型と表示
     df = gl_candleAnalysisClass.d5_df_r  # data部のみを取得
     df.to_csv(
-        tk.folder_path + "main_analysis_original_data.csv",
+        folder_path + "main_analysis_original_data.csv",
         index=False,
         encoding="utf-8",
     )  # 直近保存用

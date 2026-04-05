@@ -2,13 +2,12 @@ import statistics
 from datetime import datetime
 
 import pandas as pd
-import requests
 from pympler import asizeof
 
 import classOrderCreate as OCreate
 import fGeneric as gene
-import tokens as tk
 import turn_analysis_core as ta_core
+from config.notifier import get_notifier
 
 
 class _AnalysisRuntimeState:
@@ -22,6 +21,7 @@ class _AnalysisRuntimeState:
 
 
 runtime_state = _AnalysisRuntimeState()
+_NOTIFIER = get_notifier()
 
 
 class MainAnalysis:
@@ -36,6 +36,7 @@ class MainAnalysis:
             from_i = 1
             from_i_price = 1
         self.position_control_class = position_control_class
+        self._notifier = _NOTIFIER
         self.line_send_exe = runtime_state.line_send_enabled
         self.line_send_mes = ""
         self.s = "    "
@@ -322,7 +323,7 @@ class MainAnalysis:
             "content": "@everyone " + message,
             "allowed_mentions": {"parse": ["everyone"]},
         }
-        requests.post(tk.WEBHOOK_URL_main, json=data)
+        self._notifier.notify(data["content"])
         print("     [Disc]", message)  # コマンドラインにも表示
 
     def add_order_to_this_class(self, order_class):
@@ -1148,7 +1149,7 @@ class MainAnalysis:
 
         #
         if exist_res:
-            tk.line_send(exist_res_com)
+            self.line_send(exist_res_com)
 
         # レンジに入ったと思われる場合
         print(
@@ -1176,7 +1177,7 @@ class MainAnalysis:
             and peaks[2]["count"] <= 3
             and peaks[2]["gap"] <= gap_border
         ):
-            tk.line_send("Rangeの危険性あり")
+            self.line_send("Rangeの危険性あり")
             return 0
 
         # 当初の、Latestの方向にそのまま行くやつ
@@ -1855,7 +1856,7 @@ class MainAnalysis:
 
         #
         if exist_res:
-            tk.line_send(exist_res_com)
+            self.line_send(exist_res_com)
 
         # レンジに入ったと思われる場合
         print(
@@ -1883,7 +1884,7 @@ class MainAnalysis:
             and peaks[2]["count"] <= 3
             and peaks[2]["gap"] <= gap_border
         ):
-            tk.line_send("Rangeの危険性あり")
+            self.line_send("Rangeの危険性あり")
             return 0
 
         # 当初の、Latestの方向にそのまま行くやつ
@@ -1965,6 +1966,7 @@ class BaseAnalysisClass:
         print(" ")
         print(" ★★ターンアナリシス")
         # ■■■基本情報の取得
+        self._notifier = _NOTIFIER
         self.line_send_exe = runtime_state.line_send_enabled
         self.line_send_mes = ""
         self.s = "    "
@@ -2002,7 +2004,7 @@ class BaseAnalysisClass:
             "content": "@everyone " + message,
             "allowed_mentions": {"parse": ["everyone"]},
         }
-        requests.post(tk.WEBHOOK_URL_main, json=data)
+        self._notifier.notify(data["content"])
         print("     [Disc]", message)  # コマンドラインにも表示
 
     def add_order_to_this_class(self, order_class):

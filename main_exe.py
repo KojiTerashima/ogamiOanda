@@ -9,18 +9,16 @@ import classPosition as classPosition  # とりあえずの関数集
 import classPositionControl as classPositionControl
 import fAnalysis_order_Main as am
 import fGeneric as f
-
-# 自作ファイルインポート
-import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
+from config.notifier import get_notifier
+from tokens import accountIDl2, access_tokenl, environmentl
 
 
 class main:
     def __init__(self):
         print("Mainインスタンスの生成")
-        self.base_oa = classOanda.Oanda(
-            tk.accountIDl2, tk.access_tokenl, tk.environmentl
-        )
-        self.exe_mode = tk.environmentl
+        self._notifier = get_notifier()
+        self.base_oa = classOanda.Oanda(accountIDl2, access_tokenl, environmentl)
+        self.exe_mode = environmentl
 
         # ■変数の宣言
         # 変更なし群
@@ -61,7 +59,7 @@ class main:
         # ■■■処理の開始
         # ■ポジションクラスの生成
         self.positions_control_class = classPositionControl.position_control(
-            True
+            True, notifier=self._notifier
         )  # ポジションリストの用意
         # self.positions_control_class.reset_all_position()  # 開始時は全てのオーダーを解消し、初期アップデートを行う
         self.positions_control_class.reset_all_position()
@@ -153,9 +151,9 @@ class main:
             [order_class, order_class2]
         )
         if exe_res == 0:
-            tk.line_send(" オーダー発行失敗　main 131")
+            self._notifier.notify(" オーダー発行失敗　main 131")
         else:
-            tk.line_send(
+            self._notifier.notify(
                 "★★★オーダー発行",
                 "ForceOrder回目: ",
                 " 　　　",
@@ -209,7 +207,7 @@ class main:
                 pass
                 # tk.line_send(" オーダー発行せず　or 失敗　main 175")
             else:
-                tk.line_send(
+                self._notifier.notify(
                     "★★★オーダー発行",
                     self.trade_num,
                     "回目: ",
@@ -344,7 +342,7 @@ class main:
         else:
             # ■　初回だけ実行と同時に行う特殊処理
             print("■■■初回", self.exe_mode)  # 表示用（実行時）
-            tk.line_send("start")
+            self._notifier.notify("start")
 
             # 現時刻を使う
             self.candleAnalysisClass = ca.candleAnalysis(
