@@ -10,9 +10,10 @@ import classOanda
 import fGeneric as gene
 from config.notifier import Notifier, get_notifier
 from config.runtime_accounts import RuntimeAccountConfig
+from position_core import PositionCoreMixin
 
 
-class order_information:
+class order_information(PositionCoreMixin):
     oanda_factory = classOanda.Oanda
     total_yen = 0  # トータルの円
     total_yen_max = 0  # これは０以上を検出したいので、float(-inf)ではNG
@@ -47,31 +48,7 @@ class order_information:
     # 結果一覧送信時、その行数指定
     result_row = 7  # 過去10回分の結果を送信
 
-    def select_oa(self, oa_mode):
-        # print("SelectMode", oa_mode)
-        self.oa_mode = oa_mode
-        if self.is_live:
-            if self.oa_mode == 1:
-                # 通常アカウント
-                self.oa = self.oanda_factory(
-                        self.account_config.live_account_id,
-                        self.account_config.live_access_token,
-                        self.account_config.live_environment,
-                )
-            else:
-                # 両建て用アカウント
-                self.oa = self.oanda_factory(
-                        self.account_config.live_sub_account_id,
-                        self.account_config.live_access_token,
-                        self.account_config.live_environment,
-                )
-        else:
-            # デモ口座
-                self.oa = self.oanda_factory(
-                    self.account_config.practice_account_id,
-                    self.account_config.practice_access_token,
-                    self.account_config.practice_environment,
-                )
+    # select_oa → PositionCoreMixin から継承
 
     def __init__(
         self,
@@ -333,90 +310,8 @@ class order_information:
         # 調査結果も保有する
         self.ca = None  # CandleAnalysisの格納
 
-    def print_info(self):
-        print("   <表示>", self.name, datetime.datetime.now().replace(microsecond=0))
-        print("　 【life】", self.life)
-        print("   【name】", self.name)
-        print("   【order_permission】", self.order_permission)
-        print("   【plan】", self.plan_json)
-        print(
-            "   【order1】", self.o_id, self.o_time, self.o_state, self.o_time_past_sec
-        )
-        print(
-            "   【trade1】",
-            self.t_id,
-            self.t_execution_price,
-            self.t_type,
-            self.t_initial_units,
-            self.t_current_units,
-        )
-        print("   【trade1】", self.t_time, self.t_time_past_sec)
-        print(
-            "   【trade2】",
-            self.t_state,
-            self.t_realize_pl,
-            self.t_close_time,
-            self.t_close_price,
-        )
-
-    def print_info_short(self):
-        print("   <表示>", self.name, datetime.datetime.now().replace(microsecond=0))
-        print("　 【life】", self.life)
-        print("   【name】", self.name)
-        print(
-            "   【order1】", self.o_id, self.o_time, self.o_state, self.o_time_past_sec
-        )
-        print(
-            "   【trade1】",
-            self.t_id,
-            self.t_initial_units,
-            self.t_current_units,
-            self.t_execution_price,
-        )
-        print("   【trade1】", self.t_unrealize_pl, self.t_pl_u, self.t_time_past_sec)
-
-    def life_set(self, boo):
-        self.life = boo
-        if boo:
-            pass
-        else:
-            # Life終了時（＝能動オーダークローズ、能動ポジションクローズ、市場で発生した成り行きのポジションクローズで発動）
-            print(" LIFE 終了", self.name)
-            # self.output_res()  # 解析用にポジション情報を収集しておく
-
-    def count_up_position_check(self):
-        """
-        オーダーが謎な状態になる（Class外関数のposition_check関数で）
-        時間的に、登録⇒チェックのタイミングが、単発的におかしくなっていると推定。
-        従来、謎な状態を検知した時点で、LifeをFalseにしていたが、何回かposition_checkで実行する
-        この関数は、外部から、そのトライの回数をポジションごとにカウントアップする物
-        """
-        if self.life:
-            self.try_update_num = self.try_update_num + 1
-
-    def send_line(self, *args):
-        """
-        元々定義していなかった。
-        各メソッドからsendすると、「本番環境の場合はLINE送ってPracticeの場合に送らない」が面倒くさいので、いったんここを噛ませる
-        """
-        if self.is_live:  # is_liveがTrueは本番（lifeと紛らわしいが、、）
-            self._notifier.notify(*args)
-        else:
-            print(" 練習用送信関数")
-            # 練習用であることの接頭語の追加
-            args = ("☆☆練習環境:",) + args
-            if args[1] == "■■■解消:":
-                # 中身を編集するため、一度リストに変換
-                args_list = list(args)
-                args_list[1] = "□□□解消:"  # ぱっとわかりやすいように変更
-                self._notifier.notify(*tuple(args_list))
-            elif args[1] == "■■■オーダー解消":
-                # 中身を編集するため、一度リストに変換
-                args_list = list(args)
-                args_list[1] = "□□□解消:"  # ぱっとわかりやすいように変更
-                self._notifier.notify(*tuple(args_list))
-            else:
-                self._notifier.notify(*args)
+    # --- print_info / print_info_short / life_set / count_up_position_check
+    # --- send_line / updateWinLoseTime / select_oa  →  PositionCoreMixin から継承
 
     def order_plan_registration(self, order_class):
         """
@@ -1052,34 +947,7 @@ class order_information:
         検証専用
         """
 
-    def updateWinLoseTime(self, new_pl):
-        """
-        最新の勝ち負け情報（PLu)を渡される。
-        :param new_pl:
-        :return:
-        """
-        # (1)pip情報の推移を記録する(プラス域維持時間とマイナス維持時間を求める）
-        if new_pl >= self.win_lose_border_range:  # 今回プラス域である場合
-            self.lose_hold_time_sec = (
-                0  # Lose継続時間は必ず０に初期化（すでに０の場合もあるけれど）
-            )
-            if self.t_pl_u <= 0:  # 前回がマイナスだった場合
-                self.win_hold_time_sec = 0  # ０を入れるだけ（Win計測スタート地点）
-            else:
-                # 前回もプラスの場合
-                self.win_hold_time_sec += 2  # 前回もプラスの場合、継続時間をプラスする（実行スパンが２秒ごとの為＋２）
-        elif new_pl < self.win_lose_border_range:  # 今回マイナス域である場合
-            self.win_hold_time_sec = 0  # Win継続時間は必ず０に初期化
-            if self.t_pl_u >= 0:  # 前回がマイナスだった場合
-                self.lose_hold_time_sec = 0  # ０を入れるだけ（Lose計測スタート地点）
-            else:
-                self.lose_hold_time_sec += 2  # 前回もマイナスの場合、継続時間をプラスする（実行スパンが２秒ごとの為＋２）
-
-        # (2)プラスマイナスの最大値情報を取得しておく
-        if self.lose_max_plu > self.t_pl_u:  # 最小値更新時
-            self.lose_max_plu = self.t_pl_u
-        if self.win_max_plu < self.t_pl_u:  # 最大値更新時
-            self.win_max_plu = self.t_pl_u
+    # updateWinLoseTime は PositionCoreMixin から継承
 
     def detect_change(self, target_5s_row):
         """
