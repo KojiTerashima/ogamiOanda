@@ -10,13 +10,33 @@ import classPositionControl as classPositionControl
 import fAnalysis_order_Main as am
 import fGeneric as f
 from config.notifier import get_notifier
-from tokens import access_tokenl, accountIDl2, environmentl
+from config.runtime_accounts import RuntimeAccountConfig
+from tokens import (
+    access_token,
+    access_tokenl,
+    accountID,
+    accountIDl,
+    accountIDl2,
+    environment,
+    environmentl,
+    history_folder_path,
+)
 
 
 class main:
     def __init__(self):
         print("Mainインスタンスの生成")
         self._notifier = get_notifier()
+        self.account_config = RuntimeAccountConfig.from_legacy_values(
+            practice_account_id=accountID,
+            practice_access_token=access_token,
+            practice_environment=environment,
+            live_account_id=accountIDl,
+            live_sub_account_id=accountIDl2,
+            live_access_token=access_tokenl,
+            live_environment=environmentl,
+            history_folder_path=history_folder_path,
+        )
         self.base_oa = classOanda.Oanda(accountIDl2, access_tokenl, environmentl)
         self.exe_mode = environmentl
 
@@ -59,7 +79,9 @@ class main:
         # ■■■処理の開始
         # ■ポジションクラスの生成
         self.positions_control_class = classPositionControl.position_control(
-            True, notifier=self._notifier
+            True,
+            account_config=self.account_config,
+            notifier=self._notifier,
         )  # ポジションリストの用意
         # self.positions_control_class.reset_all_position()  # 開始時は全てのオーダーを解消し、初期アップデートを行う
         self.positions_control_class.reset_all_position()

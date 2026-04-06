@@ -6,7 +6,7 @@ import classPosition as classPosition  # とりあえずの関数集
 import classPositionForTest as testClassPosition
 import fGeneric as gene
 from config.notifier import Notifier, get_notifier
-from tokens import access_tokenl, accountIDl, accountIDl2, environmentl
+from config.runtime_accounts import RuntimeAccountConfig
 
 
 class position_control:
@@ -17,8 +17,15 @@ class position_control:
     # 常に最新のデータを取得してクラス変数に入れておく（毎回の取得はしないように工夫する。（してもいい気もするけど））
 
     # 履歴ファイル
-    def __init__(self, is_live, oanda_factory=None, notifier: Notifier | None = None):
+    def __init__(
+        self,
+        is_live,
+        account_config: RuntimeAccountConfig,
+        oanda_factory=None,
+        notifier: Notifier | None = None,
+    ):
         self._notifier = notifier if notifier is not None else get_notifier()
+        self.account_config = account_config
         self.result_class_arr = deque(maxlen=10)
         self.oanda_factory = oanda_factory or classOanda.Oanda
 
@@ -26,11 +33,15 @@ class position_control:
         self.u = 3
         self.position_classes = []
         self.count_true = 0
-        self.oa = self.oanda_factory(accountIDl, access_tokenl, environmentl)
+        self.oa = self.oanda_factory(
+            self.account_config.live_account_id,
+            self.account_config.live_access_token,
+            self.account_config.live_environment,
+        )
         self.oa2 = self.oanda_factory(
-            accountIDl2,
-            access_tokenl,
-            environmentl,
+            self.account_config.live_sub_account_id,
+            self.account_config.live_access_token,
+            self.account_config.live_environment,
         )
 
         self.peaks_class = ""  # クラスアップデートの時に利用する（ポジションクラスに引数として渡すため）
@@ -60,6 +71,7 @@ class position_control:
                 classPosition.order_information(
                     new_name,
                     is_live,
+                    account_config=self.account_config,
                     oanda_factory=self.oanda_factory,
                 )
             )  # 順思想のオーダーを入れるクラス
@@ -763,18 +775,30 @@ class position_control:
 
 
 class position_control_for_test(position_control):
-    def __init__(self, is_live, filename, oanda_factory=None, notifier: Notifier | None = None):
+    def __init__(
+        self,
+        is_live,
+        filename,
+        account_config: RuntimeAccountConfig,
+        oanda_factory=None,
+        notifier: Notifier | None = None,
+    ):
         # 変数の宣言
         print("test用　positioncontorol")
         self._notifier = notifier if notifier is not None else get_notifier()
+        self.account_config = account_config
         self.oanda_factory = oanda_factory or classOanda.Oanda
         self.position_classes = []
         self.count_true = 0
-        self.oa = self.oanda_factory(accountIDl, access_tokenl, environmentl)
+        self.oa = self.oanda_factory(
+            self.account_config.live_account_id,
+            self.account_config.live_access_token,
+            self.account_config.live_environment,
+        )
         self.oa2 = self.oanda_factory(
-            accountIDl2,
-            access_tokenl,
-            environmentl,
+            self.account_config.live_sub_account_id,
+            self.account_config.live_access_token,
+            self.account_config.live_environment,
         )
         self.filename = filename
         # self.temp_file_name = memo
@@ -805,6 +829,7 @@ class position_control_for_test(position_control):
                     new_name,
                     is_live,
                     filename,
+                    account_config=self.account_config,
                     oanda_factory=self.oanda_factory,
                 )
             )  # 順思想のオーダーを入れるクラス

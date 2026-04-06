@@ -9,15 +9,7 @@ import pandas as pd
 import classOanda
 import fGeneric as gene
 from config.notifier import Notifier, get_notifier
-from tokens import (
-    access_token,
-    access_tokenl,
-    accountID,
-    accountIDl,
-    accountIDl2,
-    environment,
-    environmentl,
-)
+from config.runtime_accounts import RuntimeAccountConfig
 
 
 class order_information:
@@ -62,23 +54,42 @@ class order_information:
             if self.oa_mode == 1:
                 # 通常アカウント
                 self.oa = self.oanda_factory(
-                        accountIDl, access_tokenl, environmentl
+                        self.account_config.live_account_id,
+                        self.account_config.live_access_token,
+                        self.account_config.live_environment,
                 )
             else:
                 # 両建て用アカウント
                 self.oa = self.oanda_factory(
-                        accountIDl2, access_tokenl, environmentl
+                        self.account_config.live_sub_account_id,
+                        self.account_config.live_access_token,
+                        self.account_config.live_environment,
                 )
         else:
             # デモ口座
-                self.oa = self.oanda_factory(accountID, access_token, environment)
+                self.oa = self.oanda_factory(
+                    self.account_config.practice_account_id,
+                    self.account_config.practice_access_token,
+                    self.account_config.practice_environment,
+                )
 
-    def __init__(self, name, is_live, filepath, oanda_factory=None, notifier: Notifier | None = None):
+    def __init__(
+        self,
+        name,
+        is_live,
+        filepath,
+        account_config: RuntimeAccountConfig,
+        oanda_factory=None,
+        notifier: Notifier | None = None,
+    ):
         self._notifier = notifier if notifier is not None else get_notifier()
+        self.account_config = account_config
         if oanda_factory is not None:
             self.oanda_factory = oanda_factory
         self.oa = self.oanda_factory(
-            accountIDl2, access_tokenl, environmentl
+            self.account_config.live_sub_account_id,
+            self.account_config.live_access_token,
+            self.account_config.live_environment,
         )  # 仮の値
         self.oa_mode = 2  # アカウント選択（１が通常、２が両建てアカウント） 初期値は１
         self.is_live = is_live  # 本番環境か練習か（Boolean）
