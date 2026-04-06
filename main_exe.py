@@ -2,28 +2,21 @@ import datetime
 import threading  # 定時実行用
 import time
 
-import classCandleAnalysis as ca
-import classOanda as classOanda
 import classOrderCreate as OCreate
 import classPosition as classPosition  # とりあえずの関数集
-import classPositionControl as classPositionControl
 import fAnalysis_order_Main as am
 import fGeneric as f
-from config.app_config import load_app_config
-from config.notifier import get_notifier
+from config.dependency_container import DependencyContainer
 
 
 class main:
-    def __init__(self):
+    def __init__(self, container: DependencyContainer | None = None):
         print("Mainインスタンスの生成")
-        self._notifier = get_notifier()
-        self.app_config = load_app_config()
+        self.container = container if container is not None else DependencyContainer.default()
+        self._notifier = self.container.create_notifier()
+        self.app_config = self.container.app_config
         self.account_config = self.app_config.runtime_accounts
-        self.base_oa = classOanda.Oanda(
-            self.account_config.live_sub_account_id,
-            self.account_config.live_access_token,
-            self.account_config.live_environment,
-        )
+        self.base_oa = self.container.create_base_oanda(use_sub_account=True)
         self.exe_mode = self.account_config.live_environment
 
         # ■変数の宣言
@@ -64,9 +57,8 @@ class main:
 
         # ■■■処理の開始
         # ■ポジションクラスの生成
-        self.positions_control_class = classPositionControl.position_control(
-            True,
-            account_config=self.account_config,
+        self.positions_control_class = self.container.create_position_control(
+            is_live=True,
             notifier=self._notifier,
         )  # ポジションリストの用意
         # self.positions_control_class.reset_all_position()  # 開始時は全てのオーダーを解消し、初期アップデートを行う
@@ -189,8 +181,9 @@ class main:
             # 初回は、manageで取得したデータで実行する
             pass
         else:
-            self.candleAnalysisClass = ca.candleAnalysis(
-                self.base_oa, 0
+            self.candleAnalysisClass = self.container.create_candle_analysis(
+                self.base_oa,
+                0,
             )  # Watchingがある場合、キャンドルを先にやる
             self.positions_control_class.all_update_information(
                 self.candleAnalysisClass
@@ -352,8 +345,9 @@ class main:
             self._notifier.notify("start")
 
             # 現時刻を使う
-            self.candleAnalysisClass = ca.candleAnalysis(
-                self.base_oa, 0
+            self.candleAnalysisClass = self.container.create_candle_analysis(
+                self.base_oa,
+                0,
             )  # 現在時刻（０）でデータ取得
             # 指定時刻を使う
             # self.candleAnalysisClass = ca.candleAnalysis(self.base_oa, datetime.datetime(2025, 9, 1, 8, 5, 6))
