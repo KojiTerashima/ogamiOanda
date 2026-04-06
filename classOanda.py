@@ -17,10 +17,10 @@ from oandapyV20.endpoints.orders import (
     OrdersPending,
 )
 from oandapyV20.endpoints.positions import OpenPositions, PositionClose, PositionDetails
-from oandapyV20.endpoints.pricing import PricingInfo
 from oandapyV20.endpoints.trades import OpenTrades, TradeClose, TradeCRCDO, TradeDetails
 
 import classOandaSupport as oanda_support
+from classOandaMarketData import OandaMarketDataService
 from config.notifier import Notifier, get_notifier
 
 
@@ -71,6 +71,11 @@ class Oanda:
         self.api = API(
             access_token=access_token, environment=self.environment
         )  # API基盤の準備
+        self.market_data = OandaMarketDataService(
+            self.api,
+            self.accountID,
+            self.error_method,
+        )
         self.print_words = ""  # 表示用。。
         self.print_words_bef = ""  # 表示用。。
         self.error_input_tp = (
@@ -103,41 +108,7 @@ class Oanda:
         呼び出し:oa.NowPrice_exe("USD_JPY")
         返却値:Bid価格、Ask価格、Mid価格、スプレッド、左記４つを辞書形式で返却。返却値は、必ず小数点以下は３桁とする。
         """
-        start_time = datetime.datetime.now().replace(
-            microsecond=0
-        )  # エラー頻発の為、ログ
-        params = {"instruments": instrument}
-        ep = PricingInfo(accountID=self.accountID, params=params)
-
-        try:
-            res_json = json.dumps(self.api.request(ep), indent=2)
-            res_json = json.loads(
-                res_json
-            )  # 何故かこれだけevalが使えないのでloadsで文字列⇒jsonを実施
-            res_dic = {
-                "bid": round(float(res_json["prices"][0]["bids"][0]["price"]), 3),
-                "ask": round(float(res_json["prices"][0]["asks"][0]["price"]), 3),
-                "mid": round(
-                    (
-                        float(res_json["prices"][0]["asks"][0]["price"])
-                        + float(res_json["prices"][0]["bids"][0]["price"])
-                    )
-                    / 2,
-                    3,
-                ),
-                "spread": round(
-                    float(res_json["prices"][0]["asks"][0]["price"])
-                    - float(res_json["prices"][0]["bids"][0]["price"]),
-                    3,
-                ),
-            }
-            return {"data": res_dic, "error": 0}
-
-        except Exception as e:
-            e_info = self.error_method(
-                "価格情報取得", start_time, e
-            )  # 表示もそっちのメソッドで
-            return e_info
+        return self.market_data.now_price(instrument)
 
     # (2)キャンドルデータを取得(5000行以内/指定複雑)
     def InstrumentsCandles_exe(self, instrument, params):
@@ -162,25 +133,7 @@ class Oanda:
         param = {"granularity": "M5", "count": 10, "to": euro_time_datetime_iso}
         oa.InstrumentsCandles_exe("USD_JPY", param)
         """
-        start_time = datetime.datetime.now().replace(
-            microsecond=0
-        )  # エラー頻発の為、ログ
-        try:
-            ep = instruments.InstrumentsCandles(instrument=instrument, params=params)
-            res_json = self.api.request(ep)  # 結果をjsonで取得
-            data_df = pd.DataFrame(
-                res_json["candles"]
-            )  # Jsonの一部(candles)をDataframeに変換
-            data_df["time_jp"] = data_df.apply(
-                lambda x: oanda_support.iso_to_jstdt(x, "time"), axis=1
-            )  # 日本時刻の表示
-            data_df = oanda_support.add_basic_data(data_df)  # 【関数/必須】基本項目を追加する
-            data_df = oanda_support.add_bb_data(data_df)
-            # 返却
-            return {"data": data_df, "error": 0}
-        except Exception as e:
-            e_info = self.error_method("価格情報取得[単]", start_time, e)
-            return e_info
+        return self.market_data.instruments_candles(instrument, params)
 
     # (3)キャンドルデータを取得(5000行以上/現在から/指定簡単（現在USD固定）)
     def InstrumentsCandles_multi_exe(self, pair, params, roop):
@@ -198,32 +151,7 @@ class Oanda:
         :param roop: 上記情報が何セット欲しいか(5000行以上欲しい場合に有効。5000以下は、この数は１の方が当然動きが早い）
         :return:
         """
-        candles = None  # dataframeの準備
-        for i in range(roop):
-            df_dic = self.InstrumentsCandles_multi_support_exe(
-                pair, params
-            )  # 【関数】データ取得＋基本５項目のDFに変換（dataframeが返り値）
-            if df_dic["error"] == 0:
-                df = df_dic["data"]
-                params["to"] = df["time"].iloc[
-                    0
-                ]  # ループ用（次回情報取得の期限を決める）
-                candles = pd.concat(
-                    [df, candles]
-                )  # 結果用DataFrameに蓄積（時間はテレコ状態）
-            else:
-                return df_dic  # エラーの場合
-        # 情報を成型する（取得した情報をtime_jpで並び替える等）
-        candles.sort_values("time_jp", inplace=True)  # 時間順に並び替え
-        temp_df = (
-            candles.reset_index()
-        )  # インデックスをリセットし、ML用のデータフレームへ
-        temp_df.drop(["index"], axis=1, inplace=True)  # 不要項目の削除
-        # 解析用の列を追加する（不要列の削除も含む）
-        data_df = oanda_support.add_basic_data(temp_df)  # 【関数/必須】基本項目を追加する
-        data_df = oanda_support.add_bb_data(data_df)
-        # 返却
-        return {"data": data_df, "error": 0}
+        return self.market_data.instruments_candles_multi(pair, params, roop)
 
     # (4)キャンドルデータを取得(サポート専用。通常利用無し）
     def InstrumentsCandles_multi_support_exe(self, instrument, params):
@@ -231,30 +159,7 @@ class Oanda:
         過去情報（ローソク）の取得 （これが基本的にAPIを叩く関数）
         InstrumentsCandles_multi_exeから呼び出される専用
         """
-        start_time = datetime.datetime.now().replace(
-            microsecond=0
-        )  # エラー頻発の為、ログ
-        try:
-            ep = instruments.InstrumentsCandles(instrument=instrument, params=params)
-            res_json = self.api.request(ep)  # 結果をjsonで取得
-            data_df = pd.DataFrame(
-                res_json["candles"]
-            )  # Jsonの一部(candles)をDataframeに変換
-            data_df.insert(
-                0,
-                "time_jp",
-                data_df.apply(
-                    lambda x: oanda_support.iso_to_jstdt(x, "time"),
-                    axis=1,
-                ),
-            )
-            # data_df['time_jp'] = data_df.apply(lambda x: iso_to_jstdt(x, 'time'), axis=1)  # 日本時刻の表示
-            # 返却
-            return {"error": 0, "data": data_df}
-
-        except Exception as e:
-            e_info = self.error_method("ローソク取得", start_time, e)
-            return e_info
+        return self.market_data.instruments_candles_multi_support(instrument, params)
 
     # (5)オーダーの発行を実施
     def OrderCreate_dic_exe(self, for_api_json):
