@@ -9,36 +9,22 @@ import classPosition as classPosition  # とりあえずの関数集
 import classPositionControl as classPositionControl
 import fAnalysis_order_Main as am
 import fGeneric as f
+from config.app_config import load_app_config
 from config.notifier import get_notifier
-from config.runtime_accounts import RuntimeAccountConfig
-from tokens import (
-    access_token,
-    access_tokenl,
-    accountID,
-    accountIDl,
-    accountIDl2,
-    environment,
-    environmentl,
-    history_folder_path,
-)
 
 
 class main:
     def __init__(self):
         print("Mainインスタンスの生成")
         self._notifier = get_notifier()
-        self.account_config = RuntimeAccountConfig.from_legacy_values(
-            practice_account_id=accountID,
-            practice_access_token=access_token,
-            practice_environment=environment,
-            live_account_id=accountIDl,
-            live_sub_account_id=accountIDl2,
-            live_access_token=access_tokenl,
-            live_environment=environmentl,
-            history_folder_path=history_folder_path,
+        self.app_config = load_app_config()
+        self.account_config = self.app_config.runtime_accounts
+        self.base_oa = classOanda.Oanda(
+            self.account_config.live_sub_account_id,
+            self.account_config.live_access_token,
+            self.account_config.live_environment,
         )
-        self.base_oa = classOanda.Oanda(accountIDl2, access_tokenl, environmentl)
-        self.exe_mode = environmentl
+        self.exe_mode = self.account_config.live_environment
 
         # ■変数の宣言
         # 変更なし群

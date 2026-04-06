@@ -4,13 +4,19 @@ import pandas as pd
 
 import classOanda as oanda_class
 import fGeneric as f
+from config.app_config import load_app_config
 from config.notifier import get_notifier
-from tokens import access_tokenl, accountIDl2, folder_path
 
 _NOTIFIER = get_notifier()
+_APP_CONFIG = load_app_config()
+_RUNTIME_ACCOUNTS = _APP_CONFIG.runtime_accounts
 
 # グローバルでの宣言
-oa = oanda_class.Oanda(accountIDl2, access_tokenl, "live")  # クラスの定義
+oa = oanda_class.Oanda(
+    _RUNTIME_ACCOUNTS.live_sub_account_id,
+    _RUNTIME_ACCOUNTS.live_access_token,
+    _RUNTIME_ACCOUNTS.live_environment,
+)  # クラスの定義
 print(oa.NowPrice_exe("USD_JPY"))
 gl_start_time = datetime.datetime.now()
 gl_now = datetime.datetime.now().replace(microsecond=0)  # 現在の時刻を取得
@@ -28,7 +34,7 @@ gl_now_str = (
 date_num_view = 30
 date_num_pivot = 100
 # 生データ送信
-path = folder_path + "history.csv"
+path = _APP_CONFIG.folder_path + "history.csv"
 temp = pd.read_csv(path)
 df_part = temp.tail(date_num_view)
 df_part = df_part[~df_part["name"].str.contains("既存", na=False)]
@@ -53,7 +59,7 @@ _NOTIFIER.notify("■■■検証期間LONG:", "\n", output_str)
 
 # pivot送信
 # ピボット：A列でまとめ、resは合計、woは件数（count）
-path = folder_path + "history.csv"
+path = _APP_CONFIG.folder_path + "history.csv"
 temp = pd.read_csv(path)
 df_part = temp.tail(date_num_pivot)
 df_part = df_part[~df_part["name"].str.contains("既存", na=False)]
