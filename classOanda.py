@@ -7,7 +7,6 @@ import oandapyV20.endpoints.accounts as accounts
 import oandapyV20.endpoints.instruments as instruments
 import oandapyV20.endpoints.transactions as trans
 import pandas as pd
-import pytz
 from numpy import linalg as LA
 from oandapyV20 import API
 from oandapyV20.endpoints.positions import OpenPositions, PositionClose, PositionDetails
@@ -731,59 +730,19 @@ class Oanda:
 ############################################################
 
 
-# 細々した関数たち
-def o_func(x):
-    temp = x.mid
-    return float(temp["o"])
-
-
-def c_func(x):
-    temp = x.mid
-    return float(temp["c"])
-
-
-def h_func(x):
-    temp = x.mid
-    return float(temp["h"])
-
-
-def l_func(x):
-    try:
-        temp = x.ask
-    except Exception:
-        try:
-            temp = x.bid
-        except Exception:
-            temp = x.mid
-    return float(temp["l"])
-
-
-def ih_func(x):
-    if x.open > x.close:
-        return x.open
-    else:
-        return x.close
-
-
-def il_func(x):
-    if x.open < x.close:
-        return x.open
-    else:
-        return x.close
-
-
-def for_upper(x):
-    if x.body > 0:
-        return x.high - x.close
-    else:
-        return x.high - x.open
-
-
-def for_lower(x):
-    if x.body > 0:
-        return x.open - x.low
-    else:
-        return x.close - x.low
+# classOandaSupport.py と重複するヘルパーは一本化する
+o_func = oanda_support.o_func
+c_func = oanda_support.c_func
+h_func = oanda_support.h_func
+l_func = oanda_support.l_func
+ih_func = oanda_support.ih_func
+il_func = oanda_support.il_func
+for_upper = oanda_support.for_upper
+for_lower = oanda_support.for_lower
+iso_to_jstdt = oanda_support.iso_to_jstdt
+iso_to_jstdt_single = oanda_support.iso_to_jstdt_single
+add_basic_data = oanda_support.add_basic_data
+add_bb_data = oanda_support.add_bb_data
 
 
 def func_d(t_dic, t_list):
@@ -896,55 +855,6 @@ def func_make_dic(res_json):
     return res_df
 
 
-# 【他からもよく使わる関数】
-def iso_to_jstdt(x, colname):
-    """
-    引数colname⇒変換したい時間の有る列を指定。opentimeを列の時間を変換したければ、opentimeと指定する。
-    目的：timeを日本時間に変換する（ISO8601→JST変換関数 従来の引数⇒iso_to_jstdt(iso_str)）
-    基本的には引数は「価格情報のデータフレーム」。
-    返り値は、引数のデータフレームに「time_jp」を付与したデータフレーム
-    """
-    iso_str = x[colname]  # 関数内の変数変えるのめんどいので、強引に。
-    dt = None
-    split_timedate = iso_str.rsplit(".", 8)  # ここでマイクロ病以下を切り落とし
-    iso_str = split_timedate[0]
-    try:
-        dt = datetime.datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%S")
-        dt = pytz.utc.localize(dt).astimezone(pytz.timezone("Asia/Tokyo"))
-    except ValueError:
-        try:
-            dt = datetime.datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%S")
-            dt = dt.astimezone(pytz.timezone("Asia/Tokyo"))
-        except ValueError:
-            # print("@@@@@@日付変換一部できず（空欄等の可能性）")
-            pass
-    if dt is None:
-        df = ""
-        return df
-    return dt.strftime("%Y/%m/%d %H:%M:%S")  # 文字列に再変換
-
-
-def iso_to_jstdt_single(iso_str):  # ISO8601→JST変換関数
-    dt = None
-    split_timedate = iso_str.rsplit(".", 8)  # ここでマイクロ病以下を切り落とし
-    iso_str = split_timedate[0]
-    try:
-        dt = datetime.datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%S")
-        dt = pytz.utc.localize(dt).astimezone(pytz.timezone("Asia/Tokyo"))
-    except ValueError:
-        try:
-            dt = datetime.datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%S")
-            dt = dt.astimezone(pytz.timezone("Asia/Tokyo"))
-        except ValueError:
-            print("変換できてない")
-            pass
-    if dt is None:
-        df = ""
-        return df
-
-    return dt.strftime("%Y/%m/%d %H:%M:%S")  # 文字列に再変換
-
-
 def str_to_time(str_time):
     """
     時刻（文字列：2023/5/24  21:55:00　形式）をDateTimeに変換する。
@@ -1023,57 +933,6 @@ def cal_past_time_single(x):
         return 0
 
 
-# 【ローソクへの情報追加】 ★★基本的なデータの追加
-def add_basic_data(data_df):
-    """
-    InstrumentsCandles_exeで取得したデータ（最新時刻が下にある降順データ）に情報を付与する。
-    引数はInstrumentsCandles_exeで取得したデータフレーム。返却値は、それに下記列を付与した情報
-    """
-    data_df = data_df.copy()  # 謎のスライスウォーニング対策
-    data_df["open"] = data_df.apply(lambda x: o_func(x), axis=1)  # open価格
-    data_df["close"] = data_df.apply(lambda x: c_func(x), axis=1)
-    data_df["high"] = data_df.apply(lambda x: h_func(x), axis=1)
-    data_df["low"] = data_df.apply(lambda x: l_func(x), axis=1)
-    data_df["mid_outer"] = round(
-        (data_df["high"] + data_df["low"]) / 2, 3
-    )  # 最高値と再低値の長さ
-    data_df["inner_high"] = data_df.apply(
-        lambda x: ih_func(x), axis=1
-    )  # ローソク本体で高い方（OpenかClose価格）
-    data_df["inner_low"] = data_df.apply(
-        lambda x: il_func(x), axis=1
-    )  # ローソク本体で低い方（OpenかClose価格）
-    data_df["body"] = data_df["close"] - data_df["open"]  # 胴体の長さ（正負あり）
-    data_df["body_abs"] = abs(data_df["close"] - data_df["open"])  # 胴体の長さ
-    data_df["moves"] = data_df["high"] - data_df["low"]
-    data_df["up_rod"] = data_df.apply(
-        lambda x: for_upper(x), axis=1
-    )  # 上髭の長さを取得
-    data_df["low_rod"] = data_df.apply(
-        lambda x: for_lower(x), axis=1
-    )  # 下髭の長さを取得
-    data_df["highlow"] = data_df["high"] - data_df["low"]  # 最高値と再低値の長さ
-    # data_df['middle_price'] = round(data_df['inner_low'] + (data_df['body_abs'] / 2), 3)  # 最高値と再低値の長さ
-    data_df["middle_price"] = round(
-        (data_df["inner_low"] + data_df["inner_high"]) / 2, 3
-    )  # 最高値と再低値の長さ
-    data_df["middle_price_wick"] = round(
-        (data_df["high"] + data_df["low"]) / 2, 3
-    )  # 最高値と再低値の長さ
-    data_df = data_df[
-        [col for col in data_df.columns if col != "time"] + ["time"]
-    ]  # timeを最終列に
-
-    # 不要項目の削除（timeは連続取得時に利用するため、削除+ない）
-    # print(data_df.columns.values)
-    data_df.drop(["complete"], axis=1, inplace=True)  # 不要項目の削除（volumeってなに）
-    data_df.drop(["mid"], axis=1, inplace=True)
-    # JIT時刻を非表示にしたいけれど。。
-    # data_df.drop(['time'], axis=1, inplace=True)
-    # 返却zf
-    return data_df
-
-
 # 【ローソクへの情報追加】 MACD情報を追加する
 def add_macd(data_df):
     """
@@ -1138,40 +997,3 @@ def add_ema_data(data_df):
     return data_df
 
 
-# 【ローソクへの情報追加】ボリンジャーバンドを追加する関数
-def add_bb_data(data_df):
-    """
-    InstrumentsCandles_exeで取得したデータ（最新時刻が下にある降順データ）に情報を付与する。（ボリンジャーバンド）
-    引数はInstrumentsCandles_exeで取得したデータフレーム。返却値は、それに下記列を付与した情報
-    """
-    data_df = data_df.copy()  # 謎のスライスウォーニング対策
-    bb_range = 30
-    # ボリバン基本項目
-    data_df["mean"] = (
-        data_df["close"].rolling(window=bb_range).mean()
-    )  # BB用(直後に削除）
-    data_df["std"] = (
-        data_df["close"].rolling(window=bb_range).std()
-    )  # BB用（直後に削除）
-    data_df["bb_upper"] = data_df["mean"] + (data_df["std"] * 2)  # BB用
-    data_df["bb_lower"] = data_df["mean"] - (data_df["std"] * 2)  # BB用
-    data_df["bb_middle"] = round((data_df["bb_lower"] + data_df["bb_upper"]) / 2, 3)
-    data_df["bb_range"] = data_df["bb_upper"] - data_df["bb_lower"]  # BB幅
-    # 不要項目の削除（timeは連続取得時に利用するため、削除しない）
-    data_df.drop(["mean", "std"], axis=1, inplace=True)  # 不要項目の削除
-
-    # ボリバン参考項目
-    # data_df['bb_body_ratio'] = round(abs(data_df['body']) / data_df['bb_range'] * 100, 0)  # bb幅とbody幅の割合
-    # data_df['bb_over'] = data_df['bb_upper'] - data_df['high']
-    # data_df['bb_under'] = data_df['bb_upper'] - data_df['low']
-    # data_df['bb_close'] = data_df['bb_upper'] - data_df['close']
-    # # bb_upper(0%)-bb_lower(100%)として、最高値と再低値が何%の位置にあるかを計算。マイナス値はupper越、100以上はlower越。
-    # data_df['bb_over_ratio'] = round((data_df['bb_upper'] - data_df['high']) / data_df['bb_range'] * 100, 0)
-    # data_df['bb_under_ratio'] = round((data_df['bb_upper'] - data_df['low']) / data_df['bb_range'] * 100, 0)
-    # data_df['bb_close_ratio'] = round((data_df['bb_upper'] - data_df['close']) / data_df['bb_range'] * 100, 0)
-    # # ローソクのbody がBBをどれだけ超えているか
-    # data_df['bb_upper_body_over'] = data_df['inner_high'] - data_df["bb_upper"]
-    # data_df['bb_lower_body_over'] = data_df['bb_lower'] - data_df["inner_low"]
-
-    # 返却
-    return data_df
