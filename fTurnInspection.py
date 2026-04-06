@@ -7,20 +7,10 @@ from pympler import asizeof
 import classOrderCreate as OCreate
 import fGeneric as gene
 import turn_analysis_core as ta_core
+import turn_bb_analysis as tbb
 from config.notifier import get_notifier
+from turn_state import runtime_state
 
-
-class _AnalysisRuntimeState:
-    def __init__(self):
-        self.line_send_enabled = False
-        self.previous_exe_df60_row = None
-        self.previous_exe_df60_order_time = None
-        self.previous_bb_h1_class = None
-        self.latest_trend_trigger_time = None
-        self.units_std = 1  # OrderCreateのベーシックUnitは10000ドル。それにかける倍率
-
-
-runtime_state = _AnalysisRuntimeState()
 _NOTIFIER = get_notifier()
 
 
@@ -2205,21 +2195,7 @@ class BbAnalysis2:
         self.range_judge(peaks_class.peaks_original[:4])
 
     def latest_price_position_in_bb_func(self, row):
-        # 変数化
-
-        # (1)現在の価格がBBのどこら辺にあるかを確認する(オーダーの方向を決める）
-        big = row["bb_upper"]
-        small = row["bb_lower"]
-        N = row["close"]
-        diff_big = abs(big - N)
-        diff_small = abs(N - small)
-        # 判定
-        if diff_big < diff_small:
-            bb_latest_position_in_bb = 1  # 大きいほうに近い
-        else:
-            bb_latest_position_in_bb = -1  # 小さいほうに近い
-
-        return bb_latest_position_in_bb
+        return tbb.latest_price_position_from_row(row)
 
     def figure1(self, df):
         print("FigureTest")
@@ -3257,14 +3233,8 @@ class BbAnalysis:
                 print("砂時計オーダーあるが、5分足なので登録しない")
 
     def latest_price_position_in_bb_func(self, df_r):
-        # 変数化
         df_r = self.df_r
-
-        # (1)現在の価格がBBのどこら辺にあるかを確認する(オーダーの方向を決める）
-        big = df_r.iloc[0]["bb_upper"]
-        small = df_r.iloc[0]["bb_lower"]
-        N = df_r.iloc[0]["close"]
-        return ta_core.latest_price_position_in_bb(big, small, N)
+        return tbb.latest_price_position_from_df(df_r)
 
     def bb_glass_analysis(self, df_r, do_print):
         """
