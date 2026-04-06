@@ -8,6 +8,7 @@ import classOrderCreate as OCreate
 import fGeneric as gene
 import turn_analysis_core as ta_core
 import turn_bb_analysis as tbb
+import turn_order_rules as tor
 from config.notifier import get_notifier
 from turn_state import runtime_state
 
@@ -3309,47 +3310,35 @@ class BbAnalysis:
         if is_first_glass_shape:
             if is_glass_shape and not is_glass_shape_long:
                 # 従来の型（turn　Countが4個以内のもの）
-                order_class = OCreate.Order(
-                    {
-                        "name": "トレンド 砂時計通常",
-                        "current_price": latest_price,
-                        "target": 0,
-                        "direction": latest_price_position_in_bb,
-                        "type": "MARKET",
-                        "tp": ave.cal_move_ave(6),  # self.ca60.cal_move_ave(1),
-                        "lc": ave.cal_move_ave(
-                            1.4
-                        ),  # + self.ca60.cal_move_ave(1),  # self.ca5.cal_move_ave(2.5),
-                        "lc_change": self.make_lc_change_dic(),
-                        "units": self.units_str * 1.1,
-                        "priority": 11,
-                        "decision_time": latest_time,
-                        "candle_analysis_class": self.ca,
-                        "lc_change_candle_type": foot,
-                    }
+                order_class = tor.create_trend_market_order(
+                    name="トレンド 砂時計通常",
+                    latest_price=latest_price,
+                    direction=latest_price_position_in_bb,
+                    tp=ave.cal_move_ave(6),
+                    lc=ave.cal_move_ave(1.4),
+                    lc_change=self.make_lc_change_dic(),
+                    units=self.units_str * 1.1,
+                    priority=11,
+                    decision_time=latest_time,
+                    candle_analysis_class=self.ca,
+                    lc_change_candle_type=foot,
                 )
                 is_ordered = True
                 runtime_state.latest_trend_trigger_time = latest_time
             elif is_glass_shape and is_glass_shape_long:
                 # 従来の型ではないが、検証する（長いトレンドの後）
-                order_class = OCreate.Order(
-                    {
-                        "name": "トレンド 砂時計Long",
-                        "current_price": latest_price,
-                        "target": 0,
-                        "direction": latest_price_position_in_bb,
-                        "type": "MARKET",
-                        "tp": ave.cal_move_ave(6),  # self.ca60.cal_move_ave(1),
-                        "lc": ave.cal_move_ave(
-                            1.4
-                        ),  # + self.ca60.cal_move_ave(1),  # self.ca5.cal_move_ave(2.5),
-                        "lc_change": self.make_lc_change_dic(),
-                        "units": self.units_str * 1.1,
-                        "priority": 11,
-                        "decision_time": latest_time,
-                        "candle_analysis_class": self.ca,
-                        "lc_change_candle_type": foot,
-                    }
+                order_class = tor.create_trend_market_order(
+                    name="トレンド 砂時計Long",
+                    latest_price=latest_price,
+                    direction=latest_price_position_in_bb,
+                    tp=ave.cal_move_ave(6),
+                    lc=ave.cal_move_ave(1.4),
+                    lc_change=self.make_lc_change_dic(),
+                    units=self.units_str * 1.1,
+                    priority=11,
+                    decision_time=latest_time,
+                    candle_analysis_class=self.ca,
+                    lc_change_candle_type=foot,
                 )
                 is_ordered = True
                 runtime_state.latest_trend_trigger_time = latest_time
@@ -3459,24 +3448,18 @@ class BbAnalysis:
                 is_first = True
 
         if is_trumpet and is_first:
-            order_class = OCreate.Order(
-                {
-                    "name": "トレンドtrumpet",
-                    "current_price": latest_price,
-                    "target": 0,
-                    "direction": latest_price_position_in_bb,
-                    "type": "MARKET",
-                    "tp": ave.cal_move_ave(6),  # self.ca60.cal_move_ave(1),
-                    "lc": ave.cal_move_ave(
-                        1.4
-                    ),  # + self.ca60.cal_move_ave(1),  # self.ca5.cal_move_ave(2.5),
-                    "lc_change": self.make_lc_change_dic(),
-                    "units": self.units_str * 1.2,
-                    "priority": 11,
-                    "decision_time": latest_time,
-                    "candle_analysis_class": self.ca,
-                    "lc_change_candle_type": foot,
-                }
+            order_class = tor.create_trend_market_order(
+                name="トレンドtrumpet",
+                latest_price=latest_price,
+                direction=latest_price_position_in_bb,
+                tp=ave.cal_move_ave(6),
+                lc=ave.cal_move_ave(1.4),
+                lc_change=self.make_lc_change_dic(),
+                units=self.units_str * 1.2,
+                priority=11,
+                decision_time=latest_time,
+                candle_analysis_class=self.ca,
+                lc_change_candle_type=foot,
             )
             is_ordered = True
             runtime_state.latest_trend_trigger_time = latest_time
