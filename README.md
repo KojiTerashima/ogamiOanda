@@ -35,14 +35,33 @@ Issue/PR template examples for the current refactoring backlog are available at
 poetry run python main_exe.py
 ```
 
+## Quality Gate
+
+Run lint and tests together with:
+
+```bash
+make check
+```
+
+Or individually:
+
+```bash
+make lint   # ruff check .
+make test   # pytest -q tests
+```
+
+Both commands use the local `.venv` created by `poetry install`.
+
 ## Tests
 
 ```bash
-poetry run pytest
+make test
+# or: .venv/bin/python -m pytest -q tests
 ```
 
 ## Linting
 
 ```bash
-poetry run ruff check .
+make lint
+# or: .venv/bin/python -m ruff check .
 ```
