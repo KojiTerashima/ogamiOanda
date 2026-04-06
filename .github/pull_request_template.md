@@ -15,8 +15,7 @@
 - 
 
 ## Validation
-- [ ] `ruff check .`
-- [ ] `pytest`
+- [ ] `make check` (runs `ruff check .` + `pytest -q tests`)
 - [ ] Runtime check (if applicable)
 
 ## Impact
