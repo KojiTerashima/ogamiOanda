@@ -1,6 +1,6 @@
 """Line strategy classes for USD_JPY."""
 
-import fGeneric as gene
+from ogami_oanda.domain.market.currency_pair import currency_pair
 
 
 class LineStrategyProfileUsdJpy:
@@ -1072,7 +1072,7 @@ class UsdJpyLineOrderStrategy:
         self.profile = profile or LineStrategyProfileUsdJpy()
 
     def pair_info(self):
-        return gene.currency_pair(getattr(self, "pair", "USD_JPY"))
+        return currency_pair(getattr(self, "pair", "USD_JPY"))
 
     def is_target(self, line_side, line):
         raise NotImplementedError
@@ -1085,7 +1085,6 @@ class UsdJpyLineOrderStrategy:
 
     def get_target_price(self, line_price, line_side):
         return line_price
-
 
     def build_candidates(self, line_class, current_price):
         self.pair = getattr(line_class, "pair", getattr(self, "pair", "USD_JPY"))
@@ -1192,18 +1191,6 @@ class UsdJpyM5BreakoutLineOrderStrategy(UsdJpyM5LineOrderStrategy):
             direction * p.pips_to_price(self.entry_offset_pips)
         )
 
-
-H1LineOrderStrategy = UsdJpyH1LineOrderStrategy
-M5LineOrderStrategy = UsdJpyM5LineOrderStrategy
-M5BreakoutLineOrderStrategy = UsdJpyM5BreakoutLineOrderStrategy
-
-
-from ogami_oanda.strategy.line.usd_jpy import (
-    LineStrategyProfileUsdJpy,
-    UsdJpyH1LineOrderStrategy,
-    UsdJpyM5BreakoutLineOrderStrategy,
-    UsdJpyM5LineOrderStrategy,
-)
 
 H1LineOrderStrategy = UsdJpyH1LineOrderStrategy
 M5LineOrderStrategy = UsdJpyM5LineOrderStrategy

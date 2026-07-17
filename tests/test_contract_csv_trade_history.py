@@ -1,0 +1,31 @@
+import pandas as pd
+import pytest
+
+from ogami_oanda.adapters.legacy.token_settings import settings_from_tokens
+from ogami_oanda.adapters.repositories.csv_trade_history import (
+    CsvTradeHistoryRepository,
+)
+
+
+@pytest.mark.contract
+def test_csv_trade_history_preserves_first_record_column_order_and_appends(tmp_path):
+    repository = CsvTradeHistoryRepository(tmp_path / "nested" / "history.csv")
+    first = {"name": "first", "res": 1, "pair": "USD_JPY"}
+    second = {"name": "second", "res": -1, "pair": "USD_JPY"}
+
+    repository.append(first)
+    repository.append(second)
+
+    history = pd.read_csv(repository.path)
+    assert list(history.columns) == ["name", "res", "pair"]
+    assert history.to_dict("records") == [first, second]
+
+
+@pytest.mark.contract
+def test_token_settings_maps_legacy_history_folder_to_history_file():
+    import tokens
+
+    tokens.history_folder_path = "results/"
+    settings = settings_from_tokens(tokens)
+
+    assert settings.paths.history_file == "results/history.csv"

@@ -43,5 +43,6 @@ def settings_from_tokens(tokens: ModuleType) -> AppSettings:
         paths=PathSettings(
             result_dir=getattr(tokens, "folder_path", "."),
             cache_dir=getattr(tokens, "inspection_data_cache_folder_path", "."),
+            history_file=getattr(tokens, "history_folder_path", "") + "history.csv",
         ),
     )

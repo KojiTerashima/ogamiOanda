@@ -18,6 +18,11 @@ class TradingSettings:
     line_units: float = 1.0
     risk_yen: float = 500.0
     max_positions: int = 15
+    normal_slot_count: int = 6
+    mid_slot_count: int = 8
+    high_slot_count: int = 1
+    mid_priority_threshold: int = 10
+    high_priority_threshold: int = 100
 
 
 @dataclass(frozen=True)
@@ -33,6 +38,7 @@ class NotificationSettings:
 class PathSettings:
     result_dir: str = "."
     cache_dir: str = "."
+    history_file: str = "history.csv"
 
 
 @dataclass(frozen=True)

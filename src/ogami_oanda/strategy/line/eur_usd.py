@@ -1,6 +1,6 @@
 """Line strategy classes for EUR_USD."""
 
-from fLineStrategyUsdJpy import LineStrategyProfileUsdJpy
+from .usd_jpy import LineStrategyProfileUsdJpy
 
 
 class LineStrategyProfileEurUsd(LineStrategyProfileUsdJpy):
@@ -118,5 +118,3 @@ class LineStrategyProfileEurUsd(LineStrategyProfileUsdJpy):
             rsi_1,
             self.breakout_top_conditions,
         )
-
-

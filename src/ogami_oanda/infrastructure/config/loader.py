@@ -56,5 +56,6 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
         paths=PathSettings(
             result_dir=str(paths_raw.get("result_dir", ".")),
             cache_dir=str(paths_raw.get("cache_dir", ".")),
+            history_file=str(paths_raw.get("history_file", "history.csv")),
         ),
     )

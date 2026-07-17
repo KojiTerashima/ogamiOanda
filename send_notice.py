@@ -2,8 +2,10 @@ import datetime
 
 import requests
 import tokens as tk
-import fGeneric as gene
 
+import fGeneric as gene
+from ogami_oanda.adapters.legacy.token_settings import settings_from_tokens
+from ogami_oanda.adapters.notifications.discord import DiscordNotifier
 
 line_send_last_message = ""
 line_send_last_message_count = 0
@@ -55,9 +57,6 @@ def line_send(*msg):
         message = message + " " + str(item)
     raw_message = message
 
-    now_str = f'{datetime.datetime.now():%Y/%m/%d %H:%M:%S}'
-    day_time = " (" + now_str[5:10] + "_" + now_str[11:19] + ")"
-
     if raw_message == line_send_last_message:
         line_send_last_message_count += 1
     else:
@@ -65,26 +64,14 @@ def line_send(*msg):
         line_send_last_message_count = 1
 
     if line_send_last_message_count > LINE_SEND_DUPLICATE_LIMIT:
-        print("     [Disc skip duplicate]", raw_message + day_time)
+        print("     [Disc skip duplicate]", raw_message)
         return 0
 
-    message = message + day_time
-    if len(message) >= 2000:
-        print("@@文字オーバー")
-        message = "Discord受信許容文字数オーバー" + str(len(message)) + "@" + message[:50]
+    category = "inspection" if is_inspection_notice_message(raw_message) and not is_live_notice_message(raw_message) else "live"
+    notifier = DiscordNotifier(settings_from_tokens(tk).notifications, _LegacyClock(), requests)
+    notifier.send(raw_message.lstrip(), category=category, pair=notice_pair(raw_message))
 
-    if is_inspection_notice_message(raw_message) and not is_live_notice_message(raw_message):
-        webhook_url = tk.WEBHOOK_URL_inspection
-    else:
-        webhook_url = webhook_url_for_pair(notice_pair(raw_message))
 
-    if not webhook_url:
-        print("     [Disc skip no webhook]", message)
-        return 0
-
-    data = {
-        "content": "@everyone " + message,
-        "allowed_mentions": {"parse": ["everyone"]},
-    }
-    requests.post(webhook_url, json=data)
-    print("     [Disc]", message)
+class _LegacyClock:
+    def now(self):
+        return datetime.datetime.now()

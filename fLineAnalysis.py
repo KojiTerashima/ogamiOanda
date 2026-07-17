@@ -19,7 +19,10 @@ from fLineStrategyUsdJpy import (
     UsdJpyM5BreakoutLineOrderStrategy,
     UsdJpyM5LineOrderStrategy,
 )
-from ogami_oanda.strategy.line import order_timeout_min_for_distance
+from ogami_oanda.strategy.line import (
+    LineCandidateCoordinator,
+    order_timeout_min_for_distance,
+)
 
 this_file_line_send = False
 gl_previous_exe_df60_row = None
@@ -167,19 +170,13 @@ class LineOrderCoordinator:
         m5_line_class=None,
         order_mode="limit",
     ):
-        candidates = []
-        for strategy, line_class in strategy_lines:
-            strategy.pair = self.pair
-            candidates.extend(strategy.build_candidates(line_class, current_price))
-        if order_mode == "immediate":
-            self._prepare_immediate_candidates(candidates, current_price)
-        if h1_line_class is not None:
-            self._add_h1_context(candidates, h1_line_class)
-        if m5_line_class is not None:
-            self._add_previous_peak_line_context(candidates, m5_line_class, "m5_previous_peak_line")
-        if h1_line_class is not None:
-            self._add_previous_peak_line_context(candidates, h1_line_class, "h1_previous_peak_line")
-        return candidates
+        return LineCandidateCoordinator(self.analysis, self.profile).build_line_candidates(
+            strategy_lines,
+            current_price,
+            h1_line_class=h1_line_class,
+            m5_line_class=m5_line_class,
+            order_mode=order_mode,
+        )
 
     def select_line_candidates(
         self,
@@ -298,25 +295,12 @@ class LineOrderCoordinator:
             candidate["order_type_override"] = "MARKET"
 
     def _filter_recommended_candidates(self, candidates, rsi_info, decision_time, order_mode):
-        filtered = []
-        for candidate in candidates:
-            reasons = self._recommended_reasons(candidate, rsi_info, decision_time, order_mode)
-            if not reasons:
-                print(
-                    "Skip line order by condition:",
-                    order_mode,
-                    candidate["timeframe"],
-                    candidate["line_strategy"],
-                    candidate["line_side"],
-                    candidate["line_price"],
-                )
-                continue
-
-            candidate["order_mode"] = order_mode
-            candidate["recommended_reasons"] = reasons
-            candidate["memo"] = self._build_condition_memo(candidate, rsi_info, reasons)
-            filtered.append(candidate)
-        return filtered
+        return LineCandidateCoordinator(self.analysis, self.profile).filter_recommended_candidates(
+            candidates,
+            rsi_info,
+            decision_time,
+            order_mode,
+        )
 
     def _recommended_reasons(self, candidate, rsi_info, decision_time, order_mode="limit"):
         latest_peak_info = self.attach_candidate_decision_context(
@@ -1913,7 +1897,7 @@ class MainAnalysis:
             + " core_strength=" + str(nearest["core_strength"])
         )
 
-class LineStrengthCal:
+class _LegacyLineStrengthCal:
     def __init__(self, candle_analysis_class, foot, time_before_foot_count=30):
         print("  ")
         print("  抵抗線計算クラス 時間範囲(足数)", time_before_foot_count, "足", foot)
@@ -2658,3 +2642,41 @@ class LineStrengthCal:
         )
 
         return results
+
+
+from ogami_oanda.domain.analysis.lines import LineGrouper
+
+
+class LineStrengthCal(_LegacyLineStrengthCal):
+    """Compatibility facade delegating pure Peak grouping to domain analysis."""
+
+    def _line_grouper(self):
+        return LineGrouper(self.pair, self.max_line_price_gap_pips)
+
+    def make_same_price_group(self, peaks, upper_lower, target_price, threshold=3, direction_filter=None, sort_direction=-1):
+        return self._line_grouper().make_same_price_group(
+            peaks,
+            upper_lower,
+            target_price,
+            threshold,
+            direction_filter,
+            sort_direction,
+        )
+
+    def make_same_price_group_core_first(self, peaks, upper_lower, target_price, threshold=3, direction_filter=None, sort_direction=-1, core_strength=5, attach_strength=2):
+        return self._line_grouper().make_same_price_group_core_first(
+            peaks,
+            upper_lower,
+            target_price,
+            threshold,
+            direction_filter,
+            sort_direction,
+            core_strength,
+            attach_strength,
+        )
+
+    def can_add_peak_to_line(self, result, peak):
+        return self._line_grouper().can_add_peak_to_line(result, peak)
+
+    def refresh_line_group(self, result, target_price, threshold):
+        self._line_grouper().refresh_line_group(result, target_price, threshold)

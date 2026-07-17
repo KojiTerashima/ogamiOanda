@@ -2,7 +2,7 @@
 
 import copy
 
-from fLineStrategyEurUsd import LineStrategyProfileEurUsd
+from .eur_usd import LineStrategyProfileEurUsd
 
 
 class LineStrategyProfileAudUsd(LineStrategyProfileEurUsd):
@@ -83,6 +83,3 @@ class LineStrategyProfileAudUsd(LineStrategyProfileEurUsd):
 
 for condition in LineStrategyProfileAudUsd.breakout_top_conditions:
     condition["label"] = condition["label"].replace("EUR", "AUD")
-
-
-from ogami_oanda.strategy.line.aud_usd import LineStrategyProfileAudUsd

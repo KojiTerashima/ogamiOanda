@@ -73,9 +73,10 @@ class order_information:
             # デモ口座
             self.oa = self._oanda_factory(tk.accountID, tk.access_token, tk.environment)
 
-    def __init__(self, name, is_live, oanda_factory=None, notifier=None):
+    def __init__(self, name, is_live, oanda_factory=None, notifier=None, history_repository=None):
         self._oanda_factory = oanda_factory or classOanda.Oanda
         self._notifier = notifier
+        self._history_repository = history_repository
         self.oa = None
         self.oa_mode = 2  # アカウント選択（１が通常、２が両建てアカウント） 初期値は１
         self.created_at = datetime.datetime.now()
@@ -605,6 +606,9 @@ class order_information:
             return 0
 
     def write_history_result(self, result_dic):
+        if self._history_repository is not None:
+            self._history_repository.append(result_dic)
+            return str(getattr(self._history_repository, "path", "history.csv"))
         history_path = tk.history_folder_path + 'history.csv'
         try:
             if not os.path.exists(history_path):

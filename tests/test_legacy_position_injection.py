@@ -1,4 +1,7 @@
 import classPosition
+from ogami_oanda.adapters.repositories.csv_trade_history import (
+    CsvTradeHistoryRepository,
+)
 from tests.fakes import FakeNotifier
 
 
@@ -33,6 +36,16 @@ def test_order_information_sends_through_an_injected_notifier():
     position.send_line("trade", "closed")
 
     assert notifier.messages == [("trade closed", "practice", "USD_JPY")]
+
+
+def test_order_information_writes_history_through_an_injected_repository(tmp_path):
+    repository = CsvTradeHistoryRepository(tmp_path / "history.csv")
+    position = classPosition.order_information("history", is_live=False, oanda_factory=FakeOanda, history_repository=repository)
+
+    path = position.write_history_result({"name": "injected", "res": 1})
+
+    assert path == str(repository.path)
+    assert repository.path.read_text(encoding="utf-8").splitlines() == ["name,res", "injected,1"]
 
 
 def test_legacy_lc_change_amends_stop_loss_after_trigger_and_wait_time():

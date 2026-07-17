@@ -1,16 +1,15 @@
-import datetime
-from datetime import datetime
-from datetime import timedelta
-import pandas as pd
-from collections import defaultdict
-import tokens as tk
-import send_notice as notice
-import fGeneric as gene
-import fGeneric as f
 import copy
+import datetime
+from datetime import datetime, timedelta
+
+import pandas as pd
+
+import fGeneric as f
+import fGeneric as gene
+import send_notice as notice
 
 
-class PeaksClass:
+class _LegacyPeaksClass:
 
     def __init__(self, original_df_r, granularity, current_price, pair=None):
         """
@@ -35,7 +34,7 @@ class PeaksClass:
         self.ps_most_most_min = 1  # 弱いピークに付与する値
         self.ps_most_min = 2  # 弱いピークに付与する値
         self.ps_min = 4  # 若干弱いピークに付与する値
-        self.ps_most_max = 8  # 強いピークとみなす（直近数時間で最も高い（または低い）ピークの場合)　
+        self.ps_most_max = 8  # 強いピークとみなす（直近数時間で最も高い（または低い）ピークの場合)
         self.minimum = 0.0000001
         self.pair = pair or gene.currency_pair("USD_JPY")
         self.pip_value = self.pair.pip_value
@@ -820,7 +819,7 @@ class PeaksClass:
         }
 
 
-def judge_peak_is_belong_peak_group(peaks, target_peak):
+def _legacy_judge_peak_is_belong_peak_group(peaks, target_peak):
     """
     与えられたピークが、与えられたpeaksの中で最大（または最小）といえるかをＢｏｏｌｅａｎで返却する
     """
@@ -844,6 +843,8 @@ def judge_peak_is_belong_peak_group(peaks, target_peak):
             print("最小群ではない")
 
     return ans
+
+
 
 
 
