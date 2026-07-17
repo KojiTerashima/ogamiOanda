@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ogami-oanda"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "oandapyV20",
+    "pandas",
+    "plotly",
+    "pympler",
+    "PyYAML",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+markers = [
+    "unit: deterministic tests with no I/O",
+    "characterization: regression tests that preserve legacy behavior",
+    "contract: tests for ports, adapters, and legacy mappings",
+    "integration: tests that require an explicitly configured external service",
+    "slow: tests that take materially longer than the normal offline suite",
+]
+
+[tool.ruff]
+target-version = "py310"
+extend-exclude = ["archive", "legacy", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]

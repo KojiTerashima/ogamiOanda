@@ -1,19 +1,16 @@
 import datetime
+import math
+import os
+import traceback
+from collections import deque  # 最大10個の情報を持つためのもの。
 from datetime import timedelta
 
-import classOanda
-import tokens as tk
-import send_notice as notice
-import fGeneric as gene
-import gc
-import traceback
-import sys
-import classCandleAnalysis as ca
-import os
-import math
 import pandas as pd
-from collections import deque  # 最大10個の情報を持つためのもの。
-import copy
+import tokens as tk
+
+import classOanda
+import fGeneric as gene
+import send_notice as notice
 
 # from test_loop import get_instances_of_class
 
@@ -68,16 +65,18 @@ class order_information:
         if self.is_live:
             if self.oa_mode == 1:
                 # 通常アカウント
-                self.oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
+                self.oa = self._oanda_factory(tk.accountIDl, tk.access_tokenl, tk.environmentl)
             else:
                 # 両建て用アカウント
-                self.oa = classOanda.Oanda(tk.accountIDl2, tk.access_tokenl, tk.environmentl)
+                self.oa = self._oanda_factory(tk.accountIDl2, tk.access_tokenl, tk.environmentl)
         else:
             # デモ口座
-            self.oa = classOanda.Oanda(tk.accountID, tk.access_token, tk.environment)
+            self.oa = self._oanda_factory(tk.accountID, tk.access_token, tk.environment)
 
-    def __init__(self, name, is_live):
-        self.oa = classOanda.Oanda(tk.accountIDl2, tk.access_tokenl, tk.environmentl)  # 仮の値
+    def __init__(self, name, is_live, oanda_factory=None, notifier=None):
+        self._oanda_factory = oanda_factory or classOanda.Oanda
+        self._notifier = notifier
+        self.oa = None
         self.oa_mode = 2  # アカウント選択（１が通常、２が両建てアカウント） 初期値は１
         self.created_at = datetime.datetime.now()
         self.refresh_at = 0
@@ -383,7 +382,10 @@ class order_information:
         元々定義していなかった。
         各メソッドからsendすると、「本番環境の場合はLINE送ってPracticeの場合に送らない」が面倒くさいので、いったんここを噛ませる
         """
-        if self.is_live:  # is_liveがTrueは本番（lifeと紛らわしいが、、）
+        if self._notifier is not None:
+            category = "live" if self.is_live else "practice"
+            self._notifier.send(" ".join(str(arg) for arg in args), category=category, pair=self.pair)
+        elif self.is_live:  # is_liveがTrueは本番（lifeと紛らわしいが、、）
             notice.line_send(*args)
         else:
             print(" 練習用送信関数")
@@ -2171,7 +2173,7 @@ class order_information:
     #     if not self.alert_watching:
     #         return 0
     #
-    #     # ■■現状の更新　
+    #     # ■■現状の更新
     #     # ■経過時間（越えてからの経過時間)
     #     delta = now_time - self.beyond_alert_time
     #     gap_seconds = delta.total_seconds()

@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: ogami-oanda
+Version: 0.0.0
+Requires-Python: >=3.10
+Requires-Dist: numpy
+Requires-Dist: oandapyV20
+Requires-Dist: pandas
+Requires-Dist: plotly
+Requires-Dist: pympler
+Requires-Dist: PyYAML
+Requires-Dist: requests
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"

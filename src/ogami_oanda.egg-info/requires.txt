@@ -1,0 +1,11 @@
+numpy
+oandapyV20
+pandas
+plotly
+pympler
+PyYAML
+requests
+
+[dev]
+pytest
+ruff

@@ -1,0 +1,20 @@
+from __future__ import annotations
+
+from typing import Any
+
+from oandapyV20 import API
+
+from ogami_oanda.infrastructure.config.models import RuntimeAccountConfig
+
+
+class OandaClient:
+    def __init__(self, account: RuntimeAccountConfig, api: Any | None = None) -> None:
+        self.account = account
+        self.api = api or API(access_token=account.access_token, environment=account.environment)
+
+    @property
+    def account_id(self) -> str:
+        return self.account.account_id
+
+    def request(self, endpoint: Any) -> dict[str, object]:
+        return self.api.request(endpoint)

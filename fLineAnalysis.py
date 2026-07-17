@@ -1,18 +1,16 @@
-import copy
 
-import fGeneric as gene
-import sys
-from pympler import asizeof
-import pandas as pd
-import classCandleAnalysis as ca
-import classOrderCreate as OCreate
-import tokens as tk
-import send_notice as notice
+from collections import Counter
 from datetime import datetime, timedelta
-import requests
 from statistics import median
-from collections import defaultdict
-import math
+
+import pandas as pd
+import requests
+import tokens as tk
+from pympler import asizeof
+
+import classOrderCreate as OCreate
+import fGeneric as gene
+import send_notice as notice
 from fLineStrategyAudUsd import LineStrategyProfileAudUsd
 from fLineStrategyEurUsd import LineStrategyProfileEurUsd
 from fLineStrategyUsdJpy import (
@@ -21,8 +19,7 @@ from fLineStrategyUsdJpy import (
     UsdJpyM5BreakoutLineOrderStrategy,
     UsdJpyM5LineOrderStrategy,
 )
-import statistics
-from collections import Counter
+from ogami_oanda.strategy.line import order_timeout_min_for_distance
 
 this_file_line_send = False
 gl_previous_exe_df60_row = None
@@ -67,14 +64,13 @@ class LineOrderCoordinator:
 
     @classmethod
     def order_timeout_min_for_distance(cls, distance_pips, timeframe, default_timeout_min):
-        timeout_min = 60
-        for border_pips, candidate_timeout_min in cls.timeout_by_distance_pips:
-            if distance_pips <= border_pips:
-                timeout_min = candidate_timeout_min
-                break
-
-        cap = cls.timeout_cap_by_timeframe.get(str(timeframe).lower(), default_timeout_min)
-        return min(timeout_min, cap)
+        return order_timeout_min_for_distance(
+            distance_pips,
+            str(timeframe),
+            default_timeout_min,
+            cls.timeout_by_distance_pips,
+            cls.timeout_cap_by_timeframe,
+        )
 
     def create_orders(
         self,
@@ -1634,23 +1630,23 @@ class MainAnalysis:
             lines_6h = line_s.lc_lines
         else:
             raise ValueError("line_type は 'tp' または 'lc' で指定してください")
-        
+
         strongest_3h = self.get_strongest_line(lines_3h)
         strongest_6h = self.get_strongest_line(lines_6h)
-        
+
         if strongest_3h is None or strongest_6h is None:
             return {
                 'status': '不足',
                 'reason': 'データが不足',
                 'line_type': line_type,
             }
-        
+
         median_3h = strongest_3h['median']
         median_6h = strongest_6h['median']
         median_diff = abs(median_3h - median_6h)
-        
+
         status = '変化なし' if median_diff <= threshold else '変化有'
-        
+
         return {
             'status': status,
             'line_type': line_type,
@@ -1719,7 +1715,7 @@ class MainAnalysis:
             print("    直近と2個前は30切っているが、中央は切っていない⇒継続して30切っていきそう？")
             if self.mode != "inspection":
                 return 0
-        
+
         # ■ラインの検証
         line_class_m5_l = LineStrengthCal(self.candle_analysis_all, "m5", 60)
         line_class_m5_s = LineStrengthCal(self.candle_analysis_all, "m5", 30)
@@ -2009,7 +2005,7 @@ class LineStrengthCal:
                 f"strength = {g['total_strength']}, "
                 f"count = {g['count']}, "
                 f"ave_strength = {g['ave_strength']}, "
-                f"oldest_time = {g['oldest_time']}, " 
+                f"oldest_time = {g['oldest_time']}, "
                 # f"prices = {', '.join(map(str, g['prices']))}, "
                 f"is_flipped_line = {g['is_flipped_line']},  "
                 f"price_gap = {g['price_gap']}, "
@@ -2162,7 +2158,7 @@ class LineStrengthCal:
         self.min_lowest = df_filterd['low'].min()
         self.df_high_low_range = self.p.price_to_pips(self.max_highest - self.min_lowest)  # 価格で計算後、pipsで保存する
         print("     最高値", self.max_inner_high, "(", self.max_highest, ")", "最低値", self.min_inner_low, "(", self.min_lowest, ")")
- 
+
         # lineでの最高値と最低値のGapを算出
         if len(all_lines) == 0:
             print("ALL LINESが一本もない、イレギュラーな状態")
@@ -2171,7 +2167,7 @@ class LineStrengthCal:
 
         # 比率
         self.ratio = round(self.lines_high_low_range / self.df_high_low_range, 2)
-        
+
         print("     LongラインのLinesの発散具合", self.ratio, "dfの高値と安値の差", self.df_high_low_range, "lineのmedianの高値と安値の差", self.lines_high_low_range)
 
         # 上側の詰まり具合、下側の詰まり具合を算出
@@ -2192,7 +2188,7 @@ class LineStrengthCal:
         lower_ratio = round(lower_gap / self.df_high_low_range, 2)
         print("     line_ratio", line_ratio, "gap_pips", self.p.price_to_pips(abs(all_lines[0]['median_price'] - all_lines[-1]['median_price'])))
         print("     upper_gap_pips", upper_gap, "lower_gap_pips", lower_gap)
-        print("     upper_gap_ratio", upper_ratio, "lower_gap_ratio", lower_ratio) 
+        print("     upper_gap_ratio", upper_ratio, "lower_gap_ratio", lower_ratio)
 
         # 現在価格がどこにいるかの確認
         current_price = self.current_price
@@ -2237,12 +2233,12 @@ class LineStrengthCal:
         base_price = self.current_price
         time_before_foot_count = self.time_before_foot_count
         threshold = self.threshold if self.foot == "m5" else 3  # pipsで指定
-        
+
         # ピークの取得
         peaks = self.peaks_class.peaks_original  # 使う足の選択
         if threshold is None:
             threshold = self.threshold
-        
+
         # ★Peaksを絞り込み(指定の直近の足数でフィルタ。土日挟むと時間指定がおかしくなるので足数。足数から時間を算出)
         df_filterd = self.df_r[0:time_before_foot_count]
         oldest_time = datetime.strptime(df_filterd.iloc[-1]['time_jp'], "%Y/%m/%d %H:%M:%S")
@@ -2276,7 +2272,7 @@ class LineStrengthCal:
         # upper_base_price = base_price + (self.latest_peak_dir * self.p.pips_to_price(1))
         # print("     Upper基準", upper_base_price)
         # upper_lines = self.search_upper_lines(upper_base_price, peaks, threshold)  # target_price
-        
+
         # lower_base_price = base_price - (self.latest_peak_dir * self.p.pips_to_price(1))
         # print("     Lower基準", lower_base_price)
         # lower_lines = self.search_lower_lines(lower_base_price, peaks, threshold)  # target_price
@@ -2286,7 +2282,7 @@ class LineStrengthCal:
             upper_base_price = base_price - (self.latest_peak_dir * self.p.pips_to_price(1))  # 利確を少し手前から
             print("     Upper基準", upper_base_price)
             upper_lines = self.search_upper_lines(upper_base_price, peaks, threshold)  # target_price
-            
+
             lower_base_price = base_price - (self.latest_peak_dir * self.p.pips_to_price(1))
             print("     Lower基準", lower_base_price)
             lower_lines = self.search_lower_lines(lower_base_price, peaks, threshold)  # target_price
@@ -2297,7 +2293,7 @@ class LineStrengthCal:
             upper_base_price = base_price - (self.latest_peak_dir * self.p.pips_to_price(1))  # 利確を少し手前から
             print("     Upper基準", upper_base_price)
             upper_lines = self.search_upper_lines(upper_base_price, peaks, threshold)  # target_price
-            
+
             lower_base_price = base_price - (self.latest_peak_dir * self.p.pips_to_price(1))
             print("     Lower基準", lower_base_price)
             lower_lines = self.search_lower_lines(lower_base_price, peaks, threshold)  # target_price
@@ -2555,7 +2551,7 @@ class LineStrengthCal:
 
             center_price = float(p['latest_body_peak_price'])
             center_price_pips = self.p.price_to_pips(center_price)
-            
+
             # 中心価格の前後thresholdの範囲にあるものを集める
             group_items = []
             group_indices = []
@@ -2564,7 +2560,7 @@ class LineStrengthCal:
                 if j not in used_indices:
                     candidate_price = float(candidate['latest_body_peak_price'])
                     candidate_price_pips = self.p.price_to_pips(candidate_price)
-                    
+
                     # pips単位で前後thresholdの範囲内か確認
                     if abs(candidate_price_pips - center_price_pips) <= threshold:
                         group_items.append(candidate)
@@ -2577,7 +2573,7 @@ class LineStrengthCal:
                     key=lambda x: datetime.strptime(x['latest_time_jp'], '%Y/%m/%d %H:%M:%S'),
                     reverse=True
                 )
-                
+
                 prices = [float(x['latest_body_peak_price']) for x in sorted_group_items]
                 dirs = [x['direction'] for x in sorted_group_items]
                 prices_pips = [self.p.price_to_pips(p) for p in prices]
@@ -2602,7 +2598,7 @@ class LineStrengthCal:
                     "total_strength": sum(float(x['peak_strength']) for x in sorted_group_items),
                     'count': len(sorted_group_items),
                     "ave_strength": round(
-                        sum(float(x['peak_strength']) for x in sorted_group_items) / len(sorted_group_items) 
+                        sum(float(x['peak_strength']) for x in sorted_group_items) / len(sorted_group_items)
                         if sorted_group_items else 0, 1
                     ),
                     'prices': prices,
@@ -2614,7 +2610,7 @@ class LineStrengthCal:
                     'newest_time': max(latest_times).strftime('%Y/%m/%d %H:%M:%S'),
                     'oldest_time': min(latest_times).strftime('%Y/%m/%d %H:%M:%S'),
                 })
-                
+
                 # このグループに属するものを使用済みに
                 used_indices.update(group_indices)
 
@@ -2628,12 +2624,12 @@ class LineStrengthCal:
             if i not in used_indices:
                 price = float(peak['latest_body_peak_price'])
                 price_pips = self.p.price_to_pips(price)
-                
+
                 latest_time = datetime.strptime(
                     peak['latest_time_jp'],
                     '%Y/%m/%d %H:%M:%S'
                 )
-                
+
                 results.append({
                     'median_price': price,
                     'median_p': self.p.price_to_pips(abs(target_price - price)),
@@ -2660,5 +2656,5 @@ class LineStrengthCal:
             key=lambda x: x['median_price'],  # 価格で並び替え
             reverse=(sort_direction == -1)
         )
-        
+
         return results

@@ -1,18 +1,20 @@
+import datetime
 import threading  # 定時実行用
 import time
-import datetime
 
 # 自作ファイルインポート
 import tokens as tk  # Token等、各自環境の設定ファイル（git対象外）
-import send_notice as notice
-import classOanda as classOanda
-import classPosition as classPosition  # とりあえずの関数集
-import classOrderCreate as OCreate
-import fGeneric as f
-import fAnalysis_order_Main as am
+
 import classCandleAnalysis as ca
+import classOanda as classOanda
+import classOrderCreate as OCreate
+import classPosition as classPosition  # とりあえずの関数集
 import classPositionControl as classPositionControl
-import copy
+import fAnalysis_order_Main as am
+import fGeneric as f
+import send_notice as notice
+from ogami_oanda.application.scheduling import TradingSchedule
+
 
 class main():
     def __init__(self, pair_info=None):
@@ -51,6 +53,7 @@ class main():
         # フラグ系
         self.first_exe = True  # 初回の実行
         self.midnight_close_flag = 0  # 深夜突入時に一回だけポジション等の解消を行うフラグ　＠time_manageのみで変更あり
+        self.schedule = TradingSchedule()
 
         # ■■■処理の開始
         # ■ポジションクラスの生成
@@ -331,12 +334,12 @@ class main():
             else:
                 # ↓秒指定だと飛ぶので、前回から●秒経過&秒数に余裕を追加
                 # print("　　　　", "通常の実行")
-                if self.time_min % 5 == 0 and 6 <= self.time_sec < 30 and self.past_time_from_latest_mode1_exe > 60:
+                if self.schedule.should_run_analysis(self.now, self.past_time_from_latest_mode1_exe, is_only_update_mode):
                     print("  ")
                     print("  ")
                     self.mode1()  # ★★Mode1の実行
 
-                if self.time_min % 1 == 0 and self.time_sec % 2 == 0:  # 高頻度での確認事項（キャンドル調査時のみ飛ぶ）
+                if self.schedule.should_run_position_update(self.now):  # 高頻度での確認事項（キャンドル調査時のみ飛ぶ）
                     self.mode2()  #
 
         else:

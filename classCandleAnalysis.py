@@ -1,14 +1,8 @@
 import datetime
-from datetime import timedelta
-import pandas as pd
-from collections import defaultdict
-import tokens as tk
-import send_notice as notice
-import fGeneric as gene
-import fGeneric as f
-import copy
+
 import classCandlePeaks as peaksClass
-from pympler import asizeof
+import fGeneric as gene
+import send_notice as notice
 
 
 class candleAnalysis:
@@ -40,7 +34,7 @@ class candleAnalysis:
         """
         target_time_jpまでの時間を取得する
         """
-        # pair 
+        # pair
         self.pair = pair  # 通貨ペア
         # オアンダクラス
         self.base_oa = base_oa
@@ -404,4 +398,7 @@ class CandleMeta:
         self.ave_move = filtered_df.head(9)["highlow"].mean()
         self.ave_move_for_lc = self.ave_move * times
         return self.ave_move_for_lc
+
+
+    from ogami_oanda.domain.analysis.candle_meta import CandleMeta
 
