@@ -12,6 +12,18 @@ class TradingSchedule:
     minimum_analysis_elapsed_seconds: int = 60
     position_update_interval_seconds: int = 2
 
+    def is_market_closed(self, now: datetime) -> bool:
+        """The legacy loop does no work on Sunday."""
+        return now.weekday() == 6
+
+    def is_update_only_window(self, now: datetime) -> bool:
+        """Weekend transition windows retain lifecycle updates but never analyze."""
+        if now.weekday() == 5:
+            return now.hour >= 4
+        if now.weekday() == 0:
+            return now.hour < 7
+        return False
+
     def should_run_analysis(self, now: datetime, elapsed_seconds: float, update_only: bool) -> bool:
         return (
             not update_only

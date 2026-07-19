@@ -21,7 +21,7 @@ class position_control:
 
 
     # 履歴ファイル
-    def __init__(self, is_live, pair="USD_JPY"):
+    def __init__(self, is_live, pair="USD_JPY", *, portfolio_service=None):
         self.result_class_arr = deque(maxlen=10)
         self.pair = pair
         self.p = gene.currency_pair(self.pair)
@@ -29,16 +29,17 @@ class position_control:
         # 変数の宣言
         self.u = self.p.round_keta
         self.position_classes = []
+        self.portfolio_service = portfolio_service
         self.count_true = 0
-        self.oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
-        self.oa2 = classOanda.Oanda(tk.accountIDl2, tk.access_tokenl, tk.environmentl)
+        self.oa = None
+        self.oa2 = None
 
         self.peaks_class = ""  # クラスアップデートの時に利用する（ポジションクラスに引数として渡すため）
 
         # 最大所持個数の設定
-        self.max_position_num = 15  # 最大でも10個のポジションしかもてないようにする
-        self.middle_priority_num = 8  # ミドルプライオリティ(max_position_numのうち）
-        self.high_priority_num = 1  # ハイプライオリティのもの（max_position_numのうち）
+        self.max_position_num = portfolio_service.settings.max_positions if portfolio_service else 15
+        self.middle_priority_num = portfolio_service.settings.mid_slot_count if portfolio_service else 8
+        self.high_priority_num = portfolio_service.settings.high_slot_count if portfolio_service else 1
 
         self.high_i_to = self.max_position_num
         self.high_i_from = self.high_i_to - self.high_priority_num  # ハイプライオリティスロット(1つ限)の、添え字（最大5スロットの場合、添え字的には4番目スロット）
@@ -50,12 +51,32 @@ class position_control:
         self.normal_priority_num = self.max_position_num - self.high_priority_num
 
         # 処理
+        if portfolio_service is not None:
+            for i in range(self.max_position_num):
+                self.position_classes.append(classPosition.managed_position_view("c" + str(i), self.pair))
+            self._sync_portfolio_views()
+            return
+
+        self.oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
+        self.oa2 = classOanda.Oanda(tk.accountIDl2, tk.access_tokenl, tk.environmentl)
         for i in range(self.max_position_num):
             # 複数のクラスを動的に生成する。クラス名は「C＋通し番号」とする。
             # クラス名を確定し、クラスを生成する。
             new_name = "c" + str(i)
             self.position_classes.append(classPosition.order_information(new_name, is_live))  # 順思想のオーダーを入れるクラス
         self.print_classes_and_count()
+
+    def _sync_portfolio_views(self):
+        """Project immutable src state onto the public legacy slot objects."""
+        if getattr(self, "portfolio_service", None) is None:
+            return
+        for index, position in enumerate(self.portfolio_service.slots):
+            view = self.position_classes[index]
+            if position is None:
+                view.reset()
+            else:
+                view.apply_managed_position(position)
+        self.count_true = sum(view.life for view in self.position_classes)
 
     def print_classes_and_count(self):
         self.count_true = sum(1 for d in self.position_classes if hasattr(d, "life") and d.life)
@@ -161,6 +182,16 @@ class position_control:
         """
         調査結果を受け取り、他のオーダーを比較し、オーダーを追加するかを判定する
         """
+        if getattr(self, "portfolio_service", None) is not None:
+            from ogami_oanda.adapters.legacy.order_dict import legacy_dict_to_order_plan
+
+            plans = [legacy_dict_to_order_plan(order_class.exe_order_plan) for order_class in order_classes]
+            result = self.portfolio_service.register_plans(plans, submit=True)
+            self._sync_portfolio_views()
+            if not result.accepted:
+                return 0
+            return "".join(name + "\n" for name in result.accepted)
+
         # ■オーダーのプライオリティの関係
         # 渡されたオーダーの中で、最大のプライオリティのものと、そのプライオリティを算出
         # max_dict = max(order_dic_list, key=lambda d: d["priority"], default=None)
@@ -297,6 +328,10 @@ class position_control:
         全ての情報を更新する
         :return:
         """
+        if getattr(self, "portfolio_service", None) is not None:
+            self.portfolio_service.sync_all(dry_run=False)
+            self._sync_portfolio_views()
+            return self.position_check()
         #  ### Update作業
         # update前
         old_S = [obj.life for obj in self.position_classes]   # 更新前
@@ -310,6 +345,12 @@ class position_control:
         全ての情報を更新する
         :return:
         """
+        if getattr(self, "portfolio_service", None) is not None:
+            self.portfolio_service.sync_all(dry_run=False)
+            self._sync_portfolio_views()
+            result = self.position_check()
+            classPosition.order_information.positions_information = result
+            return result
         #  ### Update作業
         # update前
         old_S = [obj.life for obj in self.position_classes]   # 更新前
@@ -631,6 +672,10 @@ class position_control:
         """
         最初に実行される
         """
+        if getattr(self, "portfolio_service", None) is not None:
+            restored = self.portfolio_service.restore_open_positions()
+            self._sync_portfolio_views()
+            return restored
         res = self.oa2.OpenTrades_exe()
         if len(res['data']) == 0:
             return 0
@@ -660,6 +705,11 @@ class position_control:
         self.print_classes_and_count()
 
     def reset_all_position(self):
+        if getattr(self, "portfolio_service", None) is not None:
+            cancelled = self.portfolio_service.cancel_pending_on_start(True)
+            self.portfolio_service.sync_all(dry_run=False)
+            self._sync_portfolio_views()
+            return cancelled
         print("  RESET ALL POSITIONS")
         # mainのオアンダクラスのオーダーを削除（API）
         # self.oa.OrderCancel_All_exe()

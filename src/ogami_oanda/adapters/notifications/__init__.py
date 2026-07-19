@@ -1,3 +1,3 @@
-from .discord import DiscordNotifier
+from .discord import DiscordNotifier, create_http_session
 
-__all__ = ["DiscordNotifier"]
+__all__ = ["DiscordNotifier", "create_http_session"]

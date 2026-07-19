@@ -4,6 +4,13 @@ from ogami_oanda.application.ports.clock import Clock
 from ogami_oanda.infrastructure.config.models import NotificationSettings
 
 
+def create_http_session():
+    """Keep the requests dependency at the notification adapter boundary."""
+    import requests
+
+    return requests.Session()
+
+
 class DiscordNotifier:
     def __init__(self, settings: NotificationSettings, clock: Clock, http_session) -> None:
         self.settings = settings

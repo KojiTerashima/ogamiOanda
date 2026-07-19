@@ -16,6 +16,9 @@ dependencies = [
     "requests",
 ]
 
+[project.scripts]
+ogami-oanda-live = "ogami_oanda.entrypoints.live:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest",

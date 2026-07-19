@@ -48,8 +48,14 @@ class MarketAnalysisService:
         self.units = units
         self.candle_count = candle_count
 
-    def analyze(self, pair: str, decision_time: str) -> MarketAnalysisResult:
-        current_price = self.market_data.current_price(pair)
+    def analyze(
+        self,
+        pair: str,
+        decision_time: str,
+        *,
+        current_price: float | None = None,
+    ) -> MarketAnalysisResult:
+        current_price = self.market_data.current_price(pair) if current_price is None else current_price
         frames = {granularity: self._prepared_frame(pair, granularity) for granularity in ("M5", "H1", "M30", "S5")}
         peaks = {
             granularity: PeaksClass(frame, granularity, current_price, currency_pair(pair))

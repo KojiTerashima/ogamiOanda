@@ -12,6 +12,86 @@ import classOanda
 import fGeneric as gene
 import send_notice as notice
 
+
+class managed_position_view:
+    """Legacy-shaped, read-only slot view backed by a src ``ManagedPosition``.
+
+    The root controller continues to expose ``position_classes`` to callers while
+    lifecycle state and all broker side effects live in ``src/ogami_oanda``.
+    """
+
+    def __init__(self, name, pair):
+        self.slot_name = name
+        self.pair = pair
+        self.name = name
+        self.oa_mode = 2
+        self.reset()
+
+    def reset(self):
+        self.life = False
+        self.waiting_order = False
+        self.priority = 0
+        self.plan_json = {}
+        self.for_api_json = {}
+        self.o_json = {"units": "0"}
+        self.t_json = {"unrealizedPL": 0}
+        self.o_id = 0
+        self.t_id = 0
+        self.o_state = ""
+        self.t_state = ""
+        self.order_register_time = 0
+        self.o_time = ""
+        self.o_time_past_sec = 0
+        self.t_time_past_sec = 0
+        self.t_unrealize_pl = 0.0
+        self.t_realize_pl = 0.0
+        self.t_pl_pips = 0.0
+        self.lc_change_status = ""
+        self.step1_filled = False
+        self.step1_keeping_second = 0
+        self.try_update_num = 0
+        self.try_update_limit = 2
+        self.linkage_order_classes = []
+        self.linkage_class_slots = []
+
+    def apply_managed_position(self, position):
+        from ogami_oanda.adapters.legacy.order_dict import order_plan_to_legacy_dict
+
+        snapshot = position.snapshot
+        runtime = position.runtime
+        plan = runtime.order_plan
+        self.name = snapshot.name or self.slot_name
+        self.pair = snapshot.pair
+        self.life = snapshot.life
+        self.waiting_order = snapshot.waiting_order
+        self.o_state = "Watching" if snapshot.waiting_order else snapshot.order_state.value
+        self.t_state = snapshot.trade_state.value if snapshot.trade_state.value != "NONE" else ""
+        self.o_id = snapshot.order_id or 0
+        self.t_id = snapshot.trade_id or 0
+        self.priority = plan.intent.priority if plan else 0
+        self.plan_json = order_plan_to_legacy_dict(plan) if plan else {
+            "pair": snapshot.pair,
+            "direction": runtime.direction,
+            "target_price": runtime.target_price,
+            "source": runtime.source,
+            "line_strategy": runtime.line_strategy,
+        }
+        self.for_api_json = self.plan_json.get("for_api_json", {})
+        self.o_json = {"state": self.o_state, "units": str(snapshot.units or (plan.intent.units if plan else 0))}
+        self.t_json = {"unrealizedPL": runtime.unrealized_pl}
+        self.order_register_time = runtime.registered_at or 0
+        self.o_time = str(runtime.registered_at or "")
+        self.t_unrealize_pl = runtime.unrealized_pl
+        self.t_realize_pl = runtime.realized_pl
+        self.lc_change_status = "LC-updated" if runtime.applied_lc_change_index >= 0 else ""
+        return self
+
+    def count_up_position_check(self):
+        self.try_update_num += 1
+
+    def life_set(self, value):
+        self.life = value
+
 # from test_loop import get_instances_of_class
 
 

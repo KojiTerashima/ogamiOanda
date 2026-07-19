@@ -1,0 +1,2 @@
+[console_scripts]
+ogami-oanda-live = ogami_oanda.entrypoints.live:main

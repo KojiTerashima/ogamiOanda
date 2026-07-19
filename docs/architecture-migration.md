@@ -27,26 +27,28 @@ Code under `src/ogami_oanda` must not import root-level legacy modules. Root-lev
 | OANDA query/execution | `adapters.oanda` | New applications use the shared `OandaClient`. |
 | Discord notices | `adapters.notifications.DiscordNotifier` | `send_notice.line_send` retains legacy argument and duplicate semantics, then delegates. |
 | Trade history CSV | `adapters.repositories.CsvTradeHistoryRepository` | `classPosition.order_information` accepts an optional injected repository. |
-| Position slots and synchronization | `application.services.PositionPortfolioService` | Root position-control remains a legacy facade until callers migrate. |
+| Position slots and synchronization | `application.services.PositionPortfolioService` | Root position-control projects src-managed slots when a portfolio is injected. |
 
 ## Live Entrypoint
 
 `ogami_oanda.entrypoints.live` is the new composition root. It creates one OANDA client for market data, execution, and query adapters; then composes notification, history, position, portfolio, analysis, and planning services.
 
-Run a single cycle with explicit configuration:
+Run one deterministic cycle with explicit configuration:
 
 ```sh
-.venv/bin/python -m ogami_oanda.entrypoints.live --settings config/settings.yaml --dry-run
+.venv/bin/python -m ogami_oanda.entrypoints.live --config config/settings.yaml --dry-run --once
 ```
 
-`--dry-run` performs analysis and registers watching positions but does not submit broker orders. Pending orders are never cancelled by default; pass `--cancel-pending-on-start` only when that action is intended. The initial entrypoint uses an injected candidate builder and defaults to no candidates, so wiring a production strategy is an explicit composition decision rather than an implicit root-module dependency.
+`--settings` remains a compatibility alias for `--config`. `--dry-run` performs analysis and registers watching positions but never submits, cancels, closes, or amends at the broker boundary, including startup cancellation. Pending orders are never cancelled by default; pass `--cancel-pending-on-start` only when that action is intended. The default composition uses the three-pair `LineCandidateBuilder`; `_no_candidates` is retained only for explicit test composition.
+
+Without `--once`, the console script runs the injected one-second scheduler. It skips Sunday, uses update-only mode during the Saturday/Monday transition and wide spreads, analyzes in the legacy five-minute window, and synchronizes positions every two seconds.
 
 ## Legacy Boundaries
 
 - `classPosition.py` accepts optional `oanda_factory` and `notifier` dependencies. Existing two-argument construction remains supported.
 - `classPosition.py` also accepts an optional `history_repository`; without it, its existing `history_folder_path/history.csv` behavior remains unchanged.
-- `classPositionControl.py` remains the legacy `ActiveOrderQuery` implementation until callers migrate to `application.services.Portfolio`.
-- `main_exe.py` retains its existing startup cancellation behavior during the migration. New deployments should use `entrypoints.live`, where cancellation is opt-in.
+- `classPositionControl.py` accepts an optional `portfolio_service`; this activates its src-backed compatibility view while retaining the old constructor and method names.
+- `main_exe.py` delegates to `LiveApplication`; only this legacy launcher opts in to startup cancellation. New deployments should use `ogami-oanda-live`, where cancellation is opt-in.
 - Dictionary conversion belongs in `adapters.legacy`; new use cases accept domain models and ports.
 
 ## Experimental Code
