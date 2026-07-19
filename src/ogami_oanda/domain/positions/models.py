@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Mapping
+
+from ogami_oanda.domain.orders.models import OrderPlan
 
 
 class OrderState(str, Enum):
@@ -31,3 +35,59 @@ class PositionSnapshot:
     trade_id: str | None = None
     life: bool = False
     waiting_order: bool = False
+    direction: int | None = None
+    target_price: float | None = None
+    units: int = 0
+    source: str | None = None
+    line_strategy: str | None = None
+    current_stop_loss: float | None = None
+    current_price: float | None = None
+    unrealized_pl: float = 0.0
+    realized_pl: float = 0.0
+    open_time: str | None = None
+    close_time: str | None = None
+    elapsed_seconds: float = 0.0
+    average_close_price: float | None = None
+
+
+@dataclass(frozen=True)
+class PositionRuntimeState:
+    order_plan: OrderPlan | None = None
+    direction: int = 0
+    target_price: float = 0.0
+    source: str | None = None
+    line_strategy: str | None = None
+    registered_at: datetime | None = None
+    filled_at: datetime | None = None
+    current_stop_loss: float | None = None
+    applied_lc_change_index: int = -1
+    linkage_id: str | None = None
+    linkage_done: bool = False
+    close_requested: bool = False
+    unrealized_pl: float = 0.0
+    realized_pl: float = 0.0
+    max_unrealized_pl: float = 0.0
+    min_unrealized_pl: float = 0.0
+    restored: bool = False
+    watch_step1_started_at: datetime | None = None
+    watch_step2_started_at: datetime | None = None
+    watch_step1_over_price: float = 0.0
+
+
+@dataclass(frozen=True)
+class PositionCommand:
+    action: str
+    reference_id: str | None
+    reason: str
+    stop_loss_price: float | None = None
+    data: Mapping[str, object] | None = None
+
+
+@dataclass(frozen=True)
+class PositionEvent:
+    event_id: str
+    kind: str
+    name: str
+    pair: str
+    occurred_at: datetime
+    data: Mapping[str, object]

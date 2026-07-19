@@ -1,9 +1,7 @@
 import datetime
-import fLineAnalysis as ti
+
 import classOrderCreate as OCreate
-import fGeneric as gene
-
-
+import fLineAnalysis as ti
 
 
 class wrap_all_analysis():
@@ -58,7 +56,7 @@ class wrap_all_analysis():
         # turn_analysis_instance = ti.BbAnalysis2(self.ca)
 
         # ターン起点のオーダー
-        turn_analysis_instance = ti.MainAnalysis(self.ca, position_control_class, mode)
+        turn_analysis_instance = ti._LegacyMainAnalysis(self.ca, position_control_class, mode)
         self.turn_analysis_instance = turn_analysis_instance
         if turn_analysis_instance.take_position_flag:
             self.orders_add_this_class(turn_analysis_instance.exe_order_classes)
@@ -138,3 +136,29 @@ class time_analysis():
                 "candle_analysis_class": self.ca
             })
             self.add_order_and_flag_inspecion_class(order_class1)
+
+
+_LegacyWrapAllAnalysis = wrap_all_analysis
+
+
+class wrap_all_analysis:
+    """Compatibility facade delegating root analysis to the src pipeline."""
+
+    def __init__(self, candle_analysis_class, position_control_class=None, mode="inspection"):
+        self.ca = candle_analysis_class
+        self.mode = mode
+        self.position_control_class = position_control_class
+        self.turn_analysis_instance = ti.MainAnalysis(candle_analysis_class, position_control_class, mode)
+        self.exe_order_classes = list(self.turn_analysis_instance.exe_order_classes)
+        self.take_position_flag = bool(self.exe_order_classes)
+
+    def orders_add_this_class(self, order_classes):
+        self.take_position_flag = True
+        if isinstance(order_classes, (list, tuple)):
+            self.exe_order_classes.extend(order_classes)
+        else:
+            self.exe_order_classes.append(order_classes)
+
+    def orders_replace_this_class(self, order_classes):
+        self.exe_order_classes = []
+        self.orders_add_this_class(order_classes)

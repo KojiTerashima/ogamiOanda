@@ -2680,3 +2680,67 @@ class LineStrengthCal(_LegacyLineStrengthCal):
 
     def refresh_line_group(self, result, target_price, threshold):
         self._line_grouper().refresh_line_group(result, target_price, threshold)
+
+
+_LegacyMainAnalysis = MainAnalysis
+_LegacyLineOrderCoordinator = LineOrderCoordinator
+
+
+class MainAnalysis:
+    """Compatibility facade backed by the src market-analysis pipeline."""
+
+    def __init__(self, candle_analysis, position_control_class=None, mode="inspection"):
+        from ogami_oanda.adapters.legacy.candle_analysis import (
+            LegacyCandleAnalysisMarketData,
+        )
+        from ogami_oanda.adapters.legacy.order_dict import (
+            LegacyOrderView,
+            order_plan_to_legacy_dict,
+        )
+        from ogami_oanda.application.services.line_candidate_context_builder import (
+            build_line_candidate_context,
+        )
+        from ogami_oanda.application.services.market_analysis_service import (
+            MarketAnalysisService,
+        )
+        from ogami_oanda.application.services.order_planner import OrderPlanner
+        from ogami_oanda.strategy.line import LineCandidateBuilder
+
+        self.candle_analysis_all = candle_analysis
+        self.position_control_class = position_control_class
+        self.mode = mode
+        self.pair = getattr(candle_analysis, "pair", "USD_JPY")
+        self.p = gene.currency_pair(self.pair)
+        self.current_price = float(candle_analysis.current_price)
+        self.current_time = candle_analysis.d5_df_r.iloc[0]["time_jp"]
+        self.df_r_m5 = candle_analysis.d5_df_r[1:]
+        self.df_r_h1 = candle_analysis.h1_df_r
+        self.df_r_m30 = candle_analysis.d30_df_r
+        self.each_pair_line_strategy_profile = line_strategy_profile(self.pair)
+
+        service = MarketAnalysisService(
+            LegacyCandleAnalysisMarketData(candle_analysis),
+            LineCandidateBuilder(self.pair),
+            active_orders=position_control_class,
+            candidate_context_builder=build_line_candidate_context,
+        )
+        result = service.analyze(self.pair, self.current_time)
+        planner = OrderPlanner()
+        self.exe_order_classes = [
+            LegacyOrderView(
+                order_plan_to_legacy_dict(planner.plan(intent, result.order_context)),
+                self.current_price,
+            )
+            for intent in result.intents
+        ]
+        self.take_position_flag = bool(self.exe_order_classes)
+        self.send_message_at_last = ""
+        self.peaks_class = result.peaks["M5"]
+        self.peaks_class_hour = result.peaks["H1"]
+        self.peaks_class_m30 = result.peaks["M30"]
+        self.line_class_h1_l = result.candidate_context["line_class_h1_main"]
+        self.line_class_h1_s = result.candidate_context["line_class_h1_sub"]
+
+    @staticmethod
+    def is_h1_line_limit_order_target(line_side, line):
+        return UsdJpyH1LineOrderStrategy(line_strategy_profile("USD_JPY")).is_target(line_side, line)

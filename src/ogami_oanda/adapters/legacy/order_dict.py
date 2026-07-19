@@ -11,6 +11,19 @@ from ogami_oanda.domain.orders.models import (
 )
 
 
+class LegacyOrderView:
+    """Compatibility view consumed by the root Position registration API."""
+
+    def __init__(self, exe_order_plan: dict[str, object], current_price: float) -> None:
+        self.exe_order_plan = exe_order_plan
+        self.current_price = float(current_price)
+        self.name = str(exe_order_plan["name"])
+        self.name_ymdhms = str(exe_order_plan["name_ymdhms"])
+        self.oa_mode = int(exe_order_plan["oa_mode"])
+        self.lc_change = list(exe_order_plan.get("lc_change", []))
+        self.linkage_order_classes: list[LegacyOrderView] = []
+
+
 def legacy_dict_to_order_plan(plan: dict[str, object]) -> OrderPlan:
     pair_name = str(plan["pair"])
     pair = currency_pair(pair_name)
@@ -83,7 +96,7 @@ def order_plan_to_legacy_dict(order_plan: OrderPlan) -> dict[str, object]:
             "stopLossOnFill": {"timeInForce": "GTC", "price": pair.price_to_str(request.stop_loss_price)},
         }
     }
-    return {
+    result = {
         "decision_time": context.decision_time,
         "units": intent.units,
         "pair": intent.pair,
@@ -110,3 +123,5 @@ def order_plan_to_legacy_dict(order_plan: OrderPlan) -> dict[str, object]:
         "candle_lc_change_type": intent.metadata.get("candle_lc_change_type", "5M"),
         "memo": intent.metadata.get("memo", ""),
     }
+    result.update(intent.metadata.get("legacy_plan_metadata", {}))
+    return result

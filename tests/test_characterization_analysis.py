@@ -6,7 +6,7 @@ from classCandlePeaks import (
     _LegacyPeaksClass,
 )
 from fLineAnalysis import LineOrderCoordinator
-from ogami_oanda.domain.analysis.lines import LineGrouper
+from ogami_oanda.domain.analysis.lines import LineGrouper, LineStrengthCalculator
 from ogami_oanda.domain.analysis.peaks import (
     PeaksClass as DomainPeaksClass,
 )
@@ -93,6 +93,55 @@ def test_domain_line_grouper_matches_legacy_price_band_grouping(pair_name):
     grouper = LineGrouper(pair_name)
 
     assert grouper.make_same_price_group(peaks, 1, 150.0, threshold=3) == legacy.make_same_price_group(peaks, 1, 150.0, threshold=3)
+
+
+@pytest.mark.characterization
+@pytest.mark.parametrize(
+    ("pair_name", "foot", "window"),
+    [
+        ("USD_JPY", "m5", 60),
+        ("USD_JPY", "m5", 30),
+        ("USD_JPY", "h1", 65),
+        ("USD_JPY", "h1", 30),
+        ("EUR_USD", "m5", 60),
+        ("EUR_USD", "m5", 30),
+        ("EUR_USD", "h1", 65),
+        ("EUR_USD", "h1", 30),
+        ("AUD_USD", "m5", 60),
+        ("AUD_USD", "m5", 30),
+        ("AUD_USD", "h1", 65),
+        ("AUD_USD", "h1", 30),
+    ],
+)
+def test_domain_line_strength_calculator_matches_legacy_line_class(pair_name, foot, window, analysis_frame_store):
+    import classCandleAnalysis
+    import fLineAnalysis
+
+    frames = analysis_frame_store[pair_name]
+    current_price = {"USD_JPY": 150.77, "EUR_USD": 1.1099, "AUD_USD": 0.7065}[pair_name]
+    candle = classCandleAnalysis.candleAnalysis(
+        None,
+        pair_name,
+        0,
+        m5_df_r=frames["M5"].copy(),
+        h1_df_r=frames["H1"].copy(),
+        m30_df_r=frames["M30"].copy(),
+        current_price=current_price,
+    )
+    legacy = fLineAnalysis.LineStrengthCal(candle, foot, window)
+    peaks = candle.peaks_class.peaks_original if foot == "m5" else candle.peaks_class_hour.peaks_original
+    frame = candle.d5_df_r[1:] if foot == "m5" else candle.h1_df_r
+    domain = LineStrengthCalculator(pair_name).calculate(
+        foot=foot,
+        peaks=peaks,
+        frame=frame,
+        current_price=current_price,
+        current_time=candle.d5_df_r.iloc[0]["time_jp"],
+        time_before_foot_count=window,
+    )
+
+    for attribute in ("upper_lines", "lower_lines", "tp_lines", "lc_lines", "all_lines"):
+        assert getattr(domain, attribute) == getattr(legacy, attribute)
 
 
 @pytest.mark.characterization

@@ -59,15 +59,11 @@ class LineCandidateCoordinator:
                 selected.append(candidate)
         return selected
 
-    def filter_recommended_candidates(self, candidates, rsi_info, decision_time, order_mode="limit"):
+    def select_line_candidates(self, candidates, rsi_info, decision_time, order_mode, reason_func):
         filtered = []
         for candidate in candidates:
             latest_peak = self.attach_candidate_decision_context(candidate, decision_time, order_mode)
-            reasons = (
-                self.profile.immediate_recommended_reasons(candidate, rsi_info, latest_peak)
-                if order_mode == "immediate"
-                else self.profile.limit_recommended_reasons(candidate, rsi_info, latest_peak)
-            )
+            reasons = reason_func(candidate, rsi_info, latest_peak)
             if not reasons:
                 continue
             candidate["recommended_reasons"] = reasons
@@ -75,6 +71,10 @@ class LineCandidateCoordinator:
             candidate["memo"] = self._build_condition_memo(candidate, rsi_info, reasons)
             filtered.append(candidate)
         return filtered
+
+    def filter_recommended_candidates(self, candidates, rsi_info, decision_time, order_mode="limit"):
+        reason_func = self.profile.immediate_recommended_reasons if order_mode == "immediate" else self.profile.limit_recommended_reasons
+        return self.select_line_candidates(candidates, rsi_info, decision_time, order_mode, reason_func)
 
     @staticmethod
     def get_session_info(decision_time):
@@ -86,13 +86,28 @@ class LineCandidateCoordinator:
     @staticmethod
     def _build_condition_memo(candidate, rsi_info, reasons):
         line = candidate["line"]
+        h1_context = candidate.get("h1_context", {})
         parts = [
             str(candidate.get("order_mode", "line")), candidate["timeframe"], candidate["line_side"], candidate["strategy"].entry_type,
             "peak_dir=" + str(candidate.get("latest_peak_dir")), "peak_count=" + str(candidate.get("latest_peak_count")),
-            "peak_rsi=" + str(candidate.get("latest_peak_rsi")), "strength=" + str(line.get("total_strength")),
-            "count=" + str(line.get("count")), "core_count=" + str(line.get("core_count")),
-            "core_strength=" + str(line.get("core_total_strength")),
+            "peak_rsi=" + str(candidate.get("latest_peak_rsi")), "prev_peak_rsi=" + str(candidate.get("previous_peak_rsi")),
+            "strength=" + str(line.get("total_strength")),
+            "count=" + str(line.get("count")), "price_gap=" + str(line.get("price_gap")),
+            "core_count=" + str(line.get("core_count")),
+            "core_strength=" + str(line.get("core_total_strength")), "line_rsi_avg=" + str(line.get("line_peak_rsi_avg")),
+            "line_rsi_latest=" + str(line.get("line_peak_rsi_latest")),
         ]
+
+        h1_distance = h1_context.get("h1_nearest_distance_pips")
+        h1_strength = h1_context.get("h1_nearest_total_strength")
+        h1_side = h1_context.get("h1_nearest_side")
+        if h1_distance is not None:
+            parts.append("H1_near=" + str(round(float(h1_distance), 1)) + "p")
+        if h1_strength is not None:
+            parts.append("H1_strength=" + str(h1_strength))
+        if h1_side is not None:
+            parts.append("H1_side=" + str(h1_side))
+
         if rsi_info is not None and rsi_info.get("rsi_1") is not None:
             parts.append("RSI=" + str(round(float(rsi_info["rsi_1"]), 1)))
         parts.append("reason=" + " / ".join(reasons))

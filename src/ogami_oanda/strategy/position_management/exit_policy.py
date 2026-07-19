@@ -8,6 +8,15 @@ from ogami_oanda.domain.positions.models import PositionSnapshot, TradeState
 @dataclass(frozen=True)
 class ExitPolicy:
     trade_timeout_min: int
+    order_timeout_min: int = 60
+    trade_timeout_enabled: bool = False
+
+    def should_cancel_order(self, position: PositionSnapshot, elapsed_seconds: float) -> bool:
+        return position.order_state.value == "PENDING" and elapsed_seconds > self.order_timeout_min * 60
 
     def should_close(self, position: PositionSnapshot, elapsed_seconds: float) -> bool:
-        return position.trade_state is TradeState.OPEN and elapsed_seconds >= self.trade_timeout_min * 60
+        return (
+            self.trade_timeout_enabled
+            and position.trade_state is TradeState.OPEN
+            and elapsed_seconds >= self.trade_timeout_min * 60
+        )

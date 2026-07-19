@@ -11,6 +11,7 @@ def test_portfolio_implements_active_order_query_and_matches_by_pips():
 
     assert isinstance(portfolio, ActiveOrderQuery)
     assert portfolio.has_similar_active_order(1, 150.029, threshold_pips=3) is True
+    assert portfolio.has_similar_active_order(1, 150.030, threshold_pips=3) is True
     assert portfolio.has_similar_active_order(1, 150.031, threshold_pips=3) is False
 
 

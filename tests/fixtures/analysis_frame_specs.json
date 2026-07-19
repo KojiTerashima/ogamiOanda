@@ -1,0 +1,116 @@
+{
+  "USD_JPY": {
+    "M5": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 180,
+      "frequency": "5min",
+      "base_price": 149.82,
+      "step_pips": [5, 4, -2, -4, -3, 2, 4, 3, -1, -5, 2, 6, -3, -4, 1, 3],
+      "body_pips": [2, -1, 1, -2, 3, -1, 2, -2],
+      "wick_pips": 3
+    },
+    "H1": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 120,
+      "frequency": "1h",
+      "base_price": 149.4,
+      "step_pips": [11, 8, -6, -10, -9, 5, 9, 6, -4, -11, 6, 12],
+      "body_pips": [4, -3, 2, -2, 5, -4],
+      "wick_pips": 6
+    },
+    "M30": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 140,
+      "frequency": "30min",
+      "base_price": 149.65,
+      "step_pips": [8, 6, -4, -7, -6, 4, 7, 5, -3, -8, 5, 9],
+      "body_pips": [3, -2, 2, -3, 4, -2],
+      "wick_pips": 4
+    },
+    "S5": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 120,
+      "frequency": "5s",
+      "base_price": 149.98,
+      "step_pips": [1, 1, 0, -1, -1, 1, 0, -1],
+      "body_pips": [1, -1, 1, -1],
+      "wick_pips": 1
+    }
+  },
+  "EUR_USD": {
+    "M5": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 180,
+      "frequency": "5min",
+      "base_price": 1.0982,
+      "step_pips": [6, 4, -3, -5, -4, 3, 5, 4, -2, -6, 3, 7, -4, -5, 2, 4],
+      "body_pips": [2, -1, 1, -2, 2, -1, 1, -2],
+      "wick_pips": 3
+    },
+    "H1": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 120,
+      "frequency": "1h",
+      "base_price": 1.0955,
+      "step_pips": [12, 9, -7, -11, -8, 6, 10, 7, -5, -12, 6, 13],
+      "body_pips": [4, -3, 2, -2, 4, -3],
+      "wick_pips": 6
+    },
+    "M30": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 140,
+      "frequency": "30min",
+      "base_price": 1.0968,
+      "step_pips": [8, 7, -4, -8, -6, 4, 8, 5, -3, -9, 4, 9],
+      "body_pips": [3, -2, 2, -3, 3, -2],
+      "wick_pips": 4
+    },
+    "S5": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 120,
+      "frequency": "5s",
+      "base_price": 1.0998,
+      "step_pips": [1, 1, 0, -1, -1, 1, 0, -1],
+      "body_pips": [1, -1, 1, -1],
+      "wick_pips": 1
+    }
+  },
+  "AUD_USD": {
+    "M5": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 180,
+      "frequency": "5min",
+      "base_price": 0.6982,
+      "step_pips": [5, 3, -2, -4, -3, 2, 4, 3, -1, -5, 2, 6, -3, -4, 1, 3],
+      "body_pips": [2, -1, 1, -2, 2, -1, 1, -2],
+      "wick_pips": 3
+    },
+    "H1": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 120,
+      "frequency": "1h",
+      "base_price": 0.6954,
+      "step_pips": [10, 8, -6, -10, -7, 5, 9, 6, -4, -10, 5, 11],
+      "body_pips": [4, -3, 2, -2, 4, -3],
+      "wick_pips": 6
+    },
+    "M30": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 140,
+      "frequency": "30min",
+      "base_price": 0.6967,
+      "step_pips": [8, 6, -4, -7, -5, 4, 7, 5, -3, -8, 4, 8],
+      "body_pips": [3, -2, 2, -3, 3, -2],
+      "wick_pips": 4
+    },
+    "S5": {
+      "latest_time": "2026-01-02 12:00:00",
+      "periods": 120,
+      "frequency": "5s",
+      "base_price": 0.6998,
+      "step_pips": [1, 1, 0, -1, -1, 1, 0, -1],
+      "body_pips": [1, -1, 1, -1],
+      "wick_pips": 1
+    }
+  }
+}

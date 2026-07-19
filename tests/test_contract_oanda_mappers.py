@@ -57,15 +57,42 @@ def test_order_response_mapping_distinguishes_rejection():
 @pytest.mark.contract
 def test_order_and_trade_snapshots_preserve_broker_lifecycle_state():
     order = map_order_snapshot(
-        {"order": {"id": "order-1", "instrument": "USD_JPY", "state": "FILLED", "tradeOpenedID": "trade-1"}}
+        {
+            "order": {
+                "id": "order-1",
+                "instrument": "USD_JPY",
+                "state": "FILLED",
+                "tradeOpenedID": "trade-1",
+                "units": "1000",
+                "price": "150.10",
+            }
+        }
     )
-    trade = map_trade_snapshot({"trade": {"id": "trade-1", "instrument": "USD_JPY", "state": "CLOSED"}})
+    trade = map_trade_snapshot(
+        {
+            "trade": {
+                "id": "trade-1",
+                "instrument": "USD_JPY",
+                "state": "CLOSED",
+                "currentUnits": "-500",
+                "price": "149.80",
+                "stopLossOrder": {"price": "149.95"},
+            }
+        }
+    )
 
     assert order is not None
     assert order.order_id == "order-1"
     assert order.trade_id == "trade-1"
     assert order.life is True
+    assert order.direction == 1
+    assert order.target_price == 150.1
+    assert order.units == 1000
     assert trade is not None
     assert trade.trade_id == "trade-1"
     assert trade.trade_state.value == "CLOSED"
     assert trade.life is False
+    assert trade.direction == -1
+    assert trade.target_price == 149.8
+    assert trade.units == 500
+    assert trade.current_stop_loss == 149.95

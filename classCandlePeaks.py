@@ -845,6 +845,19 @@ def _legacy_judge_peak_is_belong_peak_group(peaks, target_peak):
     return ans
 
 
+from ogami_oanda.domain.analysis.peaks import (  # noqa: E402
+    PeaksClass,
+    judge_peak_is_belong_peak_group,
+)
+
+__all__ = [
+    "PeaksClass",
+    "judge_peak_is_belong_peak_group",
+    "_LegacyPeaksClass",
+    "_legacy_judge_peak_is_belong_peak_group",
+]
+
+
 
 
 
