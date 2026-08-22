@@ -18,7 +18,36 @@ def map_price_response(pair_name: str, response: Mapping[str, object]) -> dict[s
 
 
 def map_candle_response(response: Mapping[str, object]) -> pd.DataFrame:
-    return pd.DataFrame(response.get("candles", []))
+    """Translate OANDA candle JSON into the canonical market-data contract."""
+    rows = []
+    for candle in response.get("candles", []):
+        if not isinstance(candle, Mapping):
+            continue
+        price = next(
+            (
+                candle.get(component)
+                for component in ("mid", "ask", "bid")
+                if isinstance(candle.get(component), Mapping)
+            ),
+            None,
+        )
+        if price is None:
+            continue
+        timestamp = pd.to_datetime(candle["time"], utc=True).tz_convert("Asia/Tokyo")
+        rows.append(
+            {
+                "time_jp": timestamp.strftime("%Y/%m/%d %H:%M:%S"),
+                "time_jp_dt": timestamp.tz_localize(None),
+                "open": float(price["o"]),
+                "close": float(price["c"]),
+                "high": float(price["h"]),
+                "low": float(price["l"]),
+                "volume": int(candle.get("volume", 0)),
+                "time": str(candle["time"]),
+            }
+        )
+    columns = ("time_jp", "time_jp_dt", "open", "close", "high", "low", "volume", "time")
+    return pd.DataFrame(rows, columns=columns).sort_values("time_jp_dt", ascending=False).reset_index(drop=True)
 
 
 def broker_request_to_oanda(request: BrokerOrderRequest) -> dict[str, object]:
@@ -41,6 +70,109 @@ def map_order_create_response(response: Mapping[str, object]) -> tuple[bool, str
         return False, None
     transaction = response.get("orderCreateTransaction", {})
     return True, str(transaction.get("id")) if transaction.get("id") is not None else None
+
+
+def map_order_cancel_response(
+    response: Mapping[str, object],
+    order_id: str,
+) -> tuple[bool, str | None, str]:
+    transaction = response.get("orderCancelTransaction")
+    if isinstance(transaction, Mapping):
+        reference_id = transaction.get("orderID", order_id)
+        return True, str(reference_id), ""
+    return False, None, _execution_rejection_reason(
+        response,
+        ("orderCancelRejectTransaction",),
+        "OANDA did not confirm order cancellation",
+    )
+
+
+def map_trade_close_response(
+    response: Mapping[str, object],
+    trade_id: str,
+) -> tuple[bool, str | None, str]:
+    transaction = response.get("orderFillTransaction")
+    if isinstance(transaction, Mapping):
+        return True, _closed_trade_id(transaction, trade_id), ""
+    return False, None, _execution_rejection_reason(
+        response,
+        ("orderRejectTransaction", "orderCancelTransaction"),
+        "OANDA did not confirm trade closure",
+    )
+
+
+def map_trade_protection_response(
+    response: Mapping[str, object],
+    trade_id: str,
+) -> tuple[bool, str | None, str]:
+    rejection_keys = (
+        "takeProfitOrderRejectTransaction",
+        "stopLossOrderRejectTransaction",
+        "trailingStopLossOrderRejectTransaction",
+        "guaranteedStopLossOrderRejectTransaction",
+    )
+    if any(isinstance(response.get(key), Mapping) for key in rejection_keys):
+        return False, None, _execution_rejection_reason(
+            response,
+            rejection_keys,
+            "OANDA rejected the protection amendment",
+        )
+    success_keys = (
+        "takeProfitOrderTransaction",
+        "stopLossOrderTransaction",
+        "trailingStopLossOrderTransaction",
+        "guaranteedStopLossOrderTransaction",
+        "takeProfitOrderCancelTransaction",
+        "stopLossOrderCancelTransaction",
+        "trailingStopLossOrderCancelTransaction",
+        "guaranteedStopLossOrderCancelTransaction",
+    )
+    if any(isinstance(response.get(key), Mapping) for key in success_keys):
+        return True, trade_id, ""
+    return False, None, _execution_rejection_reason(
+        response,
+        rejection_keys,
+        "OANDA did not confirm the protection amendment",
+    )
+
+
+def oanda_error_reason(payload: Mapping[str, object], fallback: str) -> str:
+    error_code = payload.get("errorCode")
+    error_message = payload.get("errorMessage")
+    if error_code is not None and error_message is not None:
+        return f"{error_code}: {error_message}"
+    if error_message is not None:
+        return str(error_message)
+    if error_code is not None:
+        return str(error_code)
+    return fallback
+
+
+def _execution_rejection_reason(
+    response: Mapping[str, object],
+    transaction_keys: tuple[str, ...],
+    fallback: str,
+) -> str:
+    for key in transaction_keys:
+        transaction = response.get(key)
+        if not isinstance(transaction, Mapping):
+            continue
+        for reason_key in ("rejectReason", "reason"):
+            if transaction.get(reason_key) is not None:
+                return str(transaction[reason_key])
+    return oanda_error_reason(response, fallback)
+
+
+def _closed_trade_id(transaction: Mapping[str, object], fallback: str) -> str:
+    reduced = transaction.get("tradeReduced")
+    if isinstance(reduced, Mapping) and reduced.get("tradeID") is not None:
+        return str(reduced["tradeID"])
+    closed = transaction.get("tradesClosed")
+    if isinstance(closed, list) and closed and isinstance(closed[0], Mapping):
+        trade_id = closed[0].get("tradeID")
+        if trade_id is not None:
+            return str(trade_id)
+    return fallback
 
 
 def map_order_snapshot(response: Mapping[str, object]) -> PositionSnapshot | None:

@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from ogami_oanda.application.ports.broker import BrokerExecutionPort, BrokerQueryPort
+from ogami_oanda.application.settings import TradingSettings
 from ogami_oanda.application.services.portfolio import ActiveOrder, Portfolio
-from ogami_oanda.application.services.position_service import PositionService
+from ogami_oanda.application.services.position_service import (
+    CandleStopLossInput,
+    PositionService,
+)
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import OrderPlan
 from ogami_oanda.domain.positions.managed_position import ManagedPosition
@@ -13,7 +17,6 @@ from ogami_oanda.domain.positions.models import (
     PositionEvent,
     PositionSnapshot,
 )
-from ogami_oanda.infrastructure.config.models import TradingSettings
 from ogami_oanda.strategy.position_management import (
     HedgePolicy,
     HedgePosition,
@@ -40,15 +43,25 @@ class PortfolioSummary:
 
 
 class PositionPortfolioService:
-    def __init__(self, pair: str, position_service: PositionService, broker_query: BrokerQueryPort, broker_execution: BrokerExecutionPort, settings: TradingSettings = TradingSettings()) -> None:
+    def __init__(
+        self,
+        pair: str,
+        position_service: PositionService,
+        broker_query: BrokerQueryPort,
+        broker_execution: BrokerExecutionPort,
+        settings: TradingSettings = TradingSettings(),
+        *,
+        linkage_policy: LinkagePolicy | None = None,
+        hedge_policy: HedgePolicy | None = None,
+    ) -> None:
         self.pair = pair
         self.position_service = position_service
         self.broker_query = broker_query
         self.broker_execution = broker_execution
         self.settings = settings
         self.slots: list[ManagedPosition | None] = [None] * settings.max_positions
-        self.linkage_policy = LinkagePolicy(currency_pair(pair).round_keta)
-        self.hedge_policy = HedgePolicy()
+        self.linkage_policy = linkage_policy or LinkagePolicy(currency_pair(pair).round_keta)
+        self.hedge_policy = hedge_policy or HedgePolicy()
 
     def register_plans(self, plans: list[OrderPlan], submit: bool = True) -> RegistrationResult:
         accepted: list[str] = []
@@ -97,7 +110,14 @@ class PositionPortfolioService:
                 rejected.append((intent.name, "tier_full"))
                 continue
             position = ManagedPosition.registered(intent.name, self.pair)
-            position = self.position_service.register(position, plan, submit=submit)
+            plan_submit = submit and bool(
+                intent.metadata.get("order_permission", True),
+            )
+            position = self.position_service.register(
+                position,
+                plan,
+                submit=plan_submit,
+            )
             if position.snapshot.life:
                 self.slots[slot_index] = position
                 accepted.append(intent.name)
@@ -109,6 +129,7 @@ class PositionPortfolioService:
         self,
         *,
         current_price: float | None = None,
+        candle_stop_loss: CandleStopLossInput | None = None,
         dry_run: bool = False,
     ) -> PortfolioSummary:
         working_slots = list(self.slots)
@@ -119,6 +140,7 @@ class PositionPortfolioService:
                 result = self.position_service.sync_result(
                     position,
                     current_price=current_price,
+                    candle_stop_loss=candle_stop_loss,
                     dry_run=dry_run,
                 )
                 working_slots[index] = result.position

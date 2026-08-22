@@ -27,7 +27,7 @@ def _install_tokens_stub() -> None:
     tokens.WEBHOOK_URL_main = ""
     tokens.WEBHOOK_URL_friend = ""
     tokens.folder_path = "."
-    tokens.setting_json = {"l_units": 1}
+    tokens.setting_json = {"l_units": 500}
     sys.modules["tokens"] = tokens
 
 

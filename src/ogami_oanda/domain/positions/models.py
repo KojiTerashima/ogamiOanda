@@ -61,6 +61,7 @@ class PositionRuntimeState:
     filled_at: datetime | None = None
     current_stop_loss: float | None = None
     applied_lc_change_index: int = -1
+    candle_stop_loss_done: bool = False
     linkage_id: str | None = None
     linkage_done: bool = False
     close_requested: bool = False

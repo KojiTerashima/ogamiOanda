@@ -21,7 +21,9 @@ class TradingSchedule:
         if now.weekday() == 5:
             return now.hour >= 4
         if now.weekday() == 0:
-            return now.hour < 7
+            # The historical runner kept Monday 07:xx in update-only mode and
+            # resumed analysis from 08:00.
+            return now.hour <= 7
         return False
 
     def should_run_analysis(self, now: datetime, elapsed_seconds: float, update_only: bool) -> bool:

@@ -9,20 +9,21 @@ import time
 
 import tokens as tk
 
-from ogami_oanda.adapters.legacy.token_settings import settings_from_tokens
 from ogami_oanda.entrypoints.live import LiveApplication, build_live_application
+from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
 
 
 class main:
-    def __init__(self, pair_info=None, *, application: LiveApplication | None = None):
+    def __init__(self, pair_info=None, *, application: LiveApplication | None = None, dry_run: bool = False):
         pair = getattr(pair_info, "name", None) or "USD_JPY"
         self.pair = pair
         self.application = application or build_live_application(
             settings_from_tokens(tk),
-            account_name="primary",
+            account_name="secondary",
             pair=pair,
             # Historical main_exe cancelled pending orders during startup.
             cancel_pending_on_start=True,
+            dry_run=dry_run,
         )
 
     def exe_manage(self, *, dry_run: bool = False):
@@ -40,7 +41,11 @@ def run(
     application: LiveApplication | None = None,
     max_ticks: int | None = None,
 ):
-    runner = main(application=application) if pair is None else main(type("Pair", (), {"name": pair})(), application=application)
+    runner = (
+        main(application=application, dry_run=dry_run)
+        if pair is None
+        else main(type("Pair", (), {"name": pair})(), application=application, dry_run=dry_run)
+    )
     return runner.exe_loop(1, dry_run=dry_run, max_ticks=max_ticks)
 
 

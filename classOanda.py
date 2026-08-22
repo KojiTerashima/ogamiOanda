@@ -1409,8 +1409,17 @@ def add_bb_data(data_df, pair=None):
     return data_df
 
 
+_legacy_add_basic_data = add_basic_data
+
 from ogami_oanda.domain.analysis.indicators import (
-    add_basic_data,
+    add_basic_data as _canonical_add_basic_data,
     add_bb_data,
     add_rsi,
 )
+
+
+def add_basic_data(data_df, pair=None):
+    """Compatibility facade for both legacy OANDA JSON and canonical OHLC."""
+    if {"open", "close", "high", "low"}.issubset(data_df.columns):
+        return _canonical_add_basic_data(data_df, pair)
+    return _legacy_add_basic_data(data_df, pair)

@@ -3,10 +3,10 @@ from types import ModuleType
 
 import pytest
 
-from ogami_oanda.adapters.legacy.token_settings import settings_from_tokens
 from ogami_oanda.application.ports.broker import BrokerExecutionPort, BrokerQueryPort
 from ogami_oanda.application.ports.market_data import MarketDataPort
 from ogami_oanda.domain.orders.models import BrokerOrderRequest, OrderType
+from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
 from ogami_oanda.infrastructure.config.loader import load_settings
 from tests.fakes import (
     FakeBroker,
@@ -30,6 +30,13 @@ accounts:
 trading:
   default_pair: EUR_USD
   line_units: 1.5
+  risk_yen: 750
+  max_positions: 4
+  normal_slot_count: 2
+  mid_slot_count: 1
+  high_slot_count: 1
+  mid_priority_threshold: 20
+  high_priority_threshold: 200
 notifications:
   pair_webhooks:
     EUR_USD: ${EUR_WEBHOOK}
@@ -48,6 +55,13 @@ paths:
     assert settings.account("primary").account_id == "account"
     assert settings.trading.default_pair == "EUR_USD"
     assert settings.trading.line_units == 1.5
+    assert settings.trading.risk_yen == 750
+    assert settings.trading.max_positions == 4
+    assert settings.trading.normal_slot_count == 2
+    assert settings.trading.mid_slot_count == 1
+    assert settings.trading.high_slot_count == 1
+    assert settings.trading.mid_priority_threshold == 20
+    assert settings.trading.high_priority_threshold == 200
     assert settings.notifications.pair_webhooks["EUR_USD"] == ""
     assert settings.paths.cache_dir == "cache"
 
@@ -69,7 +83,7 @@ def test_tokens_compatibility_loader_keeps_secrets_in_memory_only():
 
     assert settings.account("primary").account_id == "primary-id"
     assert settings.account("secondary").access_token == "live-token"
-    assert settings.trading.line_units == 2
+    assert settings.trading.risk_yen == 2
     assert settings.paths.result_dir == "results"
 
 

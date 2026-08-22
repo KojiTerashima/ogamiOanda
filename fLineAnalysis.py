@@ -2720,7 +2720,10 @@ class MainAnalysis:
 
         service = MarketAnalysisService(
             LegacyCandleAnalysisMarketData(candle_analysis),
-            LineCandidateBuilder(self.pair),
+            LineCandidateBuilder(
+                self.pair,
+                risk_yen=float(tk.setting_json["l_units"]),
+            ),
             active_orders=position_control_class,
             candidate_context_builder=build_line_candidate_context,
         )
@@ -2744,3 +2747,98 @@ class MainAnalysis:
     @staticmethod
     def is_h1_line_limit_order_target(line_side, line):
         return UsdJpyH1LineOrderStrategy(line_strategy_profile("USD_JPY")).is_target(line_side, line)
+
+
+class LineOrderCoordinator(_LegacyLineOrderCoordinator):
+    """Compatibility facade whose order creation is owned by the src pipeline.
+
+    Candidate construction and recommendation helpers remain available with
+    their historical signatures, while the public order-producing method now
+    returns legacy views of immutable ``OrderPlan`` values.
+    """
+
+    def create_orders_from_candidates(
+        self,
+        candidates,
+        current_price,
+        decision_time,
+        rsi_info,
+        order_mode,
+    ):
+        from ogami_oanda.adapters.legacy.order_dict import (
+            LegacyOrderView,
+            order_plan_to_legacy_dict,
+        )
+        from ogami_oanda.application.services.market_analysis_service import (
+            MarketAnalysisService,
+        )
+        from ogami_oanda.application.services.order_planner import OrderPlanner
+        from ogami_oanda.domain.orders.models import OrderContext
+        from ogami_oanda.strategy.line import LineCandidateBuilder
+
+        selected_candidates = self._remove_near_candidates(candidates)
+        context = {
+            "order_decision_time": str(decision_time),
+            "rsi_info": rsi_info or {},
+        }
+        try:
+            move_average = float(
+                self.analysis.candle_analysis_all.candle_meta_class.cal_move_ave(1)
+            )
+        except (AttributeError, TypeError, ValueError):
+            move_average = 0.0
+        order_context = OrderContext(
+            current_price=float(current_price),
+            decision_time=str(decision_time),
+            move_average=move_average,
+        )
+        candidate_service = MarketAnalysisService(
+            market_data=None,
+            candidate_builder=lambda _context, _price: [],
+        )
+        builder = LineCandidateBuilder(
+            self.pair,
+            self.profile,
+            risk_yen=float(tk.setting_json["l_units"]),
+        )
+        planner = OrderPlanner()
+        orders = []
+
+        for candidate in selected_candidates:
+            if self.analysis.has_similar_order(
+                candidate["direction"],
+                candidate["target_price"],
+                orders,
+                self.duplicate_threshold_pips,
+                source="line",
+                line_strategy=candidate["line_strategy"],
+            ):
+                continue
+
+            enriched_candidates = builder.enrich_candidates(
+                [{**candidate, "order_mode": order_mode}],
+                float(current_price),
+            )
+            if not enriched_candidates:
+                continue
+            enriched = enriched_candidates[0]
+            intent = candidate_service._candidate_to_intent(
+                self.pair,
+                enriched,
+                float(current_price),
+                context,
+                order_context,
+            )
+            if intent is None:
+                continue
+            plan = planner.plan(intent, order_context)
+            orders.append(
+                LegacyOrderView(
+                    order_plan_to_legacy_dict(plan),
+                    float(current_price),
+                )
+            )
+
+        if orders:
+            self.analysis.add_order_to_this_class(orders)
+        return orders

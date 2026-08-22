@@ -2869,7 +2869,7 @@
       "line_price": 1.1092,
       "payload": {
         "instrument": "EUR_USD",
-        "units": "0",
+        "units": "-166",
         "type": "STOP",
         "positionFill": "DEFAULT",
         "price": "1.10905",
@@ -2884,7 +2884,7 @@
       },
       "plan": {
         "decision_time": "2026/01/02 12:00:00",
-        "units": 0,
+        "units": 166,
         "pair": "EUR_USD",
         "direction": -1,
         "target_price": 1.10905,

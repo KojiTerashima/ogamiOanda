@@ -12,6 +12,56 @@ from collections import deque  # 最大10個の情報を持つためのもの。
 import copy
 
 
+def _build_portfolio_service(is_live, pair):
+    """Compose the src-backed lifecycle used by the public compatibility API."""
+    from ogami_oanda.adapters.notifications import DiscordNotifier, create_http_session
+    from ogami_oanda.adapters.oanda import (
+        OandaClient,
+        OandaExecutionAdapter,
+        OandaQueryAdapter,
+    )
+    from ogami_oanda.adapters.repositories import CsvTradeHistoryRepository
+    from ogami_oanda.application.services import PositionPortfolioService
+    from ogami_oanda.application.services.position_service import PositionService
+    from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
+    from ogami_oanda.infrastructure.runtime import SystemClock
+    from ogami_oanda.strategy.position_management import (
+        EntryConfirmationPolicy,
+        ExitPolicy,
+        HedgePolicy,
+        LinkagePolicy,
+        StopLossPolicy,
+    )
+
+    settings = settings_from_tokens(tk)
+    account_name = "secondary" if is_live else "practice"
+    client = OandaClient(settings.account(account_name))
+    execution = OandaExecutionAdapter(client)
+    query = OandaQueryAdapter(client)
+    clock = SystemClock()
+    notifier = DiscordNotifier(settings.notifications, clock, create_http_session())
+    history = CsvTradeHistoryRepository(settings.paths.history_file)
+    position_service = PositionService(
+        execution,
+        query,
+        notifier,
+        history,
+        clock,
+        entry_confirmation=EntryConfirmationPolicy(),
+        stop_loss=StopLossPolicy(),
+        exit_policy_factory=ExitPolicy,
+    )
+    return PositionPortfolioService(
+        pair,
+        position_service,
+        query,
+        execution,
+        settings.trading,
+        linkage_policy=LinkagePolicy(gene.currency_pair(pair).round_keta),
+        hedge_policy=HedgePolicy(),
+    )
+
+
 
 class position_control:
     """
@@ -29,7 +79,7 @@ class position_control:
         # 変数の宣言
         self.u = self.p.round_keta
         self.position_classes = []
-        self.portfolio_service = portfolio_service
+        self.portfolio_service = portfolio_service or _build_portfolio_service(is_live, pair)
         self.count_true = 0
         self.oa = None
         self.oa2 = None
@@ -37,9 +87,9 @@ class position_control:
         self.peaks_class = ""  # クラスアップデートの時に利用する（ポジションクラスに引数として渡すため）
 
         # 最大所持個数の設定
-        self.max_position_num = portfolio_service.settings.max_positions if portfolio_service else 15
-        self.middle_priority_num = portfolio_service.settings.mid_slot_count if portfolio_service else 8
-        self.high_priority_num = portfolio_service.settings.high_slot_count if portfolio_service else 1
+        self.max_position_num = self.portfolio_service.settings.max_positions
+        self.middle_priority_num = self.portfolio_service.settings.mid_slot_count
+        self.high_priority_num = self.portfolio_service.settings.high_slot_count
 
         self.high_i_to = self.max_position_num
         self.high_i_from = self.high_i_to - self.high_priority_num  # ハイプライオリティスロット(1つ限)の、添え字（最大5スロットの場合、添え字的には4番目スロット）
@@ -51,32 +101,64 @@ class position_control:
         self.normal_priority_num = self.max_position_num - self.high_priority_num
 
         # 処理
-        if portfolio_service is not None:
-            for i in range(self.max_position_num):
-                self.position_classes.append(classPosition.managed_position_view("c" + str(i), self.pair))
-            self._sync_portfolio_views()
-            return
-
-        self.oa = classOanda.Oanda(tk.accountIDl, tk.access_tokenl, tk.environmentl)
-        self.oa2 = classOanda.Oanda(tk.accountIDl2, tk.access_tokenl, tk.environmentl)
         for i in range(self.max_position_num):
-            # 複数のクラスを動的に生成する。クラス名は「C＋通し番号」とする。
-            # クラス名を確定し、クラスを生成する。
-            new_name = "c" + str(i)
-            self.position_classes.append(classPosition.order_information(new_name, is_live))  # 順思想のオーダーを入れるクラス
-        self.print_classes_and_count()
+            self.position_classes.append(classPosition.managed_position_view("c" + str(i), self.pair))
+        self._sync_portfolio_views()
 
     def _sync_portfolio_views(self):
         """Project immutable src state onto the public legacy slot objects."""
         if getattr(self, "portfolio_service", None) is None:
             return
+        position_service = getattr(self.portfolio_service, "position_service", None)
+        clock = getattr(position_service, "clock", None)
+        now = clock.now() if clock is not None else None
         for index, position in enumerate(self.portfolio_service.slots):
             view = self.position_classes[index]
             if position is None:
                 view.reset()
             else:
-                view.apply_managed_position(position)
+                view.apply_managed_position(position, now=now)
+        active_views = {
+            view.name: view
+            for view in self.position_classes
+            if view.life
+        }
+        for view in active_views.values():
+            related_names = view.plan_json.get("linkage_order_names", ()) or ()
+            if isinstance(related_names, str):
+                related_names = (related_names,)
+            linked_views = [
+                active_views[name]
+                for name in related_names
+                if name in active_views
+            ]
+            view.linkage_order_classes = linked_views
+            view.linkage_class_slots = linked_views
         self.count_true = sum(view.life for view in self.position_classes)
+
+    @staticmethod
+    def _analysis_current_price(candle_analysis_class):
+        if candle_analysis_class is None:
+            return None
+        value = getattr(candle_analysis_class, "current_price", candle_analysis_class)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _publish_positions_information(result):
+        """Keep both legacy class-level access paths synchronized."""
+        classPosition.managed_position_view.positions_information = result
+        classPosition.order_information.positions_information = result
+
+    def _record_closed_views(self, old_life):
+        closed = [
+            copy.deepcopy(view)
+            for view, was_alive in zip(self.position_classes, old_life)
+            if was_alive and not view.life
+        ]
+        self.result_class_arr.extend(closed)
 
     def print_classes_and_count(self):
         self.count_true = sum(1 for d in self.position_classes if hasattr(d, "life") and d.life)
@@ -183,9 +265,11 @@ class position_control:
         調査結果を受け取り、他のオーダーを比較し、オーダーを追加するかを判定する
         """
         if getattr(self, "portfolio_service", None) is not None:
-            from ogami_oanda.adapters.legacy.order_dict import legacy_dict_to_order_plan
+            from ogami_oanda.adapters.legacy.order_dict import (
+                legacy_orders_to_order_plans,
+            )
 
-            plans = [legacy_dict_to_order_plan(order_class.exe_order_plan) for order_class in order_classes]
+            plans = legacy_orders_to_order_plans(order_classes)
             result = self.portfolio_service.register_plans(plans, submit=True)
             self._sync_portfolio_views()
             if not result.accepted:
@@ -329,9 +413,12 @@ class position_control:
         :return:
         """
         if getattr(self, "portfolio_service", None) is not None:
-            self.portfolio_service.sync_all(dry_run=False)
+            self.portfolio_service.sync_all(
+                current_price=self._analysis_current_price(candle_analysis_class),
+                dry_run=False,
+            )
             self._sync_portfolio_views()
-            return self.position_check()
+            return None
         #  ### Update作業
         # update前
         old_S = [obj.life for obj in self.position_classes]   # 更新前
@@ -346,10 +433,15 @@ class position_control:
         :return:
         """
         if getattr(self, "portfolio_service", None) is not None:
-            self.portfolio_service.sync_all(dry_run=False)
+            old_life = [view.life for view in self.position_classes]
+            self.portfolio_service.sync_all(
+                current_price=self._analysis_current_price(candle_analysis_class),
+                dry_run=False,
+            )
             self._sync_portfolio_views()
+            self._record_closed_views(old_life)
             result = self.position_check()
-            classPosition.order_information.positions_information = result
+            self._publish_positions_information(result)
             return result
         #  ### Update作業
         # update前
@@ -471,6 +563,7 @@ class position_control:
         オーダーが生きているかを確認する。一つでも生きていればＴｒｕｅを返す
         :return:
         """
+        self._sync_portfolio_views()
         life = []
         unlife = []
         comment = ""
@@ -535,6 +628,7 @@ class position_control:
         )["is_exist"]
 
     def position_check(self):
+        self._sync_portfolio_views()
         # 実処理
         open_positions = []
         pending_positions = []
@@ -675,7 +769,7 @@ class position_control:
         if getattr(self, "portfolio_service", None) is not None:
             restored = self.portfolio_service.restore_open_positions()
             self._sync_portfolio_views()
-            return restored
+            return None if restored else 0
         res = self.oa2.OpenTrades_exe()
         if len(res['data']) == 0:
             return 0
@@ -706,10 +800,10 @@ class position_control:
 
     def reset_all_position(self):
         if getattr(self, "portfolio_service", None) is not None:
-            cancelled = self.portfolio_service.cancel_pending_on_start(True)
+            self.portfolio_service.cancel_pending_on_start(True)
             self.portfolio_service.sync_all(dry_run=False)
             self._sync_portfolio_views()
-            return cancelled
+            return None
         print("  RESET ALL POSITIONS")
         # mainのオアンダクラスのオーダーを削除（API）
         # self.oa.OrderCancel_All_exe()

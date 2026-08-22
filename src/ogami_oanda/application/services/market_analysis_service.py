@@ -5,8 +5,8 @@ from typing import Callable, Mapping
 
 import pandas as pd
 
+from ogami_oanda.application.ports.active_orders import ActiveOrderQuery
 from ogami_oanda.application.ports.market_data import MarketDataPort
-from ogami_oanda.application.services.portfolio import Portfolio
 from ogami_oanda.domain.analysis.indicators import add_basic_data, add_bb_data, add_rsi
 from ogami_oanda.domain.analysis.peaks import PeaksClass
 from ogami_oanda.domain.market.candle_frame import CandleFrameSchema
@@ -36,7 +36,7 @@ class MarketAnalysisService:
         self,
         market_data: MarketDataPort,
         candidate_builder: CandidateBuilder,
-        active_orders: Portfolio | None = None,
+        active_orders: ActiveOrderQuery | None = None,
         candidate_context_builder: CandidateContextBuilder | None = None,
         units: int = 1000,
         candle_count: int = 250,
@@ -82,20 +82,17 @@ class MarketAnalysisService:
 
     def _prepared_frame(self, pair: str, granularity: str) -> pd.DataFrame:
         frame = self.market_data.candles(pair, granularity, self.candle_count).copy()
-        if {"mid", "complete"}.issubset(frame.columns):
+        if "body" not in frame.columns:
             frame = add_basic_data(frame, currency_pair(pair))
-        elif "body" not in frame.columns:
-            frame["body"] = frame["close"] - frame["open"]
-        if "moves" not in frame.columns:
-            frame["moves"] = frame["high"] - frame["low"]
-        if "body_abs" not in frame.columns:
-            frame["body_abs"] = frame["body"].abs()
-        if "middle_price" not in frame.columns:
-            frame["middle_price"] = (frame["inner_low"] + frame["inner_high"]) / 2
-        if "RSI" not in frame.columns:
-            frame = add_rsi(frame)
-        if granularity != "S5" and "bb_range" not in frame.columns:
-            frame = add_bb_data(frame, currency_pair(pair))
+        needs_rsi = "RSI" not in frame.columns
+        needs_bb = granularity != "S5" and "bb_range" not in frame.columns
+        if needs_rsi or needs_bb:
+            frame = frame.sort_values("time_jp", ascending=True).reset_index(drop=True)
+            if needs_rsi:
+                frame = add_rsi(frame)
+            if needs_bb:
+                frame = add_bb_data(frame, currency_pair(pair))
+            frame = frame.sort_values("time_jp", ascending=False).reset_index(drop=True)
         CandleFrameSchema(pair, granularity).validate(frame)
         return frame
 
@@ -122,6 +119,13 @@ class MarketAnalysisService:
         units = int(candidate.get("units", self.units * units_multiplier))
         base_name = str(candidate.get("name", f"{line_strategy}_{candidate.get('line_side', 'entry')}"))
         name = self._legacy_order_name(base_name, order_context.decision_time) if candidate.get("source") == "line" else base_name
+        position_management: dict[str, object] = {}
+        if candidate.get("trade_timeout_min") is not None:
+            position_management["trade_timeout_min"] = int(candidate["trade_timeout_min"])
+        if candidate.get("lc_change") is not None:
+            raw_rules = candidate["lc_change"]
+            rules = (raw_rules,) if isinstance(raw_rules, Mapping) else raw_rules
+            position_management["lc_change"] = tuple(dict(rule) for rule in rules)
         return OrderIntent(
             pair=pair,
             direction=direction,
@@ -137,6 +141,7 @@ class MarketAnalysisService:
             priority=int(candidate.get("priority", candidate.get("line", {}).get("total_strength", 0))),
             order_timeout_min=int(candidate.get("order_timeout_min", getattr(strategy, "order_timeout_min", 0))),
             metadata=self._intent_metadata(candidate, context, current_price, order_context, base_name),
+            **position_management,
         )
 
     @staticmethod

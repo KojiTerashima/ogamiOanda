@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from typing import Mapping, Protocol
+
 from ogami_oanda.application.ports.clock import Clock
-from ogami_oanda.infrastructure.config.models import NotificationSettings
+
+
+class NotificationConfiguration(Protocol):
+    pair_webhooks: Mapping[str, str]
+    inspection_webhook: str
 
 
 def create_http_session():
@@ -12,7 +18,7 @@ def create_http_session():
 
 
 class DiscordNotifier:
-    def __init__(self, settings: NotificationSettings, clock: Clock, http_session) -> None:
+    def __init__(self, settings: NotificationConfiguration, clock: Clock, http_session) -> None:
         self.settings = settings
         self.clock = clock
         self.http_session = http_session

@@ -4,8 +4,8 @@ import requests
 import tokens as tk
 
 import fGeneric as gene
-from ogami_oanda.adapters.legacy.token_settings import settings_from_tokens
 from ogami_oanda.adapters.notifications.discord import DiscordNotifier
+from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
 
 line_send_last_message = ""
 line_send_last_message_count = 0

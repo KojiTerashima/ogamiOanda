@@ -3,7 +3,10 @@ from datetime import datetime
 import pytest
 
 from ogami_oanda.application.services.order_planner import OrderPlanner
-from ogami_oanda.application.services.position_service import PositionService
+from ogami_oanda.application.services.position_service import (
+    CandleStopLossInput,
+    PositionService,
+)
 from ogami_oanda.domain.orders.models import (
     Direction,
     OrderContext,
@@ -42,7 +45,16 @@ def _order_plan():
     )
 
 
-def _managed_plan(order_type=OrderType.STOP, order_timeout_min=1, lc_change=()):
+def _managed_plan(
+    order_type=OrderType.STOP,
+    order_timeout_min=1,
+    lc_change=(),
+    *,
+    trade_timeout_min=240,
+    metadata=None,
+):
+    plan_metadata = {"source": "line", "line_strategy": "test"}
+    plan_metadata.update(metadata or {})
     return OrderPlanner().plan(
         OrderIntent(
             pair="USD_JPY",
@@ -58,8 +70,9 @@ def _managed_plan(order_type=OrderType.STOP, order_timeout_min=1, lc_change=()):
             name="managed",
             priority=1,
             order_timeout_min=order_timeout_min,
+            trade_timeout_min=trade_timeout_min,
             lc_change=lc_change,
-            metadata={"source": "line", "line_strategy": "test"},
+            metadata=plan_metadata,
         ),
         OrderContext(149.9, "2026/01/02 03:04:05"),
     )
@@ -90,15 +103,36 @@ def test_position_service_register_sync_and_close_lifecycle():
         life=True,
     )
     opened = service.sync(pending)
-    closed = service.close(opened)
+    close_requested = service.close(opened)
 
     assert opened.snapshot.trade_state is TradeState.OPEN
     assert opened.runtime.order_plan == pending.runtime.order_plan
     assert opened.runtime.filled_at == datetime(2026, 1, 2, 3, 4, 5)
+    assert close_requested.snapshot.trade_state is TradeState.OPEN
+    assert close_requested.snapshot.life is True
+    assert close_requested.runtime.close_requested is True
+    assert history.records == []
+
+    broker.trades["trade-1"] = PositionSnapshot(
+        name="position-test",
+        pair="USD_JPY",
+        order_state=OrderState.FILLED,
+        trade_state=TradeState.CLOSED,
+        trade_id="trade-1",
+        direction=1,
+        target_price=150.0,
+        units=1000,
+        realized_pl=250,
+        average_close_price=150.25,
+    )
+    closed = service.sync(close_requested)
+
     assert closed.snapshot.trade_state is TradeState.CLOSED
     assert closed.snapshot.life is False
     assert broker.commands == [("close_trade", ("trade-1", None))]
     assert history.records[0]["name"] == "position-test"
+    assert history.records[0]["res"] == "250"
+    assert history.records[0]["pl_per_units"] == 25.0
 
 
 @pytest.mark.contract
@@ -216,3 +250,151 @@ def test_position_service_amends_stop_loss_and_reports_close_once():
     assert len(history.records) == 1
     assert history.records[0]["name"] == "managed"
     assert history.records[0]["pl_per_units"] == 20.0
+
+
+@pytest.mark.contract
+def test_position_service_amends_stop_loss_from_real_peak_and_previous_candle():
+    broker = FakeBroker()
+    clock = FixedClock(datetime(2026, 1, 2, 10, 5, 10))
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+    plan = _managed_plan()
+    position = (
+        ManagedPosition.registered("candle-managed", "USD_JPY")
+        .with_order_plan(plan, datetime(2026, 1, 2, 10, 4, 30))
+        .filled("trade-candle", datetime(2026, 1, 2, 10, 4, 40))
+    )
+    broker.trades["trade-candle"] = PositionSnapshot(
+        "candle-managed",
+        "USD_JPY",
+        OrderState.FILLED,
+        TradeState.OPEN,
+        trade_id="trade-candle",
+        life=True,
+        direction=1,
+        target_price=150.0,
+        current_stop_loss=149.9,
+    )
+    candle_input = CandleStopLossInput(
+        latest_peak={"count": 3, "direction": 1},
+        previous_candle={
+            "time_jp": "2026/01/02 10:00:00",
+            "low": 150.12,
+            "high": 150.15,
+        },
+    )
+
+    result = service.sync_result(
+        position,
+        current_price=150.14,
+        candle_stop_loss=candle_input,
+    )
+
+    assert result.reason == "candle_lc_amended"
+    assert result.position.runtime.current_stop_loss == pytest.approx(150.105)
+    assert result.position.runtime.candle_stop_loss_done is True
+    assert [command.reason for command in result.commands] == [
+        "candle_lc_trigger",
+    ]
+    assert broker.commands == [
+        ("amend_protection", ("trade-candle", None, 150.105)),
+    ]
+
+
+@pytest.mark.contract
+def test_position_service_dry_run_never_mutates_cancel_close_or_amend():
+    broker = FakeBroker()
+    start = datetime(2026, 1, 2, 10, 0, 0)
+    clock = FixedClock(datetime(2026, 1, 2, 10, 1, 1))
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+
+    pending_plan = _managed_plan(order_timeout_min=1)
+    pending = (
+        ManagedPosition.registered("pending-dry", "USD_JPY")
+        .with_order_plan(pending_plan, start)
+        .pending("pending-dry")
+    )
+    broker.orders["pending-dry"] = PositionSnapshot(
+        "pending-dry",
+        "USD_JPY",
+        OrderState.PENDING,
+        TradeState.NONE,
+        order_id="pending-dry",
+        life=True,
+    )
+    cancel = service.sync_result(pending, dry_run=True)
+
+    timeout_plan = _managed_plan(
+        trade_timeout_min=1,
+        metadata={"trade_timeout_enabled": True},
+    )
+    timed_trade = (
+        ManagedPosition.registered("close-dry", "USD_JPY")
+        .with_order_plan(timeout_plan, start)
+        .filled("close-dry", start)
+    )
+    broker.trades["close-dry"] = PositionSnapshot(
+        "close-dry",
+        "USD_JPY",
+        OrderState.FILLED,
+        TradeState.OPEN,
+        trade_id="close-dry",
+        life=True,
+        target_price=150.0,
+        current_stop_loss=149.9,
+    )
+    close = service.sync_result(
+        timed_trade,
+        current_price=150.0,
+        dry_run=True,
+    )
+
+    amend_plan = _managed_plan(
+        lc_change=(
+            {
+                "exe": True,
+                "trigger": 0.03,
+                "ensure": 0.01,
+                "time_after": 0,
+            },
+        ),
+    )
+    amended_trade = (
+        ManagedPosition.registered("amend-dry", "USD_JPY")
+        .with_order_plan(amend_plan, start)
+        .filled("amend-dry", start)
+    )
+    broker.trades["amend-dry"] = PositionSnapshot(
+        "amend-dry",
+        "USD_JPY",
+        OrderState.FILLED,
+        TradeState.OPEN,
+        trade_id="amend-dry",
+        life=True,
+        target_price=150.0,
+        current_stop_loss=149.9,
+    )
+    amend = service.sync_result(
+        amended_trade,
+        current_price=150.03,
+        dry_run=True,
+    )
+    direct_close = service.close(amended_trade, dry_run=True)
+
+    assert [command.action for command in cancel.commands] == ["cancel_order"]
+    assert [command.action for command in close.commands] == ["close_trade"]
+    assert [command.action for command in amend.commands] == ["amend_stop_loss"]
+    assert direct_close == amended_trade
+    assert broker.requests == []
+    assert broker.commands == []

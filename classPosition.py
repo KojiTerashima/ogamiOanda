@@ -20,6 +20,8 @@ class managed_position_view:
     lifecycle state and all broker side effects live in ``src/ogami_oanda``.
     """
 
+    positions_information = {}
+
     def __init__(self, name, pair):
         self.slot_name = name
         self.pair = pair
@@ -28,6 +30,7 @@ class managed_position_view:
         self.reset()
 
     def reset(self):
+        self.name = self.slot_name
         self.life = False
         self.waiting_order = False
         self.priority = 0
@@ -45,7 +48,11 @@ class managed_position_view:
         self.t_time_past_sec = 0
         self.t_unrealize_pl = 0.0
         self.t_realize_pl = 0.0
+        self.t_price_diff = 0.0
         self.t_pl_pips = 0.0
+        self.win_max_pips = 0.0
+        self.lose_max_pips = 0.0
+        self.lc_change_num = 0
         self.lc_change_status = ""
         self.step1_filled = False
         self.step1_keeping_second = 0
@@ -54,9 +61,10 @@ class managed_position_view:
         self.linkage_order_classes = []
         self.linkage_class_slots = []
 
-    def apply_managed_position(self, position):
+    def apply_managed_position(self, position, *, now=None):
         from ogami_oanda.adapters.legacy.order_dict import order_plan_to_legacy_dict
 
+        self.reset()
         snapshot = position.snapshot
         runtime = position.runtime
         plan = runtime.order_plan
@@ -78,12 +86,80 @@ class managed_position_view:
         }
         self.for_api_json = self.plan_json.get("for_api_json", {})
         self.o_json = {"state": self.o_state, "units": str(snapshot.units or (plan.intent.units if plan else 0))}
-        self.t_json = {"unrealizedPL": runtime.unrealized_pl}
+        signed_units = int(snapshot.units or (plan.intent.units if plan else 0))
+        signed_units *= runtime.direction or 1
+        self.t_json = {
+            "state": snapshot.trade_state.value,
+            "unrealizedPL": runtime.unrealized_pl,
+            "realizedPL": runtime.realized_pl,
+            "price": str(snapshot.target_price or runtime.target_price),
+            "averageClosePrice": snapshot.average_close_price,
+            "initialUnits": str(signed_units),
+            "currentUnits": "0"
+            if snapshot.trade_state.value == "CLOSED"
+            else str(signed_units),
+            "time_past": snapshot.elapsed_seconds,
+        }
         self.order_register_time = runtime.registered_at or 0
-        self.o_time = str(runtime.registered_at or "")
+        self.o_time = str(runtime.registered_at or snapshot.open_time or "")
         self.t_unrealize_pl = runtime.unrealized_pl
         self.t_realize_pl = runtime.realized_pl
+        close_or_current_price = (
+            snapshot.average_close_price
+            if snapshot.average_close_price is not None
+            else snapshot.current_price
+        )
+        if close_or_current_price is not None and runtime.direction in {-1, 1}:
+            self.t_price_diff = (
+                float(close_or_current_price) - float(runtime.target_price)
+            ) * runtime.direction
+            self.t_pl_pips = gene.currency_pair(self.pair).price_to_pips(
+                self.t_price_diff,
+            )
+        self.lc_change_num = int(runtime.applied_lc_change_index >= 0) + int(
+            runtime.candle_stop_loss_done
+        )
         self.lc_change_status = "LC-updated" if runtime.applied_lc_change_index >= 0 else ""
+        self.step1_filled = runtime.watch_step1_started_at is not None
+        if runtime.watch_step1_started_at is not None and now is not None:
+            self.step1_keeping_second = max(
+                0,
+                (now - runtime.watch_step1_started_at).total_seconds(),
+            )
+        if runtime.registered_at is not None and now is not None:
+            self.o_time_past_sec = max(
+                0,
+                (now - runtime.registered_at).total_seconds(),
+            )
+        self.t_time_past_sec = float(snapshot.elapsed_seconds)
+        if runtime.filled_at is not None and now is not None:
+            self.t_time_past_sec = max(
+                self.t_time_past_sec,
+                0,
+                (now - runtime.filled_at).total_seconds(),
+            )
+        from ogami_oanda.application.services.portfolio_analytics import (
+            latest_portfolio_analytics,
+        )
+
+        analytics = latest_portfolio_analytics(self.pair)
+        if analytics is not None:
+            order_information.sync_reporting_view(analytics)
+            record = next(
+                (
+                    item
+                    for item in reversed(analytics.result_dic_arr)
+                    if item["name"] == self.name
+                    and (
+                        not snapshot.trade_id
+                        or item["tradeID"] == str(snapshot.trade_id)
+                    )
+                ),
+                None,
+            )
+            if record is not None:
+                self.win_max_pips = float(record["max_plus"])
+                self.lose_max_pips = float(record["max_minus"])
         return self
 
     def count_up_position_check(self):
@@ -138,6 +214,42 @@ class order_information:
 
     # 結果一覧送信時、その行数指定
     result_row = 7  # 過去10回分の結果を送信
+
+    reporting_summary = {}
+    latest_result_summary = {"rows": (), "res_sum": 0}
+    pivot_result_summary = ()
+
+    @classmethod
+    def sync_reporting_view(cls, analytics):
+        """Project the src-owned close aggregate onto legacy class variables."""
+
+        for name in (
+            "total_yen",
+            "total_yen_max",
+            "total_yen_min",
+            "total_price_diff",
+            "total_price_diff_max",
+            "total_price_diff_min",
+            "total_pips",
+            "total_pips_max",
+            "total_pips_min",
+            "plus_yen_position_num",
+            "minus_yen_position_num",
+            "lc_change_num",
+            "before_latest_price_diff",
+            "before_latest_pl_pips",
+            "before_latest_plu",
+            "before_latest_name",
+            "history_plus_minus",
+            "history_names",
+            "history_name_plus_minus",
+            "result_dic_arr",
+            "result_row",
+        ):
+            setattr(cls, name, getattr(analytics, name))
+        cls.reporting_summary = analytics.result_summary
+        cls.latest_result_summary = analytics.latest_summary()
+        cls.pivot_result_summary = analytics.pivot_summary()
 
     def select_oa(self, oa_mode):
         # print("SelectMode", oa_mode)

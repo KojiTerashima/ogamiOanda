@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from ogami_oanda.infrastructure.config.models import (
+from .models import (
     AppSettings,
     NotificationSettings,
     PathSettings,
@@ -12,7 +12,9 @@ from ogami_oanda.infrastructure.config.models import (
 
 
 def settings_from_tokens(tokens: ModuleType) -> AppSettings:
+    """Adapt the root token module at the infrastructure boundary."""
     setting_json = getattr(tokens, "setting_json", {})
+    risk_yen = float(setting_json.get("l_units", 500.0))
     return AppSettings(
         accounts={
             "practice": RuntimeAccountConfig(
@@ -31,7 +33,7 @@ def settings_from_tokens(tokens: ModuleType) -> AppSettings:
                 environment=getattr(tokens, "environmentl", "practice"),
             ),
         },
-        trading=TradingSettings(line_units=float(setting_json.get("l_units", 1.0))),
+        trading=TradingSettings(risk_yen=risk_yen),
         notifications=NotificationSettings(
             pair_webhooks={
                 "USD_JPY": getattr(tokens, "WEBHOOK_URL_usdyen", ""),

@@ -1,10 +1,10 @@
 import pandas as pd
 import pytest
 
-from ogami_oanda.adapters.legacy.token_settings import settings_from_tokens
 from ogami_oanda.adapters.repositories.csv_trade_history import (
     CsvTradeHistoryRepository,
 )
+from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
 
 
 @pytest.mark.contract

@@ -45,6 +45,15 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
             line_units=float(trading_raw.get("line_units", 1.0)),
             risk_yen=float(trading_raw.get("risk_yen", 500.0)),
             max_positions=int(trading_raw.get("max_positions", 15)),
+            normal_slot_count=int(trading_raw.get("normal_slot_count", 6)),
+            mid_slot_count=int(trading_raw.get("mid_slot_count", 8)),
+            high_slot_count=int(trading_raw.get("high_slot_count", 1)),
+            mid_priority_threshold=int(
+                trading_raw.get("mid_priority_threshold", 10)
+            ),
+            high_priority_threshold=int(
+                trading_raw.get("high_priority_threshold", 100)
+            ),
         ),
         notifications=NotificationSettings(
             pair_webhooks={

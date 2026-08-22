@@ -46,8 +46,41 @@ def test_market_analysis_builds_intents_from_validated_market_frames():
 
     assert len(result.intents) == 1
     assert result.intents[0].direction is Direction.BUY
+    assert result.intents[0].trade_timeout_min == 240
+    assert result.intents[0].lc_change == ()
     assert result.intents[0].metadata["line_strategy"] == "test"
     assert set(result.peaks) == {"M5", "H1", "M30"}
+
+
+@pytest.mark.contract
+def test_market_analysis_preserves_candidate_position_management_fields():
+    frame = _frame()
+    market_data = FakeMarketData(
+        {("USD_JPY", granularity): frame for granularity in ("M5", "H1", "M30", "S5")},
+        {"USD_JPY": 150.4},
+    )
+    lc_change = [{"exe": True, "time_after": 60, "trigger": 0.03, "ensure": 0.01}]
+    service = MarketAnalysisService(
+        market_data,
+        lambda context, price: [
+            {
+                "direction": -1,
+                "target_price": 150.5,
+                "trade_timeout_min": "90",
+                "lc_change": lc_change,
+            }
+        ],
+    )
+
+    intent = service.analyze("USD_JPY", "2026/01/02 01:00:00").intents[0]
+    lc_change[0]["trigger"] = 99
+
+    assert intent.trade_timeout_min == 90
+    assert isinstance(intent.trade_timeout_min, int)
+    assert intent.lc_change == (
+        {"exe": True, "time_after": 60, "trigger": 0.03, "ensure": 0.01},
+    )
+    assert isinstance(intent.lc_change, tuple)
 
 
 @pytest.mark.contract
@@ -129,7 +162,7 @@ def test_market_analysis_service_enriches_line_candidates_for_order_intents(anal
     assert len(result.intents) == 1
     assert result.intents[0].order_type.value == "STOP"
     assert result.intents[0].target == pytest.approx(1.10905)
-    assert result.intents[0].units == 0
+    assert result.intents[0].units == 166
     assert result.intents[0].priority == 8
     assert result.intents[0].name == "M5LineBreakout_lower_0_12:00"
     assert result.intents[0].order_timeout_min == 45

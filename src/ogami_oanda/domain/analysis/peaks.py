@@ -59,7 +59,8 @@ class PeaksClass:
         self.latest_peak_price = self.peaks_original[0]["peak"]
         self.gap_price_and_latest_turn_peak_abs = abs(self.current_price - self.latest_peak_price)
         self.time_hour = pd.to_datetime(original_df_r.iloc[0]["time_jp"], format="%Y/%m/%d %H:%M:%S").hour
-        border_time = datetime.now() - timedelta(hours=1)
+        analysis_time = datetime.strptime(str(original_df_r.iloc[0]["time_jp"]), "%Y/%m/%d %H:%M:%S")
+        border_time = analysis_time - timedelta(hours=1)
         self.peaks_latest = [
             peak
             for peak in self.peaks_original

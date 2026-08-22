@@ -1,76 +1,167 @@
-# Architecture Migration Guide
+# Architecture migration
 
-## Source Of Truth
+## Layer ownership
 
-New production code belongs in `src/ogami_oanda`.
+The production package is split by responsibility:
 
-- `domain`: immutable business models and calculations.
-- `application`: use cases, ports, scheduling, and orchestration.
-- `adapters`: OANDA and legacy-dictionary boundaries.
-- `strategy`: pure trading rules.
-- `infrastructure`: settings loading and runtime configuration.
-- `entrypoints`: composition roots and command-line execution.
-
-Code under `src/ogami_oanda` must not import root-level legacy modules. Root-level modules may call the new package while they remain compatibility facades.
-
-`domain` and `strategy` must not import `tokens`, `requests`, `oandapyV20`, CSV files, or notification implementations. Network and filesystem work belongs in adapters; application services depend on ports.
-
-## Migration Map
-
-| Legacy surface | Source-of-truth replacement | Compatibility status |
+| Layer | Owns | May depend on |
 | --- | --- | --- |
-| `classOanda.py` indicator helpers | `domain.analysis.indicators` | Public helpers delegate to `src`. |
-| `classCandleAnalysis.py` metadata | `domain.analysis.candle_meta` | `CandleMeta` delegates to `src`. |
-| `classCandlePeaks.py` | `domain.analysis.peaks` | Public peak APIs delegate to `src`. |
-| `fLineAnalysis.py` grouping and candidate filtering | `domain.analysis.lines`, `strategy.line.coordinator` | Grouping and candidate-building APIs delegate to `src`; legacy order creation remains temporarily. |
-| `fLineStrategy*.py` | `strategy.line` | Public profiles delegate to `src`. |
-| OANDA query/execution | `adapters.oanda` | New applications use the shared `OandaClient`. |
-| Discord notices | `adapters.notifications.DiscordNotifier` | `send_notice.line_send` retains legacy argument and duplicate semantics, then delegates. |
-| Trade history CSV | `adapters.repositories.CsvTradeHistoryRepository` | `classPosition.order_information` accepts an optional injected repository. |
-| Position slots and synchronization | `application.services.PositionPortfolioService` | Root position-control projects src-managed slots when a portfolio is injected. |
+| `domain` | immutable order/position models, currency-pair math, candle/peak/line calculations | `domain` only |
+| `strategy` | candidate selection and order decisions: direction, market/limit/stop, target, risk-sized units, TP, SL, timeout, pair profiles, and lifecycle policies | `strategy`, `domain` |
+| `application` | ports and use-case orchestration for analysis, planning, portfolio lifecycle, reporting, and scheduling | `application`, `strategy`, `domain` |
+| `adapters` | OANDA endpoint definitions/mapping, Discord HTTP, CSV persistence, legacy dictionary conversion | application ports and domain types |
+| `infrastructure` | YAML/token configuration, explicit JST clock, fixed-interval polling loop | infrastructure and application configuration types |
+| `entrypoints` | dependency construction only | all production layers |
+| `tests` | fakes, characterization oracles, contracts, architecture and acceptance matrices | production public APIs; production never imports tests |
 
-## Live Entrypoint
+Dependency direction is enforced by
+`tests/architecture/test_dependency_rules.py`. In particular:
 
-`ogami_oanda.entrypoints.live` is the new composition root. It creates one OANDA client for market data, execution, and query adapters; then composes notification, history, position, portfolio, analysis, and planning services.
+- `src` cannot import root legacy modules or the test layer.
+- application cannot import adapters or infrastructure.
+- strategy and domain cannot import adapters, infrastructure, OANDA, requests,
+  or tokens.
+- `oandapyV20` is confined to `adapters/oanda`.
+- `requests` is confined to `adapters/notifications`.
+- wall-clock and loop sleep calls are confined to `infrastructure/runtime`.
 
-Run one deterministic cycle with explicit configuration:
+## Data and decision flow
 
-```sh
-.venv/bin/python -m ogami_oanda.entrypoints.live --config config/settings.yaml --dry-run --once
-```
+One live tick follows this flow:
 
-`--settings` remains a compatibility alias for `--config`. `--dry-run` performs analysis and registers watching positions but never submits, cancels, closes, or amends at the broker boundary, including startup cancellation. Pending orders are never cancelled by default; pass `--cancel-pending-on-start` only when that action is intended. The default composition uses the three-pair `LineCandidateBuilder`; `_no_candidates` is retained only for explicit test composition.
+1. `MarketDataPort.current_quote()` obtains one typed bid/ask/mid quote.
+2. The schedule decides market-closed, update-only, lifecycle-sync, and
+   analysis behavior.
+3. The OANDA adapter maps candles to the canonical newest-first
+   `time_jp/open/close/high/low` contract.
+4. domain analysis adds indicators, peaks, and line classes.
+5. `LineCandidateBuilder` applies the pair profile and returns ordered strategy
+   decisions, including risk-sized units, protection values, timeout, reasons,
+   and the legacy-compatible line/session metadata used downstream.
+6. `MarketAnalysisService` converts selected candidates to immutable
+   `OrderIntent` values; `OrderPlanner` derives prices and a broker-neutral
+   `BrokerOrderRequest`.
+7. `PositionPortfolioService` applies deduplication and slot policy, while
+   `PositionService` evaluates watching, timeout, stop-loss, linkage, hedge, and
+   close-reporting policies through ports.
+8. Only an execution adapter translates the broker-neutral request into an
+   OANDA payload or mutates broker state.
 
-Without `--once`, the console script runs the injected one-second scheduler. It skips Sunday, uses update-only mode during the Saturday/Monday transition and wide spreads, analyzes in the legacy five-minute window, and synchronizes positions every two seconds.
+The application and strategy layers therefore do not know OANDA endpoint
+classes, account tokens, Discord, CSV paths, or the polling implementation.
 
-## Legacy Boundaries
+## Live schedule
 
-- `classPosition.py` accepts optional `oanda_factory` and `notifier` dependencies. Existing two-argument construction remains supported.
-- `classPosition.py` also accepts an optional `history_repository`; without it, its existing `history_folder_path/history.csv` behavior remains unchanged.
-- `classPositionControl.py` accepts an optional `portfolio_service`; this activates its src-backed compatibility view while retaining the old constructor and method names.
-- `main_exe.py` delegates to `LiveApplication`; only this legacy launcher opts in to startup cancellation. New deployments should use `ogami-oanda-live`, where cancellation is opt-in.
-- Dictionary conversion belongs in `adapters.legacy`; new use cases accept domain models and ports.
+`ogami_oanda.entrypoints.live.LiveApplication` preserves the historical
+scheduler:
 
-## Experimental Code
+- Sunday: return before requesting a quote.
+- Saturday from 04:00 and Monday through 07:59: update-only after
+  initialization.
+- spread above the pair-specific limit: update-only after initialization.
+- first execution: the historical runner analyzes immediately after its single
+  quote even when that first tick is in an update-only or wide-spread window;
+  it does not run a separate lifecycle sync in that tick.
+- later analysis: minute divisible by five, second in `[6, 30)`, and more than
+  60 seconds since the previous analysis.
+- later scheduled analysis first performs the historical mode-1 lifecycle sync,
+  then analyzes/registers; an even-second tick performs the separate mode-2
+  sync afterward as well. Non-analysis even seconds sync once, and update-only
+  windows sync every tick.
+- `run_forever`: infrastructure-owned one-second fixed-deadline polling; finite
+  runs are injectable for tests and unbounded runs do not accumulate results.
 
-`archive/`, root `test_*.py` scripts, `ForTestOandaClass.py`, and `tmp_rank_line_result.py` are experiments or diagnostics. They are not part of the pytest collection and must not become dependencies of `src/ogami_oanda`.
+The quote is requested once per tick and reused for spread, lifecycle, and
+analysis decisions.
 
-Move an experiment into production only after it has an offline test in `tests/`, a typed or documented input/output contract, and no direct network or token dependency in its domain or strategy logic.
+## Composition and command line
 
-## Local Setup And Verification
-
-Install the package in editable mode before running root entrypoints that delegate to `src`:
+Install the package in editable mode:
 
 ```sh
 .venv/bin/python -m pip install -e .
 ```
 
-Run the offline migration gate:
+Run one cycle:
 
 ```sh
-.venv/bin/python -m compileall -q src tests
-.venv/bin/python -m pytest -q -m 'not integration'
-.venv/bin/python -m ruff check src tests
+.venv/bin/ogami-oanda-live \
+  --config config/settings.yaml \
+  --account primary \
+  --pair USD_JPY \
+  --dry-run \
+  --once
 ```
 
-Integration tests must be explicitly marked `integration`; routine tests must run without network access.
+`--settings` is an alias for `--config`. `--once` prints planned names,
+accepted names, and rejection reasons. `--dry-run` permits reads and decision
+generation but performs no submit, cancel, close, protection amendment, or
+startup cancellation.
+
+For a dependency-free packaging smoke that neither loads a config nor creates
+an OANDA/Discord/CSV adapter:
+
+```sh
+.venv/bin/ogami-oanda-live \
+  --pair USD_JPY \
+  --offline-smoke \
+  --dry-run \
+  --once
+```
+
+`--offline-smoke` requires both `--dry-run` and `--once`; it verifies the
+installed console entrypoint and one scheduling tick. A regular dry-run still
+uses read-only market and account queries so it can produce real decisions.
+
+New CLI startup cancellation is opt-in with
+`--cancel-pending-on-start`. The historical `main_exe.py` facade opts in for
+compatibility, except during dry-run. EUR/USD and AUD/USD root launchers pass a
+pair argument to the same builder; they do not mutate a global currency pair.
+
+The composition creates one `OandaClient` per selected account and shares it
+with market-data, execution, and query adapters.
+
+## Root compatibility boundary
+
+The production root facades are:
+
+- `fLineAnalysis.MainAnalysis`
+- `fLineAnalysis.LineOrderCoordinator`
+- `fAnalysis_order_Main.wrap_all_analysis`
+- `classPositionControl.position_control`
+- `main_exe.py`, `main_exe_euro.py`, and `main_exe_aud.py`
+
+`classPositionControl.position_control` now uses the `src` portfolio by default.
+It maintains legacy method returns and projects slots into
+`classPosition.managed_position_view`. The mutable
+`classPosition.order_information` and `classOanda.Oanda` implementations remain
+only for characterized or explicitly excluded root tools; they are not reached
+by the new live call graph. See `docs/migration-map.md` for their removal gates.
+
+## Offline acceptance
+
+Run the complete gate:
+
+```sh
+.venv/bin/python -m pytest -q -m "not integration"
+.venv/bin/python -m ruff check src tests
+.venv/bin/python -m compileall -q src tests
+.venv/bin/ogami-oanda-live --help
+.venv/bin/ogami-oanda-live --offline-smoke --dry-run --once
+```
+
+The offline matrix covers:
+
+- USD/JPY, EUR/USD, and AUD/USD M5/H1/M30/S5 frame schemas.
+- ordered lines, raw/selected candidates, recommendation reasons,
+  `OrderIntent`, `OrderPlan`, and OANDA payloads.
+- 15 slots, priority tiers, deduplication, watching, timeout, SL changes,
+  linkage/hedge, close history/analytics, and root view projection.
+- three-pair live dry-run, weekend/update-only/spread boundaries, five-minute
+  analysis, two-second sync, one-second polling, startup cancellation, legacy
+  launchers, and CLI output.
+- static dependency direction and external-I/O confinement.
+
+OANDA practice read-only checks require credentials and must use the
+`integration` marker. Practice orders and real Discord delivery are not part of
+the offline acceptance gate.

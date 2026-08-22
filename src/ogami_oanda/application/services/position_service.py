@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Callable, Mapping
 
 from ogami_oanda.application.ports.broker import BrokerExecutionPort, BrokerQueryPort
 from ogami_oanda.application.ports.clock import Clock
@@ -33,6 +34,14 @@ class PositionSyncResult:
     reason: str = "unchanged"
 
 
+@dataclass(frozen=True)
+class CandleStopLossInput:
+    """Completed-candle data used by the legacy candle stop-loss rule."""
+
+    latest_peak: Mapping[str, object]
+    previous_candle: Mapping[str, object]
+
+
 class PositionService:
     def __init__(
         self,
@@ -41,14 +50,19 @@ class PositionService:
         notifier: Notifier,
         history: TradeHistoryRepository,
         clock: Clock,
+        *,
+        entry_confirmation: EntryConfirmationPolicy | None = None,
+        stop_loss: StopLossPolicy | None = None,
+        exit_policy_factory: Callable[[int, int, bool], ExitPolicy] = ExitPolicy,
     ) -> None:
         self.broker_execution = broker_execution
         self.broker_query = broker_query
         self.notifier = notifier
         self.history = history
         self.clock = clock
-        self.entry_confirmation = EntryConfirmationPolicy()
-        self.stop_loss = StopLossPolicy()
+        self.entry_confirmation = entry_confirmation or EntryConfirmationPolicy()
+        self.stop_loss = stop_loss or StopLossPolicy()
+        self.exit_policy_factory = exit_policy_factory
         self.closure_reporting = ClosureReportingService(history, notifier)
         self._emitted_event_ids: set[str] = set()
 
@@ -71,6 +85,7 @@ class PositionService:
         position: ManagedPosition,
         *,
         current_price: float | None = None,
+        candle_stop_loss: CandleStopLossInput | None = None,
         dry_run: bool = False,
     ) -> PositionSyncResult:
         if position.snapshot.waiting_order:
@@ -107,38 +122,47 @@ class PositionService:
                 position.filled(broker_snapshot.trade_id, self.clock.now()),
                 broker_snapshot,
             )
+            if current_price is not None:
+                opened = replace(
+                    opened,
+                    snapshot=replace(
+                        opened.snapshot,
+                        current_price=float(current_price),
+                    ),
+                )
             timeout = self._trade_timeout(opened, broker_snapshot, dry_run)
             if timeout is not None:
                 events = () if was_open else self._events_once(self._event("trade_opened", opened, broker_snapshot), dry_run)
                 return PositionSyncResult(timeout.position, timeout.commands, events, timeout.reason)
-            amendment = self._stop_loss_amendment(opened, current_price, dry_run)
+            amendment = self._stop_loss_amendment(
+                opened,
+                current_price,
+                candle_stop_loss,
+                dry_run,
+            )
             opened = amendment.position
             events = () if was_open else self._events_once(self._event("trade_opened", opened, broker_snapshot), dry_run)
             return PositionSyncResult(opened, amendment.commands, events, amendment.reason)
         return PositionSyncResult(position)
 
-    def close(self, position: ManagedPosition) -> ManagedPosition:
+    def close(
+        self,
+        position: ManagedPosition,
+        *,
+        dry_run: bool = False,
+    ) -> ManagedPosition:
         trade_id = position.snapshot.trade_id
         if trade_id is None:
             return position.cancelled()
+        if dry_run:
+            return position
         result = self.broker_execution.close_trade(trade_id)
         if not result.accepted:
             return position
-        closed = position.closed()
-        broker_snapshot = PositionSnapshot(
-            closed.snapshot.name,
-            closed.snapshot.pair,
-            closed.snapshot.order_state,
-            closed.snapshot.trade_state,
-            order_id=closed.snapshot.order_id,
-            trade_id=trade_id,
-            direction=closed.runtime.direction,
-            target_price=closed.runtime.target_price,
-            units=closed.runtime.order_plan.intent.units if closed.runtime.order_plan else 0,
-            average_close_price=closed.runtime.target_price,
-        )
-        self.closure_reporting.report(self._event("trade_closed", closed, broker_snapshot))
-        return closed
+        # OANDA's close acknowledgement is not the authoritative trade result.
+        # Keep the position alive until a subsequent query returns its CLOSED
+        # snapshot with the actual close price and realized P/L.
+        return position.with_runtime(close_requested=True)
 
     def _sync_watching(
         self,
@@ -204,7 +228,7 @@ class PositionService:
         if plan is None or position.runtime.registered_at is None:
             return None
         elapsed = (self.clock.now() - position.runtime.registered_at).total_seconds()
-        policy = ExitPolicy(plan.intent.trade_timeout_min, plan.intent.order_timeout_min)
+        policy = self.exit_policy_factory(plan.intent.trade_timeout_min, plan.intent.order_timeout_min, False)
         if not policy.should_cancel_order(broker_snapshot, elapsed):
             return None
         order_id = position.snapshot.order_id
@@ -233,7 +257,7 @@ class PositionService:
             return None
         elapsed = (self.clock.now() - position.runtime.filled_at).total_seconds()
         enabled = bool(plan.intent.metadata.get("trade_timeout_enabled", False))
-        policy = ExitPolicy(plan.intent.trade_timeout_min, plan.intent.order_timeout_min, enabled)
+        policy = self.exit_policy_factory(plan.intent.trade_timeout_min, plan.intent.order_timeout_min, enabled)
         if not policy.should_close(broker_snapshot, elapsed):
             return None
         trade_id = position.snapshot.trade_id
@@ -253,38 +277,81 @@ class PositionService:
         self,
         position: ManagedPosition,
         current_price: float | None,
+        candle_stop_loss: CandleStopLossInput | None,
         dry_run: bool,
     ) -> PositionSyncResult:
         plan = position.runtime.order_plan
         trade_id = position.snapshot.trade_id
         current_stop = position.runtime.current_stop_loss
-        if plan is None or trade_id is None or current_price is None or current_stop is None:
+        if (
+            plan is None
+            or trade_id is None
+            or current_price is None
+            or current_stop is None
+            or position.runtime.close_requested
+        ):
             return PositionSyncResult(position, reason="open")
         filled_at = position.runtime.filled_at or self.clock.now()
         elapsed = (self.clock.now() - filled_at).total_seconds()
-        applied = {position.runtime.applied_lc_change_index} if position.runtime.applied_lc_change_index >= 0 else set()
-        amendment = self.stop_loss.next_amendment(
-            plan.intent.lc_change,
-            position.runtime.target_price,
-            position.runtime.direction,
-            current_price,
-            current_stop,
-            elapsed,
-            applied,
-        )
-        if amendment is None:
+        rule_index: int | None = None
+        reason = "lc_trigger"
+        stop_loss_price: float | None = None
+        if not position.runtime.candle_stop_loss_done:
+            applied = (
+                {position.runtime.applied_lc_change_index}
+                if position.runtime.applied_lc_change_index >= 0
+                else set()
+            )
+            amendment = self.stop_loss.next_amendment(
+                plan.intent.lc_change,
+                position.runtime.target_price,
+                position.runtime.direction,
+                current_price,
+                current_stop,
+                elapsed,
+                applied,
+            )
+            if amendment is not None:
+                rule_index = amendment.rule_index
+                stop_loss_price = amendment.stop_loss_price
+        if stop_loss_price is None and candle_stop_loss is not None:
+            stop_loss_price = self.stop_loss.candle_amendment(
+                position.runtime.target_price,
+                position.runtime.direction,
+                current_stop,
+                elapsed,
+                candle_stop_loss.latest_peak,
+                candle_stop_loss.previous_candle,
+                self.clock.now(),
+                enabled=bool(plan.intent.metadata.get("candle_lc_enabled", True)),
+                already_done=position.runtime.candle_stop_loss_done,
+            )
+            reason = "candle_lc_trigger"
+        if stop_loss_price is None:
             return PositionSyncResult(position, reason="open")
-        command = PositionCommand("amend_stop_loss", trade_id, "lc_trigger", amendment.stop_loss_price)
+        command = PositionCommand(
+            "amend_stop_loss",
+            trade_id,
+            reason,
+            stop_loss_price,
+        )
         if dry_run:
             return PositionSyncResult(position, commands=(command,), reason="dry_run")
-        result = self.broker_execution.amend_protection(trade_id, None, amendment.stop_loss_price)
+        result = self.broker_execution.amend_protection(
+            trade_id,
+            None,
+            stop_loss_price,
+        )
         if not result.accepted:
             return PositionSyncResult(position, commands=(command,), reason="amend_rejected")
-        amended = position.with_runtime(
-            current_stop_loss=amendment.stop_loss_price,
-            applied_lc_change_index=amendment.rule_index,
-        )
-        return PositionSyncResult(amended, commands=(command,), reason="lc_amended")
+        changes: dict[str, object] = {"current_stop_loss": stop_loss_price}
+        if rule_index is None:
+            changes["candle_stop_loss_done"] = True
+        else:
+            changes["applied_lc_change_index"] = rule_index
+        amended = position.with_runtime(**changes)
+        result_reason = "candle_lc_amended" if rule_index is None else "lc_amended"
+        return PositionSyncResult(amended, commands=(command,), reason=result_reason)
 
     def _event(
         self,
@@ -315,7 +382,49 @@ class PositionService:
         broker_snapshot: PositionSnapshot,
     ) -> ManagedPosition:
         unrealized = broker_snapshot.unrealized_pl
-        return position.with_runtime(
+        snapshot = replace(
+            position.snapshot,
+            order_state=broker_snapshot.order_state,
+            trade_state=broker_snapshot.trade_state,
+            order_id=broker_snapshot.order_id or position.snapshot.order_id,
+            trade_id=broker_snapshot.trade_id or position.snapshot.trade_id,
+            direction=broker_snapshot.direction
+            if broker_snapshot.direction is not None
+            else position.runtime.direction,
+            target_price=broker_snapshot.target_price
+            if broker_snapshot.target_price is not None
+            else position.runtime.target_price,
+            units=broker_snapshot.units or position.snapshot.units,
+            source=broker_snapshot.source or position.runtime.source,
+            line_strategy=broker_snapshot.line_strategy
+            or position.runtime.line_strategy,
+            current_stop_loss=broker_snapshot.current_stop_loss
+            if broker_snapshot.current_stop_loss is not None
+            else position.runtime.current_stop_loss,
+            current_price=broker_snapshot.current_price
+            if broker_snapshot.current_price is not None
+            else position.snapshot.current_price,
+            unrealized_pl=broker_snapshot.unrealized_pl,
+            realized_pl=broker_snapshot.realized_pl,
+            open_time=broker_snapshot.open_time or position.snapshot.open_time,
+            close_time=broker_snapshot.close_time or position.snapshot.close_time,
+            elapsed_seconds=broker_snapshot.elapsed_seconds
+            or position.snapshot.elapsed_seconds,
+            average_close_price=broker_snapshot.average_close_price
+            if broker_snapshot.average_close_price is not None
+            else position.snapshot.average_close_price,
+        )
+        updated = replace(position, snapshot=snapshot)
+        return updated.with_runtime(
+            direction=broker_snapshot.direction
+            if broker_snapshot.direction is not None
+            else position.runtime.direction,
+            target_price=broker_snapshot.target_price
+            if broker_snapshot.target_price is not None
+            else position.runtime.target_price,
+            current_stop_loss=broker_snapshot.current_stop_loss
+            if broker_snapshot.current_stop_loss is not None
+            else position.runtime.current_stop_loss,
             unrealized_pl=unrealized,
             realized_pl=broker_snapshot.realized_pl,
             max_unrealized_pl=max(position.runtime.max_unrealized_pl, unrealized),

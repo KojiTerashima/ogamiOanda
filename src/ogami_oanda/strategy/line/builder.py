@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
+from ogami_oanda.domain.market.currency_pair import currency_pair
+from ogami_oanda.strategy.position_sizing import PositionSizingPolicy
+
 from .aud_usd import LineStrategyProfileAudUsd
 from .coordinator import LineCandidateCoordinator
 from .eur_usd import LineStrategyProfileEurUsd
@@ -35,9 +38,10 @@ def line_strategy_profile_for_pair(pair: str):
 class LineCandidateBuilder:
     """Build selected line candidate dicts without legacy order creation."""
 
-    def __init__(self, pair: str, profile=None) -> None:
+    def __init__(self, pair: str, profile=None, *, risk_yen: float = 500.0) -> None:
         self.pair = pair
         self.profile = profile or line_strategy_profile_for_pair(pair)
+        self.position_sizing = PositionSizingPolicy(risk_yen)
 
     def __call__(self, context: Mapping[str, object], current_price: float) -> list[dict]:
         raw_candidates = self.build_raw_candidates(context, current_price)
@@ -91,6 +95,7 @@ class LineCandidateBuilder:
         return selected
 
     def enrich_candidates(self, selected_candidates: list[dict], current_price: float) -> list[dict]:
+        pair = currency_pair(self.pair)
         enriched = []
         for candidate in selected_candidates:
             strategy = candidate["strategy"]
@@ -107,7 +112,15 @@ class LineCandidateBuilder:
             item["lc_pips"] = float(strategy.lc_pips)
             item["tp_pips"] = float(strategy.get_tp_pips())
             item["units_multiplier"] = float(strategy.units_multiplier)
-            item["units"] = int(candidate.get("units", 0))
+            item["units"] = (
+                int(candidate["units"])
+                if candidate.get("units") is not None
+                else self.position_sizing.units_for(
+                    pair,
+                    item["lc_pips"],
+                    item["units_multiplier"],
+                )
+            )
             item["priority"] = int(candidate.get("line", {}).get("total_strength", 0))
             item["source"] = "line"
             item["line_order_mode"] = order_mode

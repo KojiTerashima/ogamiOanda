@@ -60,6 +60,16 @@ def test_domain_peaks_match_legacy_facade_for_peak_and_skip_results(candle_frame
     assert domain.skipped_peaks_hard == legacy.skipped_peaks_hard
 
 
+@pytest.mark.contract
+def test_domain_recent_peaks_are_relative_to_analysis_frame_not_wall_clock(candle_frame):
+    frame = candle_frame.assign(body=candle_frame["close"] - candle_frame["open"])
+    domain = DomainPeaksClass(frame, "M5", 150.30)
+    newest = frame.iloc[0]["time_jp"]
+
+    assert newest == "2026/01/02 00:25:00"
+    assert all(peak["latest_time_jp"] >= "2026/01/01 23:25:00" for peak in domain.peaks_latest)
+
+
 @pytest.mark.characterization
 @pytest.mark.parametrize(
     "target_peak, expected",

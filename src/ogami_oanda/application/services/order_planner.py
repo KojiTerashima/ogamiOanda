@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ogami_oanda.adapters.oanda.mappers import broker_request_to_oanda
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import (
     BrokerOrderRequest,
@@ -50,7 +49,3 @@ class OrderPlanner:
     @staticmethod
     def _protection_price(value: float, is_price: bool, target_price: float, direction: int, pair) -> float:
         return pair.round_price(value if is_price else target_price + value * direction)
-
-    @staticmethod
-    def oanda_payload(order_plan: OrderPlan) -> dict[str, object]:
-        return broker_request_to_oanda(order_plan.broker_request)

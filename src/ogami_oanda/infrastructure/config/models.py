@@ -4,25 +4,14 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Mapping
 
+from ogami_oanda.application.settings import TradingSettings
+
 
 @dataclass(frozen=True)
 class RuntimeAccountConfig:
     account_id: str
     access_token: str
     environment: str
-
-
-@dataclass(frozen=True)
-class TradingSettings:
-    default_pair: str = "USD_JPY"
-    line_units: float = 1.0
-    risk_yen: float = 500.0
-    max_positions: int = 15
-    normal_slot_count: int = 6
-    mid_slot_count: int = 8
-    high_slot_count: int = 1
-    mid_priority_threshold: int = 10
-    high_priority_threshold: int = 100
 
 
 @dataclass(frozen=True)

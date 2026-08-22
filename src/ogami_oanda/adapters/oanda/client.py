@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
 from oandapyV20 import API
 
-from ogami_oanda.infrastructure.config.models import RuntimeAccountConfig
+
+
+class AccountConfiguration(Protocol):
+    account_id: str
+    access_token: str
+    environment: str
 
 
 class OandaClient:
-    def __init__(self, account: RuntimeAccountConfig, api: Any | None = None) -> None:
+    def __init__(self, account: AccountConfiguration, api: Any | None = None) -> None:
         self.account = account
         self.api = api or API(access_token=account.access_token, environment=account.environment)
 

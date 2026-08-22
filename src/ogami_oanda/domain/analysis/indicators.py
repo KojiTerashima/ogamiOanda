@@ -6,30 +6,15 @@ import pandas as pd
 from ogami_oanda.domain.market.currency_pair import currency_pair
 
 
-def _open(row: pd.Series) -> float:
-    return float(row.mid["o"])
-
-
-def _close(row: pd.Series) -> float:
-    return float(row.mid["c"])
-
-
-def _high(row: pd.Series) -> float:
-    return float(row.mid["h"])
-
-
-def _low(row: pd.Series) -> float:
-    source = getattr(row, "ask", None) or getattr(row, "bid", None) or row.mid
-    return float(source["l"])
-
-
 def add_basic_data(data_frame: pd.DataFrame, pair=None) -> pd.DataFrame:
+    """Add derived candle values to canonical OHLC market data."""
     pair = pair or currency_pair("USD_JPY")
     data_frame = data_frame.copy()
-    data_frame["open"] = data_frame.apply(_open, axis=1)
-    data_frame["close"] = data_frame.apply(_close, axis=1)
-    data_frame["high"] = data_frame.apply(_high, axis=1)
-    data_frame["low"] = data_frame.apply(_low, axis=1)
+    missing = {"open", "close", "high", "low"} - set(data_frame.columns)
+    if missing:
+        raise ValueError(f"Canonical OHLC columns required: {', '.join(sorted(missing))}")
+    for column in ("open", "close", "high", "low"):
+        data_frame[column] = pd.to_numeric(data_frame[column], errors="raise")
     data_frame["mid_outer"] = pair.round_price((data_frame["high"] + data_frame["low"]) / 2)
     data_frame["inner_high"] = data_frame[["open", "close"]].max(axis=1)
     data_frame["inner_low"] = data_frame[["open", "close"]].min(axis=1)
@@ -42,8 +27,9 @@ def add_basic_data(data_frame: pd.DataFrame, pair=None) -> pd.DataFrame:
     data_frame["highlow"] = data_frame["high"] - data_frame["low"]
     data_frame["middle_price"] = pair.round_price((data_frame["inner_low"] + data_frame["inner_high"]) / 2)
     data_frame["middle_price_wick"] = pair.round_price((data_frame["high"] + data_frame["low"]) / 2)
-    data_frame = data_frame[[column for column in data_frame.columns if column != "time"] + ["time"]]
-    return data_frame.drop(columns=["complete", "mid"])
+    if "time" in data_frame.columns:
+        data_frame = data_frame[[column for column in data_frame.columns if column != "time"] + ["time"]]
+    return data_frame
 
 
 def add_rsi(data_frame: pd.DataFrame, close_column: str = "close", period: int = 14, method: str = "wilder") -> pd.DataFrame:

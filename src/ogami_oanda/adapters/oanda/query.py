@@ -5,7 +5,7 @@ from oandapyV20.endpoints.trades import OpenTrades, TradeDetails
 
 from ogami_oanda.adapters.oanda.client import OandaClient
 from ogami_oanda.adapters.oanda.mappers import map_order_snapshot, map_trade_snapshot
-from ogami_oanda.domain.positions.models import OrderState, PositionSnapshot, TradeState
+from ogami_oanda.domain.positions.models import PositionSnapshot
 
 
 class OandaQueryAdapter:
@@ -33,15 +33,9 @@ class OandaQueryAdapter:
     def open_positions(self) -> list[PositionSnapshot]:
         response = self.client.request(OpenTrades(accountID=self.client.account_id))
         return [
-            PositionSnapshot(
-                name=str(trade.get("id", "")),
-                pair=str(trade.get("instrument", "USD_JPY")),
-                order_state=OrderState.FILLED,
-                trade_state=TradeState.OPEN,
-                trade_id=str(trade.get("id", "")) or None,
-                life=True,
-            )
+            snapshot
             for trade in response.get("trades", [])
+            if (snapshot := map_trade_snapshot({"trade": trade})) is not None
         ]
 
     def legacy_open_position(self, reference_id: str) -> PositionSnapshot | None:

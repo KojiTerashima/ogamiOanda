@@ -24,3 +24,21 @@ def test_schedule_runs_position_update_on_even_seconds():
 
     assert schedule.should_run_position_update(datetime(2026, 1, 2, 3, 4, 2)) is True
     assert schedule.should_run_position_update(datetime(2026, 1, 2, 3, 4, 3)) is False
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    ("now", "market_closed", "update_only"),
+    [
+        (datetime(2026, 1, 4, 0, 0, 0), True, False),  # Sunday
+        (datetime(2026, 1, 3, 3, 59, 59), False, False),  # Saturday
+        (datetime(2026, 1, 3, 4, 0, 0), False, True),
+        (datetime(2026, 1, 5, 7, 59, 59), False, True),  # Monday
+        (datetime(2026, 1, 5, 8, 0, 0), False, False),
+    ],
+)
+def test_schedule_preserves_legacy_weekend_boundaries(now, market_closed, update_only):
+    schedule = TradingSchedule()
+
+    assert schedule.is_market_closed(now) is market_closed
+    assert schedule.is_update_only_window(now) is update_only

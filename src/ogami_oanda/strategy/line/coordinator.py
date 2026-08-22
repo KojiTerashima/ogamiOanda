@@ -131,11 +131,81 @@ class LineCandidateCoordinator:
         for candidate in candidates:
             base_price = float(candidate["line_price"])
             direction = int(candidate["direction"])
-            ahead = [item for item in items if (float(item["price"]) - base_price) * direction > 0]
-            nearest = self._nearest(items, base_price)
-            nearest_ahead = self._nearest(ahead, base_price)
-            context = self._line_fields("h1_nearest", nearest, base_price)
-            context.update(self._line_fields("h1_ahead", nearest_ahead, base_price))
+            upper = [item for item in items if item["side"] == "upper"]
+            lower = [item for item in items if item["side"] == "lower"]
+            ahead = [
+                item
+                for item in items
+                if (float(item["price"]) - base_price) * direction > 0
+            ]
+            behind = [
+                item
+                for item in items
+                if (float(item["price"]) - base_price) * direction < 0
+            ]
+            path_base_price = float(candidate["target_price"])
+            path_ahead = self._sorted_ahead_lines(
+                items,
+                path_base_price,
+                direction,
+            )
+
+            context = self._line_fields(
+                "h1_upper",
+                self._nearest(upper, base_price),
+                base_price,
+            )
+            context.update(
+                self._line_fields(
+                    "h1_lower",
+                    self._nearest(lower, base_price),
+                    base_price,
+                )
+            )
+            context.update(
+                self._line_fields(
+                    "h1_nearest",
+                    self._nearest(items, base_price),
+                    base_price,
+                )
+            )
+            context.update(
+                self._line_fields(
+                    "h1_ahead",
+                    self._nearest(ahead, base_price),
+                    base_price,
+                )
+            )
+            context.update(
+                self._line_fields(
+                    "h1_behind",
+                    self._nearest(behind, base_price),
+                    base_price,
+                )
+            )
+            context.update(
+                self._line_fields(
+                    "h1_path_ahead_1",
+                    path_ahead[0] if len(path_ahead) >= 1 else None,
+                    path_base_price,
+                )
+            )
+            context.update(
+                self._line_fields(
+                    "h1_path_ahead_2",
+                    path_ahead[1] if len(path_ahead) >= 2 else None,
+                    path_base_price,
+                )
+            )
+            if len(path_ahead) >= 2:
+                context["h1_path_ahead_1_to_2_distance_pips"] = abs(
+                    self.pair_info.price_to_pips(
+                        float(path_ahead[1]["price"])
+                        - float(path_ahead[0]["price"])
+                    )
+                )
+            else:
+                context["h1_path_ahead_1_to_2_distance_pips"] = None
             context["h1_near_same_line"] = context["h1_nearest_distance_pips"] is not None and context["h1_nearest_distance_pips"] <= self.duplicate_threshold_pips
             context["h1_blocks_trade_direction"] = context["h1_ahead_total_strength"] is not None and context["h1_ahead_total_strength"] >= 10
             candidate["h1_context"] = context
@@ -145,8 +215,19 @@ class LineCandidateCoordinator:
         for candidate in candidates:
             previous_price = candidate.get("previous_peak_price")
             context = candidate.setdefault("h1_context", {})
-            nearest = self._nearest(items, float(previous_price)) if previous_price is not None else None
-            context.update(self._line_fields(prefix, nearest, previous_price))
+            if previous_price is None:
+                context.update(
+                    self._previous_peak_line_fields(prefix, None, None)
+                )
+                continue
+            nearest = self._nearest(items, float(previous_price))
+            context.update(
+                self._previous_peak_line_fields(
+                    prefix,
+                    nearest,
+                    float(previous_price),
+                )
+            )
 
     def _line_items(self, line_class):
         return [
@@ -159,6 +240,17 @@ class LineCandidateCoordinator:
     def _nearest(items, base_price):
         return min(items, key=lambda item: abs(float(item["price"]) - base_price)) if items else None
 
+    @staticmethod
+    def _sorted_ahead_lines(items, base_price, direction):
+        return sorted(
+            (
+                item
+                for item in items
+                if (float(item["price"]) - base_price) * direction > 0
+            ),
+            key=lambda item: abs(float(item["price"]) - base_price),
+        )
+
     def _line_fields(self, prefix, item, base_price):
         if item is None or base_price is None:
             return {f"{prefix}_{field}": None for field in ("side", "price", "distance_pips", "total_strength", "count", "core_total_strength", "is_flipped")}
@@ -169,3 +261,62 @@ class LineCandidateCoordinator:
             f"{prefix}_total_strength": line.get("total_strength"), f"{prefix}_count": line.get("count"),
             f"{prefix}_core_total_strength": line.get("core_total_strength"), f"{prefix}_is_flipped": line.get("is_flipped_line"),
         }
+
+    def _previous_peak_line_fields(self, prefix, item, previous_price):
+        if item is None or previous_price is None:
+            return {
+                f"{prefix}_side": None,
+                f"{prefix}_price": None,
+                f"{prefix}_distance_pips": None,
+                f"{prefix}_total_strength": None,
+                f"{prefix}_count": None,
+                f"{prefix}_core_total_strength": None,
+                f"{prefix}_is_flipped": None,
+                f"{prefix}_contains_peak": False,
+                f"{prefix}_is_near": False,
+                f"{prefix}_is_near_strong": False,
+            }
+
+        line = item["line"]
+        distance_pips = abs(
+            self.pair_info.price_to_pips(
+                float(item["price"]) - float(previous_price)
+            )
+        )
+        total_strength = line.get("total_strength")
+        return {
+            f"{prefix}_side": item["side"],
+            f"{prefix}_price": item["price"],
+            f"{prefix}_distance_pips": distance_pips,
+            f"{prefix}_total_strength": total_strength,
+            f"{prefix}_count": line.get("count"),
+            f"{prefix}_core_total_strength": line.get("core_total_strength"),
+            f"{prefix}_is_flipped": line.get("is_flipped_line"),
+            f"{prefix}_contains_peak": self._line_contains_peak(
+                line,
+                float(previous_price),
+            ),
+            f"{prefix}_is_near": (
+                distance_pips <= self.duplicate_threshold_pips
+            ),
+            f"{prefix}_is_near_strong": (
+                distance_pips <= self.duplicate_threshold_pips
+                and float(total_strength or 0) >= 10
+            ),
+        }
+
+    def _line_contains_peak(self, line, peak_price):
+        for peak in line.get("prices_info", []):
+            price = peak.get("latest_body_peak_price")
+            if price is None:
+                continue
+            if (
+                abs(
+                    self.pair_info.price_to_pips(
+                        float(price) - float(peak_price)
+                    )
+                )
+                <= 0.1
+            ):
+                return True
+        return False
