@@ -1,6 +1,9 @@
 from .active_orders import ActiveOrderQuery
 from .broker import (
     AccountCapabilities,
+    BrokerTransaction,
+    BrokerTransactionBatch,
+    InstrumentTradingRules,
     BrokerExecutionPort,
     BrokerQueryPort,
     ExecutionResult,
@@ -25,6 +28,9 @@ from .trade_history import TradeHistoryRepository
 __all__ = [
     "ActiveOrderQuery",
     "AccountCapabilities",
+    "BrokerTransaction",
+    "BrokerTransactionBatch",
+    "InstrumentTradingRules",
     "BrokerExecutionPort",
     "BrokerQueryPort",
     "Clock",

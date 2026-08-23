@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import types
 from functools import lru_cache
@@ -130,7 +131,14 @@ def _build_analysis_frame(pair_name: str, timeframe: str) -> pd.DataFrame:
 
 
 @pytest.fixture(autouse=True)
-def block_network(monkeypatch):
+def block_network(request, monkeypatch):
+    integration_enabled = (
+        request.node.get_closest_marker("integration") is not None
+        and os.environ.get("OGAMI_OANDA_RUN_INTEGRATION") == "1"
+    )
+    if integration_enabled:
+        return
+
     def fail_network(*args, **kwargs):
         raise AssertionError("Network access is prohibited in offline tests")
 

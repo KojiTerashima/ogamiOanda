@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from ogami_oanda.application.ports.broker import (
     AccountCapabilities,
+    BrokerTransactionBatch,
+    InstrumentTradingRules,
     ExecutionResult,
     OrderSubmissionResult,
 )
@@ -23,9 +25,21 @@ class FakeBroker:
         self.positions: dict[str, PositionSnapshot] = {}
         self.orders: dict[str, PositionSnapshot] = {}
         self.trades: dict[str, PositionSnapshot] = {}
+        self.transactions = BrokerTransactionBatch((), "0")
 
     def account_capabilities(self) -> AccountCapabilities:
-        return AccountCapabilities(self.account_id, self.hedging_enabled)
+        return AccountCapabilities(
+            self.account_id,
+            self.hedging_enabled,
+            self.transactions.last_transaction_id,
+        )
+
+    def transactions_since(self, transaction_id: str) -> BrokerTransactionBatch:
+        del transaction_id
+        return self.transactions
+
+    def instrument_rules(self, pair: str) -> InstrumentTradingRules:
+        return InstrumentTradingRules(pair, 1, 1_000_000, 0)
 
     def submit(self, request: BrokerOrderRequest) -> OrderSubmissionResult:
         self.requests.append(request)

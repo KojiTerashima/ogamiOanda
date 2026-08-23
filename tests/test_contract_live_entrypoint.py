@@ -7,9 +7,11 @@ from ogami_oanda.application.services.market_analysis_service import (
 )
 from ogami_oanda.application.services.order_planner import OrderPlanner
 from ogami_oanda.application.services.position_portfolio_service import (
+    PortfolioStartupState,
     PositionPortfolioService,
 )
 from ogami_oanda.application.services.position_service import PositionService
+from ogami_oanda.application.errors import TransientExternalServiceError
 from ogami_oanda.domain.orders.models import (
     Direction,
     OrderContext,
@@ -27,6 +29,22 @@ from tests.fakes import (
     FixedClock,
     InMemoryTradeHistoryRepository,
 )
+
+
+class _MissingStateRepository:
+    def __init__(self):
+        self.saved = []
+
+    def load(self, **_kwargs):
+        from ogami_oanda.application.ports.position_state import (
+            CheckpointLoadResult,
+            CheckpointLoadStatus,
+        )
+
+        return CheckpointLoadResult(CheckpointLoadStatus.MISSING)
+
+    def save(self, checkpoint):
+        self.saved.append(checkpoint)
 
 
 class _Analysis:
@@ -223,17 +241,18 @@ def test_live_schedule_runs_initial_analysis_then_five_minute_analysis_and_two_s
 
 
 @pytest.mark.contract
-def test_live_composition_cancels_pending_only_when_explicitly_enabled(candle_frame):
+def test_live_composition_never_cancels_unmanaged_pending_on_start(candle_frame):
     settings = AppSettings({"primary": RuntimeAccountConfig("id", "token", "practice")})
     broker = FakeBroker()
     market = FakeMarketData({("USD_JPY", "M5"): candle_frame}, {"USD_JPY": 150.0})
 
-    build_live_application(settings, market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), clock=FixedClock(datetime(2026, 1, 2)))
+    build_live_application(settings, market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), state_repository=_MissingStateRepository(), clock=FixedClock(datetime(2026, 1, 2)))
     assert broker.commands == []
 
     broker.orders["pending-1"] = PositionSnapshot("pending", "USD_JPY", OrderState.PENDING, TradeState.NONE, order_id="pending-1")
-    build_live_application(settings, market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), clock=FixedClock(datetime(2026, 1, 2)), cancel_pending_on_start=True)
-    assert broker.commands == [("cancel_order", ("pending-1",))]
+    application = build_live_application(settings, market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), state_repository=_MissingStateRepository(), clock=FixedClock(datetime(2026, 1, 2)), cancel_pending_on_start=True)
+    assert broker.commands == []
+    assert application.portfolio.startup_state is PortfolioStartupState.QUARANTINED
 
     dry_broker = FakeBroker()
     dry_broker.orders["pending-2"] = PositionSnapshot(
@@ -345,6 +364,187 @@ def test_live_run_forever_accepts_finite_ticks_without_sleeping():
     assert len(results) == 1
     assert broker.requests == []
     assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_live_runner_recovers_from_transient_read_failure_and_resets_backoff():
+    class _FlakyMarket:
+        def __init__(self):
+            self.calls = 0
+
+        def current_quote(self, pair):
+            self.calls += 1
+            if self.calls in {1, 3}:
+                raise TransientExternalServiceError("oanda", "temporary outage")
+            return MarketQuote(pair, 150.0, 150.0, 150.0)
+
+    clock = FixedClock(datetime(2026, 1, 2, 10, 0, 0))
+    broker = FakeBroker()
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+    market = _FlakyMarket()
+    application = LiveApplication(
+        "USD_JPY",
+        market,
+        _NoAnalysis(),
+        OrderPlanner(),
+        PositionPortfolioService("USD_JPY", service, broker, broker),
+        clock,
+    )
+
+    def advance(_seconds):
+        clock.value += timedelta(seconds=1)
+
+    results = application.run_forever(
+        dry_run=True,
+        sleeper=advance,
+        max_ticks=4,
+    )
+
+    assert [result.skipped for result in results] == [
+        ("broker_unavailable",),
+        (),
+        ("broker_unavailable",),
+        ("outside_sync_window",),
+    ]
+    assert market.calls == 4
+
+
+@pytest.mark.contract
+def test_live_composition_retries_transient_startup_inside_resilient_loop():
+    class _FlakyStartupBroker(FakeBroker):
+        def __init__(self):
+            super().__init__()
+            self.capability_calls = 0
+
+        def account_capabilities(self):
+            self.capability_calls += 1
+            if self.capability_calls <= 2:
+                raise TransientExternalServiceError(
+                    "oanda",
+                    "temporary startup outage",
+                )
+            return super().account_capabilities()
+
+    clock = FixedClock(datetime(2026, 1, 4, 10, 0, 0))
+    broker = _FlakyStartupBroker()
+    application = build_live_application(
+        AppSettings(
+            {"primary": RuntimeAccountConfig("id", "token", "practice")}
+        ),
+        market_data=FakeMarketData({}, {"USD_JPY": 150.0}),
+        broker_execution=broker,
+        broker_query=broker,
+        notifier=FakeNotifier(),
+        history=InMemoryTradeHistoryRepository(),
+        state_repository=_MissingStateRepository(),
+        clock=clock,
+        dry_run=True,
+    )
+
+    results = application.run_forever(
+        dry_run=True,
+        sleeper=lambda seconds: setattr(
+            clock,
+            "value",
+            clock.value + timedelta(seconds=seconds),
+        ),
+        max_ticks=3,
+    )
+
+    assert [result.skipped for result in results] == [
+        ("broker_unavailable",),
+        ("broker_backoff",),
+        ("market_closed",),
+    ]
+    assert broker.capability_calls == 4
+
+
+@pytest.mark.contract
+def test_live_runner_honors_retry_after_without_broker_calls():
+    class _RateLimitedMarket:
+        def __init__(self):
+            self.calls = 0
+
+        def current_quote(self, pair):
+            self.calls += 1
+            raise TransientExternalServiceError(
+                "oanda",
+                "rate limited",
+                retry_after_seconds=5,
+            )
+
+    clock = FixedClock(datetime(2026, 1, 2, 10, 0, 0))
+    broker = FakeBroker()
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+    market = _RateLimitedMarket()
+    application = LiveApplication(
+        "USD_JPY",
+        market,
+        _NoAnalysis(),
+        OrderPlanner(),
+        PositionPortfolioService("USD_JPY", service, broker, broker),
+        clock,
+    )
+
+    results = application.run_forever(
+        dry_run=True,
+        sleeper=lambda seconds: setattr(
+            clock,
+            "value",
+            clock.value + timedelta(seconds=seconds),
+        ),
+        max_ticks=3,
+    )
+
+    assert results[0].skipped == ("broker_unavailable",)
+    assert results[1].skipped == ("broker_backoff",)
+    assert results[2].skipped == ("broker_backoff",)
+    assert market.calls == 1
+
+
+@pytest.mark.contract
+def test_live_runner_keeps_unknown_programming_errors_fail_fast():
+    class _BrokenMarket:
+        def current_quote(self, pair):
+            del pair
+            raise ValueError("programming defect")
+
+    broker = FakeBroker()
+    clock = FixedClock(datetime(2026, 1, 2, 10, 0, 0))
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+    application = LiveApplication(
+        "USD_JPY",
+        _BrokenMarket(),
+        _NoAnalysis(),
+        OrderPlanner(),
+        PositionPortfolioService("USD_JPY", service, broker, broker),
+        clock,
+    )
+
+    with pytest.raises(ValueError, match="programming defect"):
+        application.run_forever(
+            dry_run=True,
+            sleeper=lambda _seconds: None,
+            max_ticks=1,
+        )
 
 
 @pytest.mark.contract
@@ -480,6 +680,7 @@ def test_live_composition_shares_one_oanda_client_across_all_broker_adapters(mon
         settings,
         notifier=FakeNotifier(),
         history=InMemoryTradeHistoryRepository(),
+        state_repository=_MissingStateRepository(),
         clock=FixedClock(datetime(2026, 1, 2)),
     )
 
@@ -513,3 +714,124 @@ def test_live_composition_fails_closed_when_required_hedging_is_disabled(candle_
 
     assert broker.requests == []
     assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_non_dry_live_composition_requires_runtime_checkpoint(candle_frame):
+    settings = AppSettings(
+        {"primary": RuntimeAccountConfig("id", "token", "practice")}
+    )
+    broker = FakeBroker()
+
+    with pytest.raises(ValueError, match="position state repository"):
+        build_live_application(
+            settings,
+            market_data=FakeMarketData(
+                {("USD_JPY", "M5"): candle_frame},
+                {"USD_JPY": 150.0},
+            ),
+            broker_execution=broker,
+            broker_query=broker,
+            notifier=FakeNotifier(),
+            history=InMemoryTradeHistoryRepository(),
+            clock=FixedClock(datetime(2026, 1, 2)),
+        )
+
+    assert broker.requests == []
+    assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_live_environment_requires_explicit_opt_in_but_allows_dry_run(candle_frame):
+    settings = AppSettings(
+        {"primary": RuntimeAccountConfig("id", "token", "live")}
+    )
+    broker = FakeBroker()
+    market = FakeMarketData(
+        {("USD_JPY", "M5"): candle_frame},
+        {"USD_JPY": 150.0},
+    )
+    dependencies = {
+        "market_data": market,
+        "broker_execution": broker,
+        "broker_query": broker,
+        "notifier": FakeNotifier(),
+        "history": InMemoryTradeHistoryRepository(),
+        "clock": FixedClock(datetime(2026, 1, 2)),
+    }
+
+    with pytest.raises(ValueError, match="live trading opt-in"):
+        build_live_application(settings, **dependencies)
+
+    application = build_live_application(settings, dry_run=True, **dependencies)
+    assert application.pair == "USD_JPY"
+
+
+@pytest.mark.contract
+def test_live_run_once_skips_market_and_analysis_when_portfolio_is_quarantined():
+    class _NoMarket:
+        def current_quote(self, pair):
+            raise AssertionError("quarantined portfolio must not query market data")
+
+    analysis = _NoAnalysis()
+    broker = FakeBroker()
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        FixedClock(datetime(2026, 1, 2)),
+    )
+    portfolio = PositionPortfolioService("USD_JPY", service, broker, broker)
+    from ogami_oanda.application.services.position_portfolio_service import (
+        PortfolioStartupState,
+    )
+
+    portfolio.startup_state = PortfolioStartupState.QUARANTINED
+    application = LiveApplication(
+        "USD_JPY",
+        _NoMarket(),
+        analysis,
+        OrderPlanner(),
+        portfolio,
+        FixedClock(datetime(2026, 1, 2)),
+    )
+
+    result = application.run_once()
+
+    assert result.skipped == ("portfolio_quarantined",)
+    assert analysis.calls == 0
+
+
+@pytest.mark.contract
+def test_live_run_once_reconciles_unknown_mutation_before_market_or_analysis():
+    class _ReconcilingPortfolio:
+        startup_state = PortfolioStartupState.READY
+
+        def __init__(self):
+            self.calls = 0
+
+        def reconcile_pending_mutations(self):
+            self.calls += 1
+            return False
+
+    class _NoMarket:
+        def current_quote(self, pair):
+            raise AssertionError("unresolved mutation must block market data")
+
+    portfolio = _ReconcilingPortfolio()
+    analysis = _NoAnalysis()
+    application = LiveApplication(
+        "USD_JPY",
+        _NoMarket(),
+        analysis,
+        OrderPlanner(),
+        portfolio,
+        FixedClock(datetime(2026, 1, 2, 10, 0, 0)),
+    )
+
+    result = application.run_once()
+
+    assert result.skipped == ("broker_reconciliation",)
+    assert portfolio.calls == 1
+    assert analysis.calls == 0

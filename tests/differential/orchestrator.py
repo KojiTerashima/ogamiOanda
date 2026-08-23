@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +17,6 @@ from .compare import (
 )
 from .constants import BASELINE_COMMIT
 from .current_runner import run_current_scenario
-from .legacy_runner import run_legacy_scenario
 from .normalize import normalize_trace
 from .scenario import DifferentialScenario
 from .trace import canonical_sha256, ensure_trace_envelope

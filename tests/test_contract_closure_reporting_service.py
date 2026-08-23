@@ -188,6 +188,16 @@ def test_closure_reporting_preserves_legacy_columns_totals_and_deduplication(
     )
     assert notifier.messages
 
+    restarted_notifier = FakeNotifier()
+    restarted = ClosureReportingService(history, restarted_notifier)
+
+    assert restarted.report(event) is None
+    assert restarted_notifier.messages == []
+    assert restarted.analytics.total_yen == 200
+    assert restarted.analytics.total_pips == 20
+    with history.path.open(newline="", encoding="utf-8") as history_file:
+        assert len(list(csv.DictReader(history_file))) == 1
+
 
 @pytest.mark.contract
 def test_portfolio_analytics_keeps_legacy_minima_latest_and_pivot_semantics():

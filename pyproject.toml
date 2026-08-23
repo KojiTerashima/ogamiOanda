@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 ogami-oanda-live = "ogami_oanda.entrypoints.live:main"
+ogami-oanda-practice-acceptance = "ogami_oanda.entrypoints.practice_acceptance:main"
 
 [project.optional-dependencies]
 dev = [

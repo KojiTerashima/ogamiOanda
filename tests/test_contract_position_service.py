@@ -112,6 +112,7 @@ def test_position_service_register_sync_and_close_lifecycle():
         trade_state=TradeState.OPEN,
         trade_id="trade-1",
         life=True,
+        client_reference="ogm-position-reference",
     )
     opened = service.sync(pending)
     close_requested = service.close(opened)
@@ -119,6 +120,7 @@ def test_position_service_register_sync_and_close_lifecycle():
     assert opened.snapshot.trade_state is TradeState.OPEN
     assert opened.runtime.order_plan == pending.runtime.order_plan
     assert opened.runtime.filled_at == datetime(2026, 1, 2, 3, 4, 5)
+    assert opened.snapshot.client_reference == "ogm-position-reference"
     assert close_requested.snapshot.trade_state is TradeState.OPEN
     assert close_requested.snapshot.life is True
     assert close_requested.runtime.close_requested is True

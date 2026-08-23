@@ -5,7 +5,13 @@ from datetime import datetime
 
 from ogami_oanda.domain.orders.models import OrderPlan
 
-from .models import OrderState, PositionRuntimeState, PositionSnapshot, TradeState
+from .models import (
+    OrderState,
+    PositionRuntimeState,
+    PositionSnapshot,
+    SubmissionPhase,
+    TradeState,
+)
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,7 @@ class ManagedPosition:
                 registered_at=registered_at,
                 current_stop_loss=float(order_plan.stop_loss_price),
                 linkage_id=intent.metadata.get("linkage_id"),
+                submission_phase=SubmissionPhase.PREPARED,
             ),
         )
 
@@ -52,10 +59,14 @@ class ManagedPosition:
         return replace(self, runtime=replace(self.runtime, **changes))
 
     def watching(self) -> "ManagedPosition":
-        return self._replace(order_state=OrderState.WATCHING, waiting_order=True, life=True)
+        return self._replace(order_state=OrderState.WATCHING, waiting_order=True, life=True).with_runtime(
+            submission_phase=SubmissionPhase.WATCHING,
+        )
 
     def pending(self, order_id: str) -> "ManagedPosition":
-        return self._replace(order_state=OrderState.PENDING, order_id=order_id, waiting_order=False, life=True)
+        return self._replace(order_state=OrderState.PENDING, order_id=order_id, waiting_order=False, life=True).with_runtime(
+            submission_phase=SubmissionPhase.PENDING,
+        )
 
     def filled(
         self,
@@ -76,7 +87,9 @@ class ManagedPosition:
             changes["order_id"] = order_id
         if fill_price is not None:
             changes["current_price"] = fill_price
-        position = self._replace(**changes)
+        position = self._replace(**changes).with_runtime(
+            submission_phase=SubmissionPhase.FILLED,
+        )
         if filled_at is None or position.runtime.filled_at is not None:
             return position
         return replace(position, runtime=replace(position.runtime, filled_at=filled_at))
@@ -87,7 +100,14 @@ class ManagedPosition:
             waiting_order=False,
             life=False,
         )
-        return replace(position, runtime=replace(position.runtime, submission_reason=reason))
+        return replace(
+            position,
+            runtime=replace(
+                position.runtime,
+                submission_reason=reason,
+                submission_phase=SubmissionPhase.REJECTED,
+            ),
+        )
 
     def submission_uncertain(self, reason: str) -> "ManagedPosition":
         position = self._replace(
@@ -95,10 +115,19 @@ class ManagedPosition:
             waiting_order=False,
             life=True,
         )
-        return replace(position, runtime=replace(position.runtime, submission_reason=reason))
+        return replace(
+            position,
+            runtime=replace(
+                position.runtime,
+                submission_reason=reason,
+                submission_phase=SubmissionPhase.UNKNOWN,
+            ),
+        )
 
     def cancelled(self) -> "ManagedPosition":
-        return self._replace(order_state=OrderState.CANCELLED, waiting_order=False, life=False)
+        return self._replace(order_state=OrderState.CANCELLED, waiting_order=False, life=False).with_runtime(
+            submission_phase=SubmissionPhase.CANCELLED,
+        )
 
     def closed(self) -> "ManagedPosition":
         return self._replace(trade_state=TradeState.CLOSED, waiting_order=False, life=False)

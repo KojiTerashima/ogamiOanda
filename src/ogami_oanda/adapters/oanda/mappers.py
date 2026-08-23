@@ -10,12 +10,19 @@ from ogami_oanda.domain.positions.models import OrderState, PositionSnapshot, Tr
 from ogami_oanda.application.ports.broker import OrderSubmissionResult
 
 
-def map_price_response(pair_name: str, response: Mapping[str, object]) -> dict[str, float]:
+def map_price_response(pair_name: str, response: Mapping[str, object]) -> dict[str, object]:
     price = response["prices"][0]
     pair = currency_pair(pair_name)
     bid = pair.round_price(float(price["bids"][0]["price"]))
     ask = pair.round_price(float(price["asks"][0]["price"]))
-    return {"bid": bid, "ask": ask, "mid": pair.round_price((bid + ask) / 2), "spread": pair.round_price(ask - bid)}
+    return {
+        "bid": bid,
+        "ask": ask,
+        "mid": pair.round_price((bid + ask) / 2),
+        "spread": pair.round_price(ask - bid),
+        "tradeable": str(price.get("status", "tradeable")).lower()
+        == "tradeable",
+    }
 
 
 def map_candle_response(response: Mapping[str, object]) -> pd.DataFrame:
@@ -269,8 +276,11 @@ def map_order_snapshot(response: Mapping[str, object]) -> PositionSnapshot | Non
     }.get(state, OrderState.ERROR)
     trade_id = str(order.get("tradeOpenedID", "")) or None
     units = int(float(order.get("units", 0)))
+    client_extensions = order.get("clientExtensions")
+    if not isinstance(client_extensions, Mapping):
+        client_extensions = {}
     return PositionSnapshot(
-        name=str(order.get("clientExtensions", {}).get("tag", order.get("id", ""))),
+        name=str(client_extensions.get("tag", order.get("id", ""))),
         pair=str(order.get("instrument", "USD_JPY")),
         order_state=order_state,
         trade_state=TradeState.OPEN if trade_id else TradeState.NONE,
@@ -281,6 +291,7 @@ def map_order_snapshot(response: Mapping[str, object]) -> PositionSnapshot | Non
         target_price=float(order["price"]) if order.get("price") is not None else None,
         units=abs(units),
         current_price=float(order["price"]) if order.get("price") is not None else None,
+        client_reference=str(client_extensions.get("id", "")),
     )
 
 
@@ -291,8 +302,11 @@ def map_trade_snapshot(response: Mapping[str, object]) -> PositionSnapshot | Non
     state = str(trade.get("state", "")).upper()
     trade_state = TradeState.OPEN if state == "OPEN" else TradeState.CLOSED if state == "CLOSED" else TradeState.ERROR
     units = int(float(trade.get("currentUnits", trade.get("initialUnits", 0))))
+    client_extensions = trade.get("clientExtensions")
+    if not isinstance(client_extensions, Mapping):
+        client_extensions = {}
     return PositionSnapshot(
-        name=str(trade.get("clientExtensions", {}).get("tag", trade.get("id", ""))),
+        name=str(client_extensions.get("tag", trade.get("id", ""))),
         pair=str(trade.get("instrument", "USD_JPY")),
         order_state=OrderState.FILLED,
         trade_state=trade_state,
@@ -313,4 +327,5 @@ def map_trade_snapshot(response: Mapping[str, object]) -> PositionSnapshot | Non
         average_close_price=float(trade["averageClosePrice"])
         if trade.get("averageClosePrice") is not None
         else None,
+        client_reference=str(client_extensions.get("id", "")),
     )

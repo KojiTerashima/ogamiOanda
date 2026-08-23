@@ -22,6 +22,30 @@ def test_csv_trade_history_preserves_first_record_column_order_and_appends(tmp_p
 
 
 @pytest.mark.contract
+def test_csv_trade_history_appends_once_and_reads_existing_trade_ids(tmp_path):
+    repository = CsvTradeHistoryRepository(tmp_path / "history.csv")
+    record = {
+        "name": "closed",
+        "pair": "USD_JPY",
+        "tradeID": "trade-1",
+        "res": "20",
+        "pl_per_units": 2,
+    }
+
+    assert repository.append_once(record, unique_field="tradeID") is True
+    assert repository.append_once(record, unique_field="tradeID") is False
+    assert repository.read_all() == (
+        {
+            "name": "closed",
+            "pair": "USD_JPY",
+            "tradeID": "trade-1",
+            "res": "20",
+            "pl_per_units": "2",
+        },
+    )
+
+
+@pytest.mark.contract
 def test_token_settings_maps_legacy_history_folder_to_history_file():
     import tokens
 

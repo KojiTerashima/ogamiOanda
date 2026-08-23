@@ -5,9 +5,11 @@ from typing import Callable, Mapping
 
 from ogami_oanda.application.ports.broker import BrokerExecutionPort, BrokerQueryPort
 from ogami_oanda.application.ports.broker import (
+    MutationState,
     OrderSubmissionResult,
     OrderSubmissionState,
 )
+from ogami_oanda.application.ports.position_state import PendingBrokerMutation
 from ogami_oanda.application.ports.clock import Clock
 from ogami_oanda.application.ports.notifications import Notifier
 from ogami_oanda.application.ports.trade_history import TradeHistoryRepository
@@ -21,6 +23,7 @@ from ogami_oanda.domain.positions.models import (
     PositionCommand,
     PositionEvent,
     PositionSnapshot,
+    SubmissionPhase,
 )
 from ogami_oanda.strategy.position_management import (
     EntryAction,
@@ -70,12 +73,44 @@ class PositionService:
         self.exit_policy_factory = exit_policy_factory
         self.closure_reporting = ClosureReportingService(history, notifier)
         self._emitted_event_ids: set[str] = set()
+        self._before_mutation: Callable[[PendingBrokerMutation], None] = lambda _mutation: None
+        self._complete_mutation: Callable[[bool], None] = lambda _unknown: None
+
+    def set_mutation_hooks(
+        self,
+        before_mutation: Callable[[PendingBrokerMutation], None],
+        complete_mutation: Callable[[bool], None],
+    ) -> None:
+        self._before_mutation = before_mutation
+        self._complete_mutation = complete_mutation
 
     def register(self, position: ManagedPosition, order_plan: OrderPlan, submit: bool = True) -> ManagedPosition:
-        position = position.with_order_plan(order_plan, self.clock.now())
+        position = self.prepare(position, order_plan)
         if not submit:
             return position.watching()
+        return self.submit_prepared(position)
+
+    def prepare(
+        self,
+        position: ManagedPosition,
+        order_plan: OrderPlan,
+    ) -> ManagedPosition:
+        return position.with_order_plan(order_plan, self.clock.now())
+
+    def submit_prepared(
+        self,
+        position: ManagedPosition,
+        *,
+        journal: bool = True,
+    ) -> ManagedPosition:
+        order_plan = position.runtime.order_plan
+        if order_plan is None:
+            raise ValueError("prepared position requires an order plan")
+        if journal:
+            self._start_mutation("submit_order", position, None, "entry_submit")
         result = self.broker_execution.submit(order_plan.broker_request)
+        if journal:
+            self._complete_mutation(result.state is OrderSubmissionState.UNKNOWN)
         return self._apply_submission_result(position, result)
 
     def sync(self, position: ManagedPosition) -> ManagedPosition:
@@ -159,7 +194,9 @@ class PositionService:
             return position.cancelled()
         if dry_run:
             return position
+        self._start_mutation("close_trade", position, trade_id, "direct_close")
         result = self.broker_execution.close_trade(trade_id)
+        self._complete_mutation(result.state is MutationState.UNKNOWN)
         if not result.accepted:
             return position
         # OANDA's close acknowledgement is not the authoritative trade result.
@@ -210,7 +247,14 @@ class PositionService:
                 events=self._events_once(self._event("order_cancelled", cancelled, cancelled.snapshot), False),
                 reason=decision.reason,
             )
+        self._start_mutation(
+            "submit_order",
+            updated,
+            None,
+            decision.reason,
+        )
         result = self.broker_execution.submit(plan.broker_request)
+        self._complete_mutation(result.state is OrderSubmissionState.UNKNOWN)
         submitted = self._apply_submission_result(updated, result)
         if submitted.snapshot.order_state is OrderState.SUBMISSION_UNCERTAIN:
             return PositionSyncResult(submitted, commands=(command,), reason="submission_uncertain")
@@ -260,6 +304,10 @@ class PositionService:
         )
         if result.state is OrderSubmissionState.CANCELLED:
             return position.cancelled().with_runtime(submission_reason=reason)
+        if result.state is OrderSubmissionState.TERMINAL:
+            return position.rejected(reason).with_runtime(
+                submission_phase=SubmissionPhase.TERMINAL,
+            )
         return position.rejected(reason)
 
     def _pending_timeout(
@@ -279,9 +327,12 @@ class PositionService:
         command = PositionCommand("cancel_order", order_id, "order_timeout")
         if dry_run or order_id is None:
             return PositionSyncResult(position, commands=(command,), reason="dry_run" if dry_run else "missing_order_id")
+        self._start_mutation("cancel_order", position, order_id, "order_timeout")
         result = self.broker_execution.cancel_order(order_id)
+        self._complete_mutation(result.state is MutationState.UNKNOWN)
         if not result.accepted:
-            return PositionSyncResult(position, commands=(command,), reason="cancel_rejected")
+            reason = "cancel_unknown" if result.state is MutationState.UNKNOWN else "cancel_rejected"
+            return PositionSyncResult(position, commands=(command,), reason=reason)
         cancelled = position.cancelled()
         return PositionSyncResult(
             cancelled,
@@ -308,9 +359,12 @@ class PositionService:
         command = PositionCommand("close_trade", trade_id, "trade_timeout")
         if dry_run or trade_id is None:
             return PositionSyncResult(position, commands=(command,), reason="dry_run" if dry_run else "missing_trade_id")
+        self._start_mutation("close_trade", position, trade_id, "trade_timeout")
         result = self.broker_execution.close_trade(trade_id)
+        self._complete_mutation(result.state is MutationState.UNKNOWN)
         if not result.accepted:
-            return PositionSyncResult(position, commands=(command,), reason="close_rejected")
+            reason = "close_unknown" if result.state is MutationState.UNKNOWN else "close_rejected"
+            return PositionSyncResult(position, commands=(command,), reason=reason)
         return PositionSyncResult(
             position.with_runtime(close_requested=True),
             commands=(command,),
@@ -381,13 +435,24 @@ class PositionService:
         )
         if dry_run:
             return PositionSyncResult(position, commands=(command,), reason="dry_run")
+        self._start_mutation(
+            "amend_stop_loss",
+            position,
+            trade_id,
+            reason,
+            stop_loss_price=stop_loss_price,
+            applied_lc_change_index=rule_index,
+            candle_stop_loss_done=rule_index is None,
+        )
         result = self.broker_execution.amend_protection(
             trade_id,
             None,
             stop_loss_price,
         )
+        self._complete_mutation(result.state is MutationState.UNKNOWN)
         if not result.accepted:
-            return PositionSyncResult(position, commands=(command,), reason="amend_rejected")
+            result_reason = "amend_unknown" if result.state is MutationState.UNKNOWN else "amend_rejected"
+            return PositionSyncResult(position, commands=(command,), reason=result_reason)
         changes: dict[str, object] = {"current_stop_loss": stop_loss_price}
         if rule_index is None:
             changes["candle_stop_loss_done"] = True
@@ -396,6 +461,35 @@ class PositionService:
         amended = position.with_runtime(**changes)
         result_reason = "candle_lc_amended" if rule_index is None else "lc_amended"
         return PositionSyncResult(amended, commands=(command,), reason=result_reason)
+
+    def _start_mutation(
+        self,
+        action: str,
+        position: ManagedPosition,
+        broker_reference_id: str | None,
+        reason: str,
+        *,
+        stop_loss_price: float | None = None,
+        applied_lc_change_index: int | None = None,
+        candle_stop_loss_done: bool | None = None,
+    ) -> None:
+        plan = position.runtime.order_plan
+        client_reference = (
+            plan.broker_request.client_reference if plan is not None else ""
+        )
+        self._before_mutation(
+            PendingBrokerMutation(
+                action=action,
+                position_name=position.snapshot.name,
+                client_reference=client_reference,
+                broker_reference_id=broker_reference_id,
+                reason=reason,
+                stop_loss_price=stop_loss_price,
+                applied_lc_change_index=applied_lc_change_index,
+                candle_stop_loss_done=candle_stop_loss_done,
+                prepared_at=self.clock.now(),
+            )
+        )
 
     def _event(
         self,
@@ -457,6 +551,8 @@ class PositionService:
             average_close_price=broker_snapshot.average_close_price
             if broker_snapshot.average_close_price is not None
             else position.snapshot.average_close_price,
+            client_reference=broker_snapshot.client_reference
+            or position.snapshot.client_reference,
         )
         updated = replace(position, snapshot=snapshot)
         return updated.with_runtime(

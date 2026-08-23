@@ -178,3 +178,40 @@ def test_wall_clock_and_sleep_runtime_are_confined_to_infrastructure_runtime():
             if module == "time" and relative.parts[:2] != ("infrastructure", "runtime"):
                 violations.append(f"{relative} imports {module}")
     assert not violations, "\n".join(violations)
+
+
+@pytest.mark.contract
+def test_position_state_filesystem_io_is_confined_to_repository_adapter():
+    violations = []
+    application_owners = (
+        SOURCE_ROOT / "application" / "ports" / "position_state.py",
+        SOURCE_ROOT / "application" / "services" / "position_portfolio_service.py",
+    )
+    file_methods = {"open", "read_text", "write_text", "unlink", "mkdir"}
+    for path in application_owners:
+        relative = path.relative_to(SOURCE_ROOT)
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for module in _imports(path):
+            if module.split(".")[0] in {"os", "shutil", "tempfile", "pathlib"}:
+                violations.append(f"{relative} imports filesystem module {module}")
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if isinstance(node.func, ast.Attribute) and node.func.attr in file_methods:
+                violations.append(f"{relative} performs checkpoint file I/O")
+    assert not violations, "\n".join(violations)
+
+
+@pytest.mark.contract
+def test_practice_acceptance_service_is_reachable_only_from_dedicated_entrypoint():
+    violations = []
+    allowed = Path("entrypoints/practice_acceptance.py")
+    target = "ogami_oanda.application.services.practice_order_acceptance_service"
+    for path in SOURCE_ROOT.rglob("*.py"):
+        relative = path.relative_to(SOURCE_ROOT)
+        if relative == Path("application/services/__init__.py"):
+            continue
+        for module in _imports(path):
+            if module == target and relative != allowed:
+                violations.append(f"{relative} imports destructive practice service")
+    assert not violations, "\n".join(violations)

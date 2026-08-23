@@ -115,6 +115,8 @@ class MarketAnalysisService:
         pair_info = currency_pair(pair)
         lc_pips = float(candidate.get("lc_pips", getattr(strategy, "lc_pips", 0)))
         tp_pips = float(candidate.get("tp_pips", getattr(strategy, "get_tp_pips", lambda: 0)()))
+        effective_lc_pips = float(candidate.get("effective_lc_pips", lc_pips))
+        effective_tp_pips = float(candidate.get("effective_tp_pips", tp_pips))
         units_multiplier = float(candidate.get("units_multiplier", 1))
         units = int(candidate.get("units", self.units * units_multiplier))
         base_name = str(candidate.get("name", f"{line_strategy}_{candidate.get('line_side', 'entry')}"))
@@ -132,9 +134,9 @@ class MarketAnalysisService:
             order_type=order_type,
             target=target_price if order_type is not OrderType.MARKET else 0,
             target_is_price=order_type is not OrderType.MARKET,
-            take_profit=pair_info.pips_to_price(tp_pips),
+            take_profit=pair_info.pips_to_price(effective_tp_pips),
             take_profit_is_price=False,
-            stop_loss=pair_info.pips_to_price(lc_pips),
+            stop_loss=pair_info.pips_to_price(effective_lc_pips),
             stop_loss_is_price=False,
             units=units,
             name=name,

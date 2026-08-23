@@ -46,7 +46,7 @@ class LineCandidateBuilder:
     def __call__(self, context: Mapping[str, object], current_price: float) -> list[dict]:
         raw_candidates = self.build_raw_candidates(context, current_price)
         selected = self.select_candidates(raw_candidates, context)
-        return self.enrich_candidates(selected, current_price)
+        return self.enrich_candidates(selected, current_price, context=context)
 
     def build_raw_candidates(self, context: Mapping[str, object], current_price: float) -> dict[str, list[dict]]:
         peaks = context["peaks"]
@@ -94,7 +94,13 @@ class LineCandidateBuilder:
             )
         return selected
 
-    def enrich_candidates(self, selected_candidates: list[dict], current_price: float) -> list[dict]:
+    def enrich_candidates(
+        self,
+        selected_candidates: list[dict],
+        current_price: float,
+        *,
+        context: Mapping[str, object] | None = None,
+    ) -> list[dict]:
         pair = currency_pair(self.pair)
         enriched = []
         for candidate in selected_candidates:
@@ -121,6 +127,9 @@ class LineCandidateBuilder:
                     item["units_multiplier"],
                 )
             )
+            if not self._apply_session_policy(item, context):
+                continue
+            self._apply_path_short_protection(item, context)
             item["priority"] = int(candidate.get("line", {}).get("total_strength", 0))
             item["source"] = "line"
             item["line_order_mode"] = order_mode
@@ -141,6 +150,112 @@ class LineCandidateBuilder:
                 )
             enriched.append(item)
         return enriched
+
+    def _apply_session_policy(
+        self,
+        candidate: dict,
+        context: Mapping[str, object] | None,
+    ) -> bool:
+        policies = self.profile.session_policies
+        order_decision_time = (context or {}).get("order_decision_time")
+        if order_decision_time is not None:
+            session = LineCandidateCoordinator.get_session_info(
+                order_decision_time
+            )
+            candidate.update(session)
+        session_name = str(candidate.get("session_name", "night"))
+        policy = policies.get(session_name, policies["night"])
+        candidate["order_permission"] = bool(policy["order_permission"])
+        candidate["session_units_multiplier"] = float(policy["units_multiplier"])
+        candidate["session_rr"] = policy["rr"]
+        candidate["session_tp_multiplier"] = float(policy["tp_multiplier"])
+        candidate["session_lc_multiplier"] = float(policy["lc_multiplier"])
+        candidate["session_skip_reason"] = None
+        if not candidate["order_permission"]:
+            candidate["session_skip_reason"] = "session_order_permission_false"
+            return False
+
+        units_multiplier = candidate["session_units_multiplier"]
+        if units_multiplier != 1.0:
+            original_units = int(candidate["units"])
+            adjusted_units = int(original_units * units_multiplier)
+            candidate["units"] = (
+                adjusted_units
+                if adjusted_units != 0 or original_units == 0
+                else 1
+            )
+
+        effective_lc_pips = float(candidate["lc_pips"])
+        effective_tp_pips = float(candidate["tp_pips"])
+        if candidate["session_rr"] is not None:
+            effective_tp_pips = round(
+                effective_lc_pips * float(candidate["session_rr"]),
+                1,
+            )
+            candidate["session_tp_pips"] = effective_tp_pips
+        candidate["effective_lc_pips"] = effective_lc_pips
+        candidate["effective_tp_pips"] = effective_tp_pips
+        return True
+
+    def _apply_path_short_protection(
+        self,
+        candidate: dict,
+        context: Mapping[str, object] | None,
+    ) -> None:
+        path_distance = (candidate.get("h1_context") or {}).get(
+            "h1_path_ahead_1_distance_pips"
+        )
+        if path_distance is None:
+            return
+        try:
+            distance_pips = float(path_distance)
+        except (TypeError, ValueError):
+            return
+
+        short_pips = self._path_short_pips(distance_pips, context)
+        if (
+            short_pips is None
+            or float(candidate["effective_tp_pips"]) <= short_pips
+        ):
+            return
+        candidate["path_tp_original_pips"] = float(
+            candidate["effective_tp_pips"]
+        )
+        candidate["path_lc_original_pips"] = float(
+            candidate["effective_lc_pips"]
+        )
+        candidate["effective_tp_pips"] = short_pips
+        candidate["effective_lc_pips"] = short_pips
+        candidate["path_tp_adjusted"] = True
+        candidate["path_tp_adjusted_label"] = (
+            f"{self.pair} path1 H1 line short TP"
+        )
+        candidate["path_tp_pips"] = short_pips
+        candidate["path_lc_pips"] = short_pips
+        candidate["path_tp_rr"] = 1.0
+
+    def _path_short_pips(
+        self,
+        distance_pips: float,
+        context: Mapping[str, object] | None,
+    ) -> float | None:
+        if self.pair == "AUD_USD":
+            return 5.0 if 0 < distance_pips <= 6 else None
+        if self.pair not in {"EUR_USD", "USD_JPY"}:
+            return None
+        if 0 < distance_pips <= 3:
+            if self.pair == "USD_JPY":
+                rsi_info = (context or {}).get("rsi_info") or {}
+                rsi_1 = rsi_info.get("rsi_1")
+                try:
+                    if 60 < float(rsi_1) <= 67.5:
+                        return 5.0
+                except (TypeError, ValueError):
+                    pass
+            return 3.0
+        if distance_pips <= 6:
+            return 5.0
+        return None
 
     def _strategy_lines_for_mode(self, mode: str, m5_line_class):
         if mode == "future_resist":

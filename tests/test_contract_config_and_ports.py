@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from types import ModuleType
 
 import pytest
@@ -8,6 +9,10 @@ from ogami_oanda.application.ports.market_data import MarketDataPort
 from ogami_oanda.domain.orders.models import BrokerOrderRequest, OrderType
 from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
 from ogami_oanda.infrastructure.config.loader import load_settings
+from ogami_oanda.infrastructure.config.models import (
+  AppSettings,
+  RuntimeAccountConfig,
+)
 from tests.fakes import (
     FakeBroker,
     FakeMarketData,
@@ -45,6 +50,7 @@ notifications:
 paths:
   result_dir: results
   cache_dir: cache
+  position_state_dir: state
 """,
         encoding="utf-8",
     )
@@ -68,16 +74,117 @@ paths:
     assert settings.trading.high_priority_threshold == 200
     assert settings.notifications.pair_webhooks["EUR_USD"] == ""
     assert settings.paths.cache_dir == "cache"
+    assert settings.paths.position_state_dir == "state"
 
 
 @pytest.mark.contract
 def test_account_correlation_features_default_to_mt4_safe_values():
-    from ogami_oanda.infrastructure.config.models import RuntimeAccountConfig
-
     account = RuntimeAccountConfig("id", "token", "practice")
 
     assert account.client_extensions_enabled is False
     assert account.require_hedging is True
+    assert account.live_trading_enabled is False
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    ("yaml_text", "environment", "message"),
+    [
+        (
+            """\
+accounts:
+  primary:
+    account_id: ${ACCOUNT_ID}
+    access_token: ${SECRET_TOKEN}
+    environment: practice
+""",
+            {"ACCOUNT_ID": "", "SECRET_TOKEN": "super-secret-value"},
+            "account_id",
+        ),
+        (
+            """\
+accounts:
+  primary:
+    account_id: id
+    access_token: ${SECRET_TOKEN}
+    environment: invalid
+""",
+            {"SECRET_TOKEN": "super-secret-value"},
+            "environment",
+        ),
+        (
+            """\
+accounts:
+  primary:
+    account_id: id
+    access_token: ${SECRET_TOKEN}
+    environment: practice
+trading:
+  max_positions: 4
+  normal_slot_count: 1
+  mid_slot_count: 1
+  high_slot_count: 1
+""",
+            {"SECRET_TOKEN": "super-secret-value"},
+            "slot counts",
+        ),
+        (
+            """\
+accounts:
+  primary:
+    account_id: id
+    access_token: ${SECRET_TOKEN}
+    environment: practice
+trading:
+  default_pair: GBP_USD
+""",
+            {"SECRET_TOKEN": "super-secret-value"},
+            "default_pair",
+        ),
+    ],
+)
+def test_settings_validation_fails_closed_without_leaking_secrets(
+    tmp_path,
+    yaml_text,
+    environment,
+    message,
+):
+    path = tmp_path / "settings.yaml"
+    path.write_text(yaml_text, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message) as error_info:
+        load_settings(path, environment)
+
+    assert "super-secret-value" not in str(error_info.value)
+
+
+@pytest.mark.contract
+def test_live_account_requires_explicit_trading_opt_in():
+    account = RuntimeAccountConfig("id", "token", "live")
+    settings = AppSettings({"primary": account})
+
+    assert settings.account("primary").live_trading_enabled is False
+
+
+@pytest.mark.contract
+def test_tracked_example_config_is_secret_free_and_loadable():
+    path = Path(__file__).parents[1] / "config" / "settings.example.yaml"
+
+    settings = load_settings(
+        path,
+        {
+            "OANDA_PRACTICE_ACCOUNT_ID": "practice-id",
+            "OANDA_PRACTICE_ACCESS_TOKEN": "practice-token",
+        },
+    )
+
+    account = settings.account("practice")
+    assert account.environment == "practice"
+    assert account.client_extensions_enabled is False
+    assert account.live_trading_enabled is False
+    assert settings.paths.position_state_dir == "runtime/position-state"
+    source = path.read_text(encoding="utf-8")
+    assert "practice-token" not in source
 
 
 @pytest.mark.contract

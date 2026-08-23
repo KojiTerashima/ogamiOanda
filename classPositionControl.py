@@ -20,7 +20,13 @@ def _build_portfolio_service(is_live, pair):
         OandaExecutionAdapter,
         OandaQueryAdapter,
     )
-    from ogami_oanda.adapters.repositories import CsvTradeHistoryRepository
+    from pathlib import Path
+
+    from ogami_oanda.adapters.repositories import (
+        CsvTradeHistoryRepository,
+        JsonPositionStateRepository,
+    )
+    from ogami_oanda.application.ports.position_state import account_identity_hash
     from ogami_oanda.application.services import PositionPortfolioService
     from ogami_oanda.application.services.position_service import PositionService
     from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
@@ -35,12 +41,34 @@ def _build_portfolio_service(is_live, pair):
 
     settings = settings_from_tokens(tk)
     account_name = "secondary" if is_live else "practice"
-    client = OandaClient(settings.account(account_name))
+    account = settings.account(account_name)
+    if account.environment not in {"practice", "live"}:
+        raise ValueError("Account environment must be practice or live")
+    if not account.account_id or not account.access_token:
+        raise ValueError("Configured account credentials are incomplete")
+    if (
+        account.environment == "live"
+        and not account.live_trading_enabled
+    ):
+        raise ValueError("Live account requires explicit live trading opt-in")
+    client = OandaClient(account)
     execution = OandaExecutionAdapter(client)
     query = OandaQueryAdapter(client)
+    capabilities = query.account_capabilities()
+    if capabilities.account_id != account.account_id:
+        raise ValueError("Broker account identity does not match configuration")
+    if account.require_hedging and not capabilities.hedging_enabled:
+        raise ValueError(
+            "Configured account must have hedging enabled for positionFill=DEFAULT"
+        )
     clock = SystemClock()
     notifier = DiscordNotifier(settings.notifications, clock, create_http_session())
     history = CsvTradeHistoryRepository(settings.paths.history_file)
+    account_hash = account_identity_hash(account.account_id)
+    state_repository = JsonPositionStateRepository(
+        Path(settings.paths.position_state_dir)
+        / f"{account_hash}-{pair}.json"
+    )
     position_service = PositionService(
         execution,
         query,
@@ -59,6 +87,8 @@ def _build_portfolio_service(is_live, pair):
         settings.trading,
         linkage_policy=LinkagePolicy(gene.currency_pair(pair).round_keta),
         hedge_policy=HedgePolicy(),
+        state_repository=state_repository,
+        account_hash=account_hash,
     )
 
 
@@ -767,9 +797,9 @@ class position_control:
         最初に実行される
         """
         if getattr(self, "portfolio_service", None) is not None:
-            restored = self.portfolio_service.restore_open_positions()
+            startup = self.portfolio_service.restore_and_reconcile()
             self._sync_portfolio_views()
-            return None if restored else 0
+            return None if startup.restored else 0
         res = self.oa2.OpenTrades_exe()
         if len(res['data']) == 0:
             return 0

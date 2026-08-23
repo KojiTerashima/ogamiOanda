@@ -1,0 +1,32 @@
+accounts:
+  practice:
+    account_id: ${OANDA_PRACTICE_ACCOUNT_ID}
+    access_token: ${OANDA_PRACTICE_ACCESS_TOKEN}
+    environment: practice
+    client_extensions_enabled: false
+    require_hedging: true
+    live_trading_enabled: false
+
+trading:
+  default_pair: USD_JPY
+  line_units: 1
+  risk_yen: 500
+  max_positions: 15
+  normal_slot_count: 6
+  mid_slot_count: 8
+  high_slot_count: 1
+  mid_priority_threshold: 10
+  high_priority_threshold: 100
+
+notifications:
+  pair_webhooks:
+    USD_JPY: ${DISCORD_USD_JPY_WEBHOOK}
+    EUR_USD: ${DISCORD_EUR_USD_WEBHOOK}
+    AUD_USD: ${DISCORD_AUD_USD_WEBHOOK}
+  inspection_webhook: ${DISCORD_INSPECTION_WEBHOOK}
+
+paths:
+  result_dir: runtime/results
+  cache_dir: runtime/cache
+  history_file: runtime/history.csv
+  position_state_dir: runtime/position-state

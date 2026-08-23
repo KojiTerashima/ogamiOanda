@@ -28,12 +28,18 @@ AUD/USD launchers all enter the same `src` composition.
 | `main_exe_euro.py` | same live composition with `pair="EUR_USD"` | FACADE | Remove after launcher users move to `ogami-oanda-live --pair EUR_USD`. |
 | `main_exe_aud.py` | same live composition with `pair="AUD_USD"` | FACADE | Remove after launcher users move to `ogami-oanda-live --pair AUD_USD`. |
 | OANDA pricing/candles/orders/trades | `adapters.oanda` | SOURCE | OANDA imports are architecture-gated to this package; one account client is shared by market, execution, and query adapters. |
+| OANDA order submission state | `application.ports.broker.OrderSubmissionResult`, `adapters.oanda.mappers` | SOURCE | MARKET/PENDING/FILLED/REJECTED/CANCELLED/UNKNOWN/terminal response contracts and three-pair wire matrix must remain green. |
+| Position runtime checkpoint and recovery | `application.ports.position_state`, `adapters.repositories.JsonPositionStateRepository`, `PositionPortfolioService.restore_and_reconcile` | SOURCE | Write-ahead, atomic backup, cursor reconciliation, restart scenarios, and quarantine tests must remain green. |
+| Practice mutation acceptance | `PracticeOrderAcceptanceService`, `entrypoints.practice_acceptance` | SOURCE | Four safety gates, three-pair LIMIT/STOP create-cancel, MARKET open-close, and zero residual owned resources are required. |
 | Discord notifications | `adapters.notifications.DiscordNotifier` | SOURCE | `requests` is architecture-gated to this adapter. |
 | Trade-history CSV | `adapters.repositories.CsvTradeHistoryRepository` | SOURCE | Application code depends only on `TradeHistoryRepository`. |
 | one-second loop and JST wall clock | `infrastructure.runtime.PollingLoop`, `SystemClock` | SOURCE | `time.sleep`, `time.monotonic`, and `datetime.now` are architecture-gated to runtime infrastructure. |
 | YAML and root-token compatibility settings | `infrastructure.config` | SOURCE | Business limits are exposed as `application.settings.TradingSettings`; secrets stay at the composition boundary. |
 
-There are no `PENDING` symbols on the production live call graph.
+There are no code-migration `PENDING` symbols on the production live call
+graph. Operational completion still requires a credentialed practice
+read-only run and the isolated real-order acceptance report; without those
+external gates the repository must not be declared order-ready.
 
 ## Retained comparison and excluded surfaces
 

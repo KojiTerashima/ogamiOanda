@@ -11,6 +11,9 @@ from ogami_oanda.application.services.closure_reporting_service import (
 )
 from ogami_oanda.application.services.order_planner import OrderPlanner
 from ogami_oanda.application.services.position_portfolio_service import PositionPortfolioService
+from ogami_oanda.application.services.position_portfolio_service import (
+    PortfolioStartupState,
+)
 from ogami_oanda.application.services.position_service import PositionService
 from ogami_oanda.domain.orders.models import Direction, OrderContext, OrderIntent, OrderType
 from ogami_oanda.domain.positions.models import OrderState, PositionSnapshot, TradeState
@@ -92,6 +95,16 @@ def test_root_position_control_default_constructor_uses_src_portfolio_not_legacy
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("legacy Oanda must not be constructed")),
     )
 
+    class _Query(FakeBroker):
+        def __init__(self, client):
+            super().__init__(account_id=client.account_id)
+            self.client = client
+
+    monkeypatch.setattr(
+        "ogami_oanda.adapters.oanda.OandaQueryAdapter",
+        _Query,
+    )
+
     controller = classPositionControl.position_control(False, "USD_JPY")
 
     assert controller.portfolio_service is not None
@@ -102,6 +115,20 @@ def test_root_position_control_default_constructor_uses_src_portfolio_not_legacy
     assert execution.client is query.client
     assert controller.portfolio_service.position_service.broker_execution is execution
     assert controller.portfolio_service.position_service.broker_query is query
+
+
+@pytest.mark.contract
+def test_root_live_composition_requires_explicit_live_opt_in(monkeypatch):
+    monkeypatch.setattr(classPositionControl.tk, "environmentl", "live")
+    monkeypatch.setattr(
+        classPositionControl.tk,
+        "live_trading_enabled",
+        False,
+        raising=False,
+    )
+
+    with pytest.raises(ValueError, match="live trading opt-in"):
+        classPositionControl._build_portfolio_service(True, "USD_JPY")
 
 
 @pytest.mark.contract
@@ -476,7 +503,9 @@ def test_root_position_control_catch_up_and_reset_delegate_with_legacy_returns()
         order_id="pending-1",
         life=True,
     )
-    portfolio.restore_open_positions = Mock(wraps=portfolio.restore_open_positions)
+    portfolio.restore_and_reconcile = Mock(
+        wraps=portfolio.restore_and_reconcile,
+    )
     portfolio.cancel_pending_on_start = Mock(
         wraps=portfolio.cancel_pending_on_start,
     )
@@ -489,7 +518,7 @@ def test_root_position_control_catch_up_and_reset_delegate_with_legacy_returns()
 
     assert controller.catch_up_position_and_del_order() is None
     assert controller.position_classes[0].name == "restored"
-    portfolio.restore_open_positions.assert_called_once_with()
+    portfolio.restore_and_reconcile.assert_called_once_with()
 
     assert controller.reset_all_position() is None
     portfolio.cancel_pending_on_start.assert_called_once_with(True)
@@ -500,6 +529,9 @@ def test_root_position_control_catch_up_and_reset_delegate_with_legacy_returns()
 @pytest.mark.contract
 def test_root_position_control_catch_up_keeps_zero_return_when_nothing_exists():
     portfolio, _ = _portfolio()
+    portfolio.restore_and_reconcile = Mock(
+        wraps=portfolio.restore_and_reconcile,
+    )
     controller = classPositionControl.position_control(
         False,
         "USD_JPY",
@@ -507,3 +539,27 @@ def test_root_position_control_catch_up_keeps_zero_return_when_nothing_exists():
     )
 
     assert controller.catch_up_position_and_del_order() == 0
+    portfolio.restore_and_reconcile.assert_called_once_with()
+
+
+@pytest.mark.contract
+def test_root_reset_does_not_mutate_broker_while_portfolio_is_quarantined():
+    portfolio, broker = _portfolio()
+    broker.orders["external-order"] = PositionSnapshot(
+        "external",
+        "USD_JPY",
+        OrderState.PENDING,
+        TradeState.NONE,
+        order_id="external-order",
+        life=True,
+    )
+    portfolio.startup_state = PortfolioStartupState.QUARANTINED
+    controller = classPositionControl.position_control(
+        False,
+        "USD_JPY",
+        portfolio_service=portfolio,
+    )
+
+    assert controller.reset_all_position() is None
+
+    assert broker.commands == []

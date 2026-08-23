@@ -14,6 +14,7 @@ class RuntimeAccountConfig:
     environment: str
     client_extensions_enabled: bool = False
     require_hedging: bool = True
+    live_trading_enabled: bool = False
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class PathSettings:
     result_dir: str = "."
     cache_dir: str = "."
     history_file: str = "history.csv"
+    position_state_dir: str = ""
 
 
 @dataclass(frozen=True)

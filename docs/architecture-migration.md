@@ -47,6 +47,15 @@ One live tick follows this flow:
 8. Only an execution adapter translates the broker-neutral request into an
    OANDA payload or mutates broker state.
 
+MARKET requests use OANDA's wire contract (`timeInForce=FOK`, no top-level
+`price`). LIMIT and STOP requests use `timeInForce=GTC` with a trigger price.
+The root legacy view intentionally retains its historical MARKET payload shape;
+that compatibility projection is not sent by the production adapter.
+
+Order submission responses distinguish pending orders, immediate fills,
+rejections, immediate cancellation, terminal reductions/closures, and unknown
+outcomes. An unknown mutation is never retried blindly.
+
 The application and strategy layers therefore do not know OANDA endpoint
 classes, account tokens, Discord, CSV paths, or the polling implementation.
 
@@ -73,6 +82,35 @@ scheduler:
 
 The quote is requested once per tick and reused for spread, lifecycle, and
 analysis decisions.
+
+## Runtime recovery
+
+Configured live compositions persist an account-and-pair-scoped, versioned JSON
+checkpoint before every broker mutation and after every confirmed state
+transition. The checkpoint contains the full immutable `OrderPlan`, 15 slots,
+watching and lifecycle policy state, the OANDA transaction cursor, unresolved
+mutation journal, processed close IDs, and portfolio analytics. Writes use a
+temporary file, `fsync`, atomic replacement, and a last-known-good backup.
+
+Startup reconciliation runs before analysis. It compares the checkpoint with
+transactions since the saved cursor, pending orders, and open trades. A unique
+match restores the full runtime state. Missing or corrupt state with broker
+positions, ambiguous matches, or unresolved mutations put that account/pair in
+quarantine; market analysis and new orders then remain disabled. Broker-only
+snapshots are not promoted into partially managed positions.
+
+CSV close reporting is idempotent by trade ID and rebuilds its process-lifetime
+analytics from existing history after restart.
+
+## Failure handling
+
+The generic polling loop remains fail-fast. The live runner handles only known
+temporary OANDA read failures (timeouts, connection failures, HTTP 429 and
+5xx), using bounded exponential backoff and `Retry-After` when available.
+Authentication, configuration, validation, and unknown programming errors stop
+the process. Unknown mutation outcomes are reconciled from broker state before
+any later mutation is allowed. Discord delivery failures do not roll back or
+stop trading state transitions.
 
 ## Composition and command line
 
@@ -121,6 +159,14 @@ pair argument to the same builder; they do not mutate a global currency pair.
 The composition creates one `OandaClient` per selected account and shares it
 with market-data, execution, and query adapters.
 
+Use [config/settings.example.yaml](../config/settings.example.yaml) as the
+tracked template. Put real credentials only in ignored `config/settings.yaml`
+or environment variables. Client extensions are disabled by default because
+MT4 association is unknown; the local checkpoint and OANDA order/trade IDs are
+the source of truth. A live environment requires explicit
+`live_trading_enabled: true`, while practice remains the required environment
+for acceptance tests.
+
 ## Root compatibility boundary
 
 The production root facades are:
@@ -163,5 +209,32 @@ The offline matrix covers:
 - static dependency direction and external-I/O confinement.
 
 OANDA practice read-only checks require credentials and must use the
-`integration` marker. Practice orders and real Discord delivery are not part of
-the offline acceptance gate.
+`integration` marker plus `OGAMI_OANDA_RUN_INTEGRATION=1`:
+
+```sh
+OGAMI_OANDA_RUN_INTEGRATION=1 \
+OGAMI_OANDA_INTEGRATION_CONFIG=config/settings.yaml \
+.venv/bin/python -m pytest -q tests/integration
+```
+
+The final real-order acceptance is deliberately isolated from the live runner
+and pytest. It can incur a small spread loss. It requires a practice account,
+an enable environment variable, an execution flag, an exact account-ID
+confirmation, and explicit loss acceptance:
+
+```sh
+OGAMI_OANDA_ENABLE_PRACTICE_ORDERS=1 \
+.venv/bin/ogami-oanda-practice-acceptance \
+  --config config/settings.yaml \
+  --account practice \
+  --execute-practice-orders \
+  --confirm-account-id '<practice-account-id>' \
+  --accept-small-loss \
+  --report practice-acceptance-report.json
+```
+
+The command creates and cancels minimum-size LIMIT and STOP orders and opens
+then closes a minimum-size MARKET trade for USD/JPY, EUR/USD, and AUD/USD. It
+returns success only when every owned order/trade is cleaned up and the ending
+pending/open sets match the baseline. Real Discord delivery remains outside the
+acceptance gate.

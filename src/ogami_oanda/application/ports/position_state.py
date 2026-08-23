@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from enum import Enum
 from typing import Mapping, Protocol, runtime_checkable
 
@@ -26,6 +27,10 @@ class PendingBrokerMutation:
     client_reference: str = ""
     broker_reference_id: str | None = None
     reason: str = ""
+    stop_loss_price: float | None = None
+    applied_lc_change_index: int | None = None
+    candle_stop_loss_done: bool | None = None
+    prepared_at: datetime | None = None
 
 
 @dataclass(frozen=True)

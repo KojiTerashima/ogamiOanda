@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
@@ -134,11 +135,44 @@ class BrokerExecutionPort(Protocol):
 class AccountCapabilities:
     account_id: str
     hedging_enabled: bool
+    last_transaction_id: str | None = None
+
+
+@dataclass(frozen=True)
+class BrokerTransaction:
+    transaction_id: str
+    kind: str
+    order_id: str | None = None
+    trade_id: str | None = None
+    client_reference: str = ""
+    pair: str | None = None
+    units: int = 0
+    price: float | None = None
+    reason: str = ""
+    occurred_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class BrokerTransactionBatch:
+    transactions: tuple[BrokerTransaction, ...]
+    last_transaction_id: str | None = None
+
+
+@dataclass(frozen=True)
+class InstrumentTradingRules:
+    pair: str
+    minimum_trade_size: int
+    maximum_order_units: int
+    trade_units_precision: int
 
 
 @runtime_checkable
 class BrokerQueryPort(Protocol):
     def account_capabilities(self) -> AccountCapabilities: ...
+
+    def transactions_since(self, transaction_id: str) -> BrokerTransactionBatch: ...
+
+    def instrument_rules(self, pair: str) -> InstrumentTradingRules: ...
 
     def position(self, reference_id: str) -> PositionSnapshot | None: ...
 

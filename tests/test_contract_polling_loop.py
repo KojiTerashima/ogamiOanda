@@ -52,3 +52,14 @@ def test_polling_loop_skips_missed_deadlines_instead_of_drifting_after_slow_tick
     PollingLoop(interval_seconds=1, sleeper=sleep, monotonic=monotonic).run(slow_tick, max_ticks=2)
 
     assert sleeps == [pytest.approx(0.6)]
+
+
+@pytest.mark.contract
+def test_polling_loop_remains_fail_fast_for_tick_errors():
+    loop = PollingLoop(sleeper=lambda _seconds: None)
+
+    with pytest.raises(ValueError, match="tick defect"):
+        loop.run(
+            lambda: (_ for _ in ()).throw(ValueError("tick defect")),
+            max_ticks=2,
+        )

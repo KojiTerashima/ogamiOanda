@@ -5,11 +5,27 @@ from pathlib import Path
 import pytest
 
 from ogami_oanda.application.ports.market_data import MarketQuote
+from ogami_oanda.application.ports.position_state import (
+    CheckpointLoadResult,
+    CheckpointLoadStatus,
+    PositionStateCheckpoint,
+    account_identity_hash,
+)
 from ogami_oanda.application.services.market_analysis_service import (
     MarketAnalysisResult,
 )
 from ogami_oanda.application.services.order_planner import OrderPlanner
+from ogami_oanda.application.services.position_portfolio_service import (
+    PositionStatePersistenceError,
+)
 from ogami_oanda.domain.market.currency_pair import currency_pair
+from ogami_oanda.domain.orders.models import (
+    Direction,
+    OrderContext,
+    OrderIntent,
+    OrderType,
+)
+from ogami_oanda.domain.positions.managed_position import ManagedPosition
 from ogami_oanda.entrypoints.live import LiveApplication, build_live_application
 from ogami_oanda.infrastructure.config.models import (
     AppSettings,
@@ -181,5 +197,166 @@ def test_fixture_composition_runs_finite_dry_run_without_broker_mutation(
     assert len(initial.plans) == len(expected["legacy_orders"])
     assert all(plan.intent.pair == pair_name for plan in initial.plans)
     assert len(following_ticks) == 1
+    assert broker.requests == []
+    assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_dry_run_never_writes_runtime_checkpoint(candle_frame):
+    class _Repository:
+        def __init__(self):
+            self.saved = []
+
+        def load(self, **_kwargs):
+            from ogami_oanda.application.ports.position_state import (
+                CheckpointLoadResult,
+                CheckpointLoadStatus,
+            )
+
+            return CheckpointLoadResult(CheckpointLoadStatus.MISSING)
+
+        def save(self, checkpoint):
+            self.saved.append(checkpoint)
+
+    repository = _Repository()
+    broker = FakeBroker()
+    application = build_live_application(
+        AppSettings({"primary": RuntimeAccountConfig("id", "token", "practice")}),
+        market_data=FakeMarketData(
+            {
+                ("USD_JPY", granularity): candle_frame
+                for granularity in ("M5", "H1", "M30", "S5")
+            },
+            {"USD_JPY": 150.0},
+        ),
+        broker_execution=broker,
+        broker_query=broker,
+        notifier=FakeNotifier(),
+        history=InMemoryTradeHistoryRepository(),
+        state_repository=repository,
+        clock=FixedClock(datetime(2026, 1, 2, 10, 0, 0)),
+        dry_run=True,
+    )
+
+    application.run_once(dry_run=True)
+
+    assert repository.saved == []
+    assert broker.requests == []
+    assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_live_dry_run_never_submits_prepared_checkpoint():
+    plan = OrderPlanner().plan(
+        OrderIntent(
+            "USD_JPY",
+            Direction.BUY,
+            OrderType.LIMIT,
+            150.0,
+            True,
+            0.2,
+            False,
+            0.1,
+            False,
+            1,
+            "dry-run-prepared",
+            1,
+            30,
+        ),
+        OrderContext(150.0, "2026/01/02 10:00:00"),
+    )
+    prepared = ManagedPosition.registered(
+        plan.intent.name,
+        "USD_JPY",
+    ).with_order_plan(plan, datetime(2026, 1, 2, 10, 0, 0))
+
+    class _Repository:
+        def load(self, **_kwargs):
+            return CheckpointLoadResult(
+                CheckpointLoadStatus.LOADED,
+                PositionStateCheckpoint(
+                    account_hash=account_identity_hash("id"),
+                    pair="USD_JPY",
+                    slots=(prepared,) + (None,) * 14,
+                    transaction_cursor="100",
+                ),
+            )
+
+        def save(self, _checkpoint):
+            raise AssertionError("dry-run must not persist runtime state")
+
+    broker = FakeBroker()
+    application = build_live_application(
+        AppSettings(
+            {"primary": RuntimeAccountConfig("id", "token", "live")}
+        ),
+        market_data=FakeMarketData({}, {"USD_JPY": 150.0}),
+        broker_execution=broker,
+        broker_query=broker,
+        notifier=FakeNotifier(),
+        history=InMemoryTradeHistoryRepository(),
+        state_repository=_Repository(),
+        clock=FixedClock(datetime(2026, 1, 2, 10, 0, 0)),
+        dry_run=True,
+    )
+
+    result = application.run_once(dry_run=True)
+
+    assert result.skipped == ("portfolio_quarantined",)
+    assert broker.requests == []
+    assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_dry_run_composition_cannot_be_switched_to_broker_mutation(candle_frame):
+    class _Repository:
+        def load(self, **_kwargs):
+            return CheckpointLoadResult(CheckpointLoadStatus.MISSING)
+
+        def save(self, _checkpoint):
+            raise AssertionError("read-only composition must not persist")
+
+    broker = FakeBroker()
+    application = build_live_application(
+        AppSettings(
+            {"primary": RuntimeAccountConfig("id", "token", "practice")}
+        ),
+        market_data=FakeMarketData(
+            {
+                ("USD_JPY", granularity): candle_frame
+                for granularity in ("M5", "H1", "M30", "S5")
+            },
+            {"USD_JPY": 150.0},
+        ),
+        broker_execution=broker,
+        broker_query=broker,
+        notifier=FakeNotifier(),
+        history=InMemoryTradeHistoryRepository(),
+        state_repository=_Repository(),
+        clock=FixedClock(datetime(2026, 1, 2, 10, 0, 0)),
+        dry_run=True,
+    )
+    plan = OrderPlanner().plan(
+        OrderIntent(
+            "USD_JPY",
+            Direction.BUY,
+            OrderType.LIMIT,
+            150.0,
+            True,
+            0.2,
+            False,
+            0.1,
+            False,
+            1,
+            "read-only-mutation",
+            1,
+            30,
+        ),
+        OrderContext(150.0, "2026/01/02 10:00:00"),
+    )
+
+    with pytest.raises(PositionStatePersistenceError, match="read-only"):
+        application.portfolio.register_plans([plan], submit=True)
+
     assert broker.requests == []
     assert broker.commands == []

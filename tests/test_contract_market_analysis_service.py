@@ -168,7 +168,18 @@ def test_market_analysis_service_enriches_line_candidates_for_order_intents(anal
     assert result.intents[0].order_timeout_min == 45
     assert result.intents[0].metadata["lc_pips"] == 7.5
     assert result.intents[0].metadata["tp_pips"] == 14.1
+    assert result.intents[0].stop_loss == pytest.approx(0.0005)
+    assert result.intents[0].take_profit == pytest.approx(0.0005)
+    assert result.intents[0].metadata["path_tp_adjusted"] is True
+    assert result.intents[0].metadata["path_tp_original_pips"] == pytest.approx(
+        14.1
+    )
+    assert result.intents[0].metadata["path_lc_original_pips"] == pytest.approx(
+        7.5
+    )
     assert result.intents[0].metadata["units_multiplier"] == 0.25
+    assert result.intents[0].metadata["session_name"] == "day"
+    assert result.intents[0].metadata["session_rr"] is None
     assert result.intents[0].metadata["line_timeframe"] == "m5"
     assert result.intents[0].metadata["line_entry_type"] == "breakout"
 

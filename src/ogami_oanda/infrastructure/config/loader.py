@@ -50,13 +50,17 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
                 False,
             ),
             require_hedging=_boolean_value(values.get("require_hedging"), True),
+            live_trading_enabled=_boolean_value(
+                values.get("live_trading_enabled"),
+                False,
+            ),
         )
         for name, values in raw.get("accounts", {}).items()
     }
     trading_raw = raw.get("trading", {})
     notification_raw = raw.get("notifications", {})
     paths_raw = raw.get("paths", {})
-    return AppSettings(
+    settings = AppSettings(
         accounts=accounts,
         trading=TradingSettings(
             default_pair=str(trading_raw.get("default_pair", "USD_JPY")),
@@ -84,5 +88,32 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
             result_dir=str(paths_raw.get("result_dir", ".")),
             cache_dir=str(paths_raw.get("cache_dir", ".")),
             history_file=str(paths_raw.get("history_file", "history.csv")),
+            position_state_dir=str(paths_raw.get("position_state_dir", "")),
         ),
     )
+    _validate_settings(settings)
+    return settings
+
+
+def _validate_settings(settings: AppSettings) -> None:
+    if not settings.accounts:
+        raise ValueError("At least one account configuration is required")
+    for account_name, account in settings.accounts.items():
+        if not account.account_id:
+            raise ValueError(f"accounts.{account_name}.account_id is required")
+        if not account.access_token:
+            raise ValueError(f"accounts.{account_name}.access_token is required")
+        if account.environment not in {"practice", "live"}:
+            raise ValueError(
+                f"accounts.{account_name}.environment must be practice or live"
+            )
+    trading = settings.trading
+    if trading.default_pair not in {"USD_JPY", "EUR_USD", "AUD_USD"}:
+        raise ValueError("trading.default_pair is not supported")
+    slot_total = (
+        trading.normal_slot_count
+        + trading.mid_slot_count
+        + trading.high_slot_count
+    )
+    if slot_total != trading.max_positions:
+        raise ValueError("trading slot counts must equal max_positions")

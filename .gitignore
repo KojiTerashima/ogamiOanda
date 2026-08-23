@@ -10,3 +10,6 @@ SAMPLE_BasicFormats.py
 requirements.txt
 fxTradeTest/
 build/differential/
+config/settings.yaml
+runtime/
+practice-acceptance-*.json

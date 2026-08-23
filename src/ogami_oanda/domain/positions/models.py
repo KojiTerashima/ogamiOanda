@@ -26,6 +26,19 @@ class TradeState(str, Enum):
     ERROR = "ERROR"
 
 
+class SubmissionPhase(str, Enum):
+    NONE = "NONE"
+    PREPARED = "PREPARED"
+    WATCHING = "WATCHING"
+    SUBMITTING = "SUBMITTING"
+    PENDING = "PENDING"
+    FILLED = "FILLED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+    UNKNOWN = "UNKNOWN"
+    TERMINAL = "TERMINAL"
+
+
 @dataclass(frozen=True)
 class PositionSnapshot:
     name: str
@@ -49,6 +62,7 @@ class PositionSnapshot:
     close_time: str | None = None
     elapsed_seconds: float = 0.0
     average_close_price: float | None = None
+    client_reference: str = ""
 
 
 @dataclass(frozen=True)
@@ -75,6 +89,7 @@ class PositionRuntimeState:
     watch_step2_started_at: datetime | None = None
     watch_step1_over_price: float = 0.0
     submission_reason: str = ""
+    submission_phase: SubmissionPhase = SubmissionPhase.NONE
 
 
 @dataclass(frozen=True)

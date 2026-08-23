@@ -14,15 +14,21 @@ class OandaMarketDataAdapter:
 
     def current_price(self, pair: str) -> float:
         response = self.client.request(PricingInfo(accountID=self.client.account_id, params={"instruments": pair}))
-        return map_price_response(pair, response)["mid"]
+        return float(map_price_response(pair, response)["mid"])
 
-    def current_price_details(self, pair: str) -> dict[str, float]:
+    def current_price_details(self, pair: str) -> dict[str, object]:
         response = self.client.request(PricingInfo(accountID=self.client.account_id, params={"instruments": pair}))
         return map_price_response(pair, response)
 
     def current_quote(self, pair: str) -> MarketQuote:
         details = self.current_price_details(pair)
-        return MarketQuote(pair, details["bid"], details["ask"], details["mid"])
+        return MarketQuote(
+            pair,
+            float(details["bid"]),
+            float(details["ask"]),
+            float(details["mid"]),
+            bool(details["tradeable"]),
+        )
 
     def candles(self, pair: str, granularity: str, count: int):
         response = self.client.request(instruments.InstrumentsCandles(instrument=pair, params={"granularity": granularity, "count": count}))

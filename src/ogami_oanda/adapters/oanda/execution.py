@@ -20,27 +20,37 @@ from ogami_oanda.application.ports.broker import (
     MutationState,
     OrderSubmissionResult,
 )
+from ogami_oanda.application.errors import TransientExternalServiceError
 from ogami_oanda.domain.orders.models import BrokerOrderRequest
 
 
 class OandaExecutionAdapter:
-    def __init__(self, client: OandaClient) -> None:
+    def __init__(
+        self,
+        client: OandaClient,
+        *,
+        include_client_extensions: bool | None = None,
+    ) -> None:
         self.client = client
+        self.include_client_extensions = include_client_extensions
 
     def submit(self, request: BrokerOrderRequest) -> OrderSubmissionResult:
+        include_client_extensions = self.include_client_extensions
+        if include_client_extensions is None:
+            include_client_extensions = bool(
+                getattr(
+                    getattr(self.client, "account", None),
+                    "client_extensions_enabled",
+                    False,
+                )
+            )
         try:
             response = self.client.request(
                 OrderCreate(
                     accountID=self.client.account_id,
                     data=broker_request_to_oanda(
                         request,
-                        include_client_extensions=bool(
-                            getattr(
-                                getattr(self.client, "account", None),
-                                "client_extensions_enabled",
-                                False,
-                            )
-                        ),
+                        include_client_extensions=include_client_extensions,
                     ),
                 )
             )
@@ -113,6 +123,8 @@ def _status_code(error: Exception) -> int | None:
 
 
 def _is_transient(error: Exception) -> bool:
+    if isinstance(error, TransientExternalServiceError):
+        return True
     code = _status_code(error)
     if code in {408, 425, 429} or (code is not None and code >= 500):
         return True

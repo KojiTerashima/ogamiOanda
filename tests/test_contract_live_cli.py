@@ -49,8 +49,8 @@ def test_console_once_dry_run_is_offline_testable_and_prints_plan_and_reject_rea
     )
 
     class _Application:
-        def run_once(self, *, dry_run=False):
-            captured["run_dry_run"] = dry_run
+        def run_resilient_once(self, *, dry_run=False):
+            captured["resilient_dry_run"] = dry_run
             return result
 
         def run_forever(self, **kwargs):
@@ -99,7 +99,7 @@ def test_console_once_dry_run_is_offline_testable_and_prints_plan_and_reject_rea
             "cancel_pending_on_start": True,
             "dry_run": True,
         },
-        "run_dry_run": True,
+        "resilient_dry_run": True,
     }
     assert capsys.readouterr().out.strip() == (
         "accepted=1 rejected=1 skipped=- plans=line-plan "

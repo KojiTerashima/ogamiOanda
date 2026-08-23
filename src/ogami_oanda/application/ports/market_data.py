@@ -14,6 +14,7 @@ class MarketQuote:
     bid: float
     ask: float
     mid: float
+    tradeable: bool = True
 
     @property
     def spread(self) -> float:

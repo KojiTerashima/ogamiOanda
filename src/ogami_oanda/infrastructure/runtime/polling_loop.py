@@ -9,6 +9,10 @@ class Sleeper(Protocol):
     def __call__(self, seconds: float) -> None: ...
 
 
+def system_sleep(seconds: float) -> None:
+    time.sleep(seconds)
+
+
 ResultT = TypeVar("ResultT")
 
 

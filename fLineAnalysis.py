@@ -2818,6 +2818,7 @@ class LineOrderCoordinator(_LegacyLineOrderCoordinator):
             enriched_candidates = builder.enrich_candidates(
                 [{**candidate, "order_mode": order_mode}],
                 float(current_price),
+                context=context,
             )
             if not enriched_candidates:
                 continue

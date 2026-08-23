@@ -21,16 +21,25 @@ def settings_from_tokens(tokens: ModuleType) -> AppSettings:
                 account_id=getattr(tokens, "accountID", ""),
                 access_token=getattr(tokens, "access_token", ""),
                 environment=getattr(tokens, "environment", "practice"),
+                live_trading_enabled=bool(
+                    getattr(tokens, "live_trading_enabled", False)
+                ),
             ),
             "primary": RuntimeAccountConfig(
                 account_id=getattr(tokens, "accountIDl", ""),
                 access_token=getattr(tokens, "access_tokenl", ""),
                 environment=getattr(tokens, "environmentl", "practice"),
+                live_trading_enabled=bool(
+                    getattr(tokens, "live_trading_enabled", False)
+                ),
             ),
             "secondary": RuntimeAccountConfig(
                 account_id=getattr(tokens, "accountIDl2", ""),
                 access_token=getattr(tokens, "access_tokenl", ""),
                 environment=getattr(tokens, "environmentl", "practice"),
+                live_trading_enabled=bool(
+                    getattr(tokens, "live_trading_enabled", False)
+                ),
             ),
         },
         trading=TradingSettings(risk_yen=risk_yen),
@@ -46,5 +55,9 @@ def settings_from_tokens(tokens: ModuleType) -> AppSettings:
             result_dir=getattr(tokens, "folder_path", "."),
             cache_dir=getattr(tokens, "inspection_data_cache_folder_path", "."),
             history_file=getattr(tokens, "history_folder_path", "") + "history.csv",
+            position_state_dir=(
+                getattr(tokens, "history_folder_path", "")
+                or getattr(tokens, "folder_path", ".")
+            ),
         ),
     )

@@ -17,3 +17,24 @@ class CsvTradeHistoryRepository:
             if not exists:
                 writer.writeheader()
             writer.writerow(record)
+
+    def append_once(
+        self,
+        record: Mapping[str, object],
+        *,
+        unique_field: str,
+    ) -> bool:
+        expected = str(record.get(unique_field, ""))
+        if expected and any(
+            str(item.get(unique_field, "")) == expected
+            for item in self.read_all()
+        ):
+            return False
+        self.append(record)
+        return True
+
+    def read_all(self) -> tuple[dict[str, object], ...]:
+        if not self.path.exists():
+            return ()
+        with self.path.open(newline="", encoding="utf-8") as history:
+            return tuple(dict(row) for row in csv.DictReader(history))

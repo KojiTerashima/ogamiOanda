@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime
 
 import pytest
@@ -11,6 +12,7 @@ from ogami_oanda.adapters.repositories.json_position_state import (
 )
 from ogami_oanda.application.ports.position_state import (
     CheckpointLoadStatus,
+    PendingBrokerMutation,
     PortfolioAnalyticsState,
     PositionStateCheckpoint,
     account_identity_hash,
@@ -113,6 +115,7 @@ def _checkpoint(account_id="account-1", *, transaction_cursor="100"):
                 "pair": "USD_JPY",
                 "res": "50",
                 "pl_per_units": 5.0,
+                "order_time": datetime(2026, 1, 2, 9, 0, 0),
             },
         ),
         result_row=7,
@@ -131,7 +134,17 @@ def _checkpoint(account_id="account-1", *, transaction_cursor="100"):
 @pytest.mark.contract
 def test_json_position_state_round_trips_full_runtime_without_arbitrary_metadata(tmp_path):
     repository = JsonPositionStateRepository(tmp_path / "runtime.json")
-    expected = _checkpoint()
+    expected = replace(
+        _checkpoint(),
+        pending_mutations=(
+            PendingBrokerMutation(
+                "submit_order",
+                "persisted",
+                "ogm-reference",
+                prepared_at=datetime(2026, 1, 2, 10, 0, 0),
+            ),
+        ),
+    )
 
     repository.save(expected)
     loaded = repository.load(
@@ -164,6 +177,44 @@ def test_json_position_state_uses_last_known_good_backup_when_primary_is_corrupt
 
     assert loaded.status is CheckpointLoadStatus.LOADED_FROM_BACKUP
     assert loaded.checkpoint == first
+
+
+@pytest.mark.contract
+def test_backup_recovery_never_replaces_good_backup_with_corrupt_primary(
+    tmp_path,
+    monkeypatch,
+):
+    path = tmp_path / "runtime.json"
+    repository = JsonPositionStateRepository(path)
+    first = _checkpoint(transaction_cursor="100")
+    second = _checkpoint(transaction_cursor="101")
+    repository.save(first)
+    repository.save(second)
+    path.write_text("{broken", encoding="utf-8")
+
+    loaded = repository.load(
+        expected_account_hash=first.account_hash,
+        expected_pair="USD_JPY",
+    )
+    assert loaded.status is CheckpointLoadStatus.LOADED_FROM_BACKUP
+
+    real_replace = repository._replace
+
+    def fail_primary_replace(source, destination):
+        if destination == repository.path:
+            raise OSError("simulated primary replace failure")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(repository, "_replace", fail_primary_replace)
+    with pytest.raises(PositionStateWriteError):
+        repository.save(_checkpoint(transaction_cursor="102"))
+
+    recovered = JsonPositionStateRepository(path).load(
+        expected_account_hash=first.account_hash,
+        expected_pair="USD_JPY",
+    )
+    assert recovered.status is CheckpointLoadStatus.LOADED_FROM_BACKUP
+    assert recovered.checkpoint == first
 
 
 @pytest.mark.contract
@@ -232,4 +283,24 @@ def test_json_position_state_reports_missing_checkpoint(tmp_path):
     )
 
     assert loaded.status is CheckpointLoadStatus.MISSING
+    assert loaded.checkpoint is None
+
+
+@pytest.mark.contract
+def test_json_position_state_quarantines_missing_required_fields(tmp_path):
+    path = tmp_path / "runtime.json"
+    expected = _checkpoint()
+    repository = JsonPositionStateRepository(path)
+    repository.save(expected)
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    del raw["account_hash"]
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    repository.backup_path.unlink(missing_ok=True)
+
+    loaded = repository.load(
+        expected_account_hash=expected.account_hash,
+        expected_pair="USD_JPY",
+    )
+
+    assert loaded.status is CheckpointLoadStatus.QUARANTINED
     assert loaded.checkpoint is None

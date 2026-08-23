@@ -29,6 +29,7 @@ from ogami_oanda.domain.positions.models import (
     OrderState,
     PositionRuntimeState,
     PositionSnapshot,
+    SubmissionPhase,
     TradeState,
 )
 
@@ -72,7 +73,15 @@ class JsonPositionStateRepository:
         primary_temp = self.path.with_suffix(self.path.suffix + ".tmp")
         backup_temp = self.backup_path.with_suffix(self.backup_path.suffix + ".tmp")
         try:
-            if self.path.exists():
+            primary_is_valid = (
+                self._load_path(
+                    self.path,
+                    checkpoint.account_hash,
+                    checkpoint.pair,
+                ).status
+                is CheckpointLoadStatus.LOADED
+            )
+            if primary_is_valid:
                 shutil.copyfile(self.path, backup_temp)
                 self._fsync_file(backup_temp)
                 self._replace(backup_temp, self.backup_path)
@@ -151,7 +160,7 @@ class JsonPositionStateRepository:
                 CheckpointLoadStatus.SCHEMA_MISMATCH,
                 reason=str(error),
             )
-        except (json.JSONDecodeError, OSError, TypeError, ValueError) as error:
+        except (json.JSONDecodeError, KeyError, OSError, TypeError, ValueError) as error:
             return CheckpointLoadResult(
                 CheckpointLoadStatus.QUARANTINED,
                 reason=str(error),
@@ -190,7 +199,13 @@ def _encode_checkpoint(checkpoint: PositionStateCheckpoint) -> dict[str, object]
             for position in checkpoint.slots
         ],
         "transaction_cursor": checkpoint.transaction_cursor,
-        "pending_mutations": [asdict(item) for item in checkpoint.pending_mutations],
+        "pending_mutations": [
+            {
+                **asdict(item),
+                "prepared_at": _encode_datetime(item.prepared_at),
+            }
+            for item in checkpoint.pending_mutations
+        ],
         "emitted_event_ids": sorted(checkpoint.emitted_event_ids),
         "reported_event_ids": sorted(checkpoint.reported_event_ids),
         "analytics": _encode_analytics(checkpoint.analytics),
@@ -238,6 +253,16 @@ def _decode_checkpoint(raw: object) -> PositionStateCheckpoint:
                     else None
                 ),
                 reason=str(item.get("reason", "")),
+                stop_loss_price=_optional_float(item.get("stop_loss_price")),
+                applied_lc_change_index=_optional_int(
+                    item.get("applied_lc_change_index")
+                ),
+                candle_stop_loss_done=(
+                    bool(item["candle_stop_loss_done"])
+                    if item.get("candle_stop_loss_done") is not None
+                    else None
+                ),
+                prepared_at=_decode_datetime(item.get("prepared_at")),
             )
             for item in pending
             if isinstance(item, Mapping)
@@ -278,6 +303,7 @@ def _encode_position(position: ManagedPosition) -> dict[str, object]:
             "watch_step2_started_at": _encode_datetime(position.runtime.watch_step2_started_at),
             "watch_step1_over_price": position.runtime.watch_step1_over_price,
             "submission_reason": position.runtime.submission_reason,
+            "submission_phase": position.runtime.submission_phase.value,
         },
     }
 
@@ -311,6 +337,7 @@ def _decode_position(raw: object) -> ManagedPosition:
         close_time=_optional_string(snapshot_raw.get("close_time")),
         elapsed_seconds=float(snapshot_raw.get("elapsed_seconds", 0)),
         average_close_price=_optional_float(snapshot_raw.get("average_close_price")),
+        client_reference=str(snapshot_raw.get("client_reference", "")),
     )
     runtime = PositionRuntimeState(
         order_plan=_decode_order_plan(runtime_raw.get("order_plan")),
@@ -335,6 +362,9 @@ def _decode_position(raw: object) -> ManagedPosition:
         watch_step2_started_at=_decode_datetime(runtime_raw.get("watch_step2_started_at")),
         watch_step1_over_price=float(runtime_raw.get("watch_step1_over_price", 0)),
         submission_reason=str(runtime_raw.get("submission_reason", "")),
+        submission_phase=SubmissionPhase(
+            str(runtime_raw.get("submission_phase", SubmissionPhase.NONE.value))
+        ),
     )
     return ManagedPosition(snapshot, runtime)
 
@@ -386,7 +416,10 @@ def _decode_order_plan(raw: object) -> OrderPlan | None:
     request_raw = raw["broker_request"]
     if not all(isinstance(item, Mapping) for item in (intent_raw, context_raw, request_raw)):
         raise _CheckpointDecodeError("order_plan members must be objects")
-    metadata = dict(intent_raw.get("metadata", {}))
+    metadata_value = _restore_json_value(dict(intent_raw.get("metadata", {})))
+    if not isinstance(metadata_value, dict):
+        raise _CheckpointDecodeError("intent metadata must be an object")
+    metadata = metadata_value
     for key in ("linkage_order_names", "legacy_linkage_ids"):
         if isinstance(metadata.get(key), list):
             metadata[key] = tuple(metadata[key])
@@ -405,7 +438,10 @@ def _decode_order_plan(raw: object) -> OrderPlan | None:
         priority=int(intent_raw["priority"]),
         order_timeout_min=int(intent_raw["order_timeout_min"]),
         trade_timeout_min=int(intent_raw.get("trade_timeout_min", 240)),
-        lc_change=tuple(dict(item) for item in intent_raw.get("lc_change", [])),
+        lc_change=tuple(
+            dict(_restore_json_value(item))
+            for item in intent_raw.get("lc_change", [])
+        ),
         metadata=metadata,
     )
     context = OrderContext(
@@ -455,7 +491,10 @@ def _encode_analytics(state: PortfolioAnalyticsState) -> dict[str, object]:
 def _decode_analytics(raw: object) -> PortfolioAnalyticsState:
     if not isinstance(raw, Mapping):
         raise _CheckpointDecodeError("analytics must be an object")
-    values = dict(raw)
+    restored = _restore_json_value(dict(raw))
+    if not isinstance(restored, dict):
+        raise _CheckpointDecodeError("analytics must decode to an object")
+    values = restored
     for field_name in (
         "total_yen",
         "total_yen_max",
@@ -493,6 +532,19 @@ def _plain_json_value(value: object) -> object:
     if isinstance(value, (list, tuple)):
         return [_plain_json_value(item) for item in value]
     raise TypeError(f"unsupported checkpoint value: {type(value).__name__}")
+
+
+def _restore_json_value(value: object) -> object:
+    if isinstance(value, dict):
+        if set(value) == {"__datetime__"}:
+            return datetime.fromisoformat(str(value["__datetime__"]))
+        return {
+            str(key): _restore_json_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_restore_json_value(item) for item in value]
+    return value
 
 
 def _encode_float(value: float) -> float | str:

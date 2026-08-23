@@ -57,6 +57,8 @@ class ClosureReportingService:
         self.notifier = notifier
         self.analytics = analytics or PortfolioAnalytics()
         self._reported_event_ids: set[str] = set()
+        if analytics is None:
+            self._restore_from_history()
 
     def report(self, event: PositionEvent) -> dict[str, object] | None:
         if event.kind != "trade_closed" or event.event_id in self._reported_event_ids:
@@ -68,7 +70,9 @@ class ClosureReportingService:
         if position.runtime.order_plan is None:
             return None
         record, price_diff = self._legacy_record(position, broker_snapshot, event)
-        self.history.append(record)
+        if not self.history.append_once(record, unique_field="tradeID"):
+            self._reported_event_ids.add(event.event_id)
+            return None
         self.analytics.apply(
             record,
             price_diff,
@@ -82,6 +86,30 @@ class ClosureReportingService:
         )
         self._reported_event_ids.add(event.event_id)
         return record
+
+    def _restore_from_history(self) -> None:
+        published_pairs: set[str] = set()
+        for raw_record in self.history.read_all():
+            record = dict(raw_record)
+            trade_id = str(record.get("tradeID", ""))
+            pair_name = str(record.get("pair", ""))
+            if not trade_id or not pair_name:
+                continue
+            try:
+                pips = float(record["pl_per_units"])
+                price_diff = currency_pair(pair_name).pips_to_price(pips)
+                lc_change_count = str(record.get("lc_change", "")).count("(")
+                self.analytics.apply(
+                    record,
+                    price_diff,
+                    lc_change_count=lc_change_count,
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+            self._reported_event_ids.add(f"trade_closed:{trade_id}")
+            published_pairs.add(pair_name)
+        for pair_name in published_pairs:
+            publish_portfolio_analytics(pair_name, self.analytics)
 
     @staticmethod
     def _lc_change_count(position: ManagedPosition) -> int:

@@ -25,6 +25,7 @@ def test_oanda_price_response_mapping_rounds_by_pair():
         "ask": 150.146,
         "mid": 150.135,
         "spread": 0.023,
+        "tradeable": True,
     }
 
 
@@ -238,6 +239,10 @@ def test_order_and_trade_snapshots_preserve_broker_lifecycle_state():
                 "tradeOpenedID": "trade-1",
                 "units": "1000",
                 "price": "150.10",
+                "clientExtensions": {
+                    "id": "ogm-order-reference",
+                    "tag": "ogami-oanda",
+                },
             }
         }
     )
@@ -250,6 +255,10 @@ def test_order_and_trade_snapshots_preserve_broker_lifecycle_state():
                 "currentUnits": "-500",
                 "price": "149.80",
                 "stopLossOrder": {"price": "149.95"},
+                "clientExtensions": {
+                    "id": "ogm-trade-reference",
+                    "tag": "ogami-oanda",
+                },
             }
         }
     )
@@ -261,6 +270,8 @@ def test_order_and_trade_snapshots_preserve_broker_lifecycle_state():
     assert order.direction == 1
     assert order.target_price == 150.1
     assert order.units == 1000
+    assert order.name == "ogami-oanda"
+    assert order.client_reference == "ogm-order-reference"
     assert trade is not None
     assert trade.trade_id == "trade-1"
     assert trade.trade_state.value == "CLOSED"
@@ -269,3 +280,5 @@ def test_order_and_trade_snapshots_preserve_broker_lifecycle_state():
     assert trade.target_price == 149.8
     assert trade.units == 500
     assert trade.current_stop_loss == 149.95
+    assert trade.name == "ogami-oanda"
+    assert trade.client_reference == "ogm-trade-reference"
