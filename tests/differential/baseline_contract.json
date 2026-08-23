@@ -1,0 +1,87 @@
+{
+  "baseline_commit": "eff331c2367570dcb8bc35a323a382e8255eda7b",
+  "baseline_tree": "7dc341e37b663e7f206736abfe001e81fe74dd6a",
+  "required_files": [
+    "main_exe.py",
+    "fAnalysis_order_Main.py",
+    "fLineAnalysis.py",
+    "classOrderCreate.py",
+    "classPosition.py",
+    "classPositionControl.py",
+    "classOanda.py"
+  ],
+  "required_symbols": {
+    "main_exe.py": [
+      "class main():",
+      "def exe_manage(self):",
+      "def mode1(self):",
+      "def mode2(self):",
+      "def run(pair=None):"
+    ],
+    "fAnalysis_order_Main.py": [
+      "class wrap_all_analysis():",
+      "def wrap_all_inspections(self, mode=\"inspection\")"
+    ],
+    "fLineAnalysis.py": [
+      "class LineOrderCoordinator:",
+      "def build_line_candidates(",
+      "def select_line_candidates(",
+      "def create_orders_from_candidates("
+    ],
+    "classOrderCreate.py": [
+      "class Order:",
+      "def make_json_from_instance(self):",
+      "def order_finalize_new(self):"
+    ],
+    "classPosition.py": [
+      "class order_information:",
+      "def order_plan_registration(self, order_class):",
+      "def update_information(self, candle_analysis_class=None):",
+      "def watching_for_position(self, candle_analysis_class):"
+    ],
+    "classPositionControl.py": [
+      "class position_control:",
+      "def order_class_add(self, order_classes):",
+      "def all_update_information(self, candle_analysis_class=None):",
+      "def catch_up_position_and_del_order(self):"
+    ],
+    "classOanda.py": [
+      "class Oanda:",
+      "def NowPrice_exe(self, instrument):",
+      "def InstrumentsCandles_multi_exe(self, pair, params, roop):"
+    ]
+  },
+  "legacy_tokens_required": [
+    "accountID",
+    "access_token",
+    "environment",
+    "accountIDl",
+    "accountIDl2",
+    "access_tokenl",
+    "environmentl",
+    "WEBHOOK_URL_usdyen",
+    "WEBHOOK_URL_eurousd",
+    "WEBHOOK_URL_audusd",
+    "WEBHOOK_URL_main",
+    "WEBHOOK_URL_friend",
+    "WEBHOOK_URL_inspection",
+    "folder_path",
+    "history_folder_path",
+    "setting_json",
+    "line_send"
+  ],
+  "dependency_signals": {
+    "network_calls": [
+      "requests.post",
+      "oandapyV20.API.request"
+    ],
+    "time_now": [
+      "datetime.datetime.now",
+      "time.time"
+    ],
+    "csv": [
+      "pandas.read_csv",
+      "DataFrame.to_csv"
+    ]
+  }
+}

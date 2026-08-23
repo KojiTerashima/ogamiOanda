@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "order-payload-limit-sell-eur-usd",
+  "kind": "order_payload",
+  "pair": "EUR_USD",
+  "current_price": 1.1099,
+  "decision_time": "2026/01/02 11:55:00",
+  "order_input": {
+    "name": "limit_sell_eur_usd",
+    "current_price": 1.1099,
+    "target": 0.0008,
+    "direction": -1,
+    "type": "LIMIT",
+    "tp": 0.0013,
+    "lc": 0.0008,
+    "lc_change": [],
+    "units": 12000,
+    "priority": 1,
+    "decision_time": "2026/01/02 11:55:00",
+    "pair": "EUR_USD"
+  }
+}

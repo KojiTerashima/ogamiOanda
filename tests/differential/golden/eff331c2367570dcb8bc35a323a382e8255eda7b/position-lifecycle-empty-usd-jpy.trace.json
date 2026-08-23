@@ -1,0 +1,1 @@
+{"events":[{"counts":{"life_exist":false,"open":0,"pending":0,"watching":0},"kind":"position_lifecycle","registration":{"accepted_count":0,"raw_result":null,"rejected_count":0}}],"kind":"position_lifecycle","pair":"USD_JPY","runner":"legacy","scenario_id":"position-lifecycle-empty-usd-jpy","schema_version":"1.0.0"}

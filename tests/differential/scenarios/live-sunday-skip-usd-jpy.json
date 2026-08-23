@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "live-sunday-skip-usd-jpy",
+  "kind": "live_schedule",
+  "pair": "USD_JPY",
+  "live": {
+    "now": "2026-01-04T10:00:00",
+    "dry_run": true,
+    "decision_time": "2026-01-04T10:00:00"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-lifecycle-empty-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026-01-02T11:55:00",
+  "position": {
+    "submit": false,
+    "dry_run": true,
+    "current_price": 150.0,
+    "orders": []
+  }
+}

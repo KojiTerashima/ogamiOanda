@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "analysis-order-aud-usd",
+  "kind": "analysis_order",
+  "pair": "AUD_USD",
+  "current_price": 0.7065,
+  "decision_time": "2026/01/02 11:55:00",
+  "frames": {
+    "M5": {"source": "analysis_frame_specs"},
+    "H1": {"source": "analysis_frame_specs"},
+    "M30": {"source": "analysis_frame_specs"},
+    "S5": {"source": "analysis_frame_specs"}
+  }
+}

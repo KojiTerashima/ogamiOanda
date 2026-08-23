@@ -34,6 +34,7 @@ markers = [
     "characterization: regression tests that preserve legacy behavior",
     "contract: tests for ports, adapters, and legacy mappings",
     "integration: tests that require an explicitly configured external service",
+    "baseline_replay: slow tests that replay the fixed legacy baseline commit",
     "slow: tests that take materially longer than the normal offline suite",
 ]
 

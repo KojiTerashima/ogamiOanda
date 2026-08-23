@@ -1,0 +1,94 @@
+{
+  "baseline_commit": "eff331c2367570dcb8bc35a323a382e8255eda7b",
+  "baseline_tree": "7dc341e37b663e7f206736abfe001e81fe74dd6a",
+  "trace_schema_version": "1.0.0",
+  "python_version": "3.12.5",
+  "package_versions": {
+    "pandas": "2.3.1",
+    "numpy": "2.3.2"
+  },
+  "runner_sha256": {
+    "tests/differential/cli.py": "0975291a0a48894bbd3ba5d3c40838246a57c5e0957f4e2b159525fbc36f7403",
+    "tests/differential/legacy_runner.py": "aa8174c87a2f254c3d9f2b71e4596fd4e826b2a2f44b747b636b62df81296050",
+    "tests/differential/legacy_subprocess.py": "d75c243268e5e0549ff66927c6a27c0dc8e60ea2f160c5b26e6c897eada5cc83",
+    "tests/differential/current_runner.py": "c186699af26c3c18d5c03f73157db96dbc46c6c0be67d4f82b388c677617fb5c",
+    "tests/differential/normalize.py": "0c954a36d242c72a933cc2520805d2b7758f8d5491aa88571620267c4956f843",
+    "tests/differential/compare.py": "73a89d479e2b3585342920520ad2a88ec7d64e94b427f0c8718f56e5ba6dc476",
+    "tests/differential/scenario.py": "5182413f6ad2954ac785545dad4e6557ab40986aeb57d084ac6e157f7ed263a5",
+    "tests/differential/orchestrator.py": "3152816749d37ff07de85646afbeb9b0ace481e1e82230899b4c619563a0a359"
+  },
+  "scenarios": {
+    "analysis-order-aud-usd": {
+      "scenario_file": "analysis-order-aud-usd.json",
+      "scenario_sha256": "2f3848dbfb3fc88a42001b4fcf5732924d76b6822ef26eea8065e0067db747dc",
+      "trace_file": "analysis-order-aud-usd.trace.json",
+      "trace_sha256": "8125dbfa79fb0fc9c72e36914d7e3d387b7057898966bbb96feb33b15ff903fc"
+    },
+    "analysis-order-eur-usd": {
+      "scenario_file": "analysis-order-eur-usd.json",
+      "scenario_sha256": "a6e024fce81fbb139a9f7477b846cffe2c043f5b9e375f8a970eeec48dbe9a46",
+      "trace_file": "analysis-order-eur-usd.trace.json",
+      "trace_sha256": "e7759d96616c7779a3f17dff5a2f8a06d04b736912cfba671f4c76a0564d6f88"
+    },
+    "analysis-order-usd-jpy": {
+      "scenario_file": "analysis-order-usd-jpy.json",
+      "scenario_sha256": "3de26fc405b436fa173c2dba0db20a6fc46318a9b96d91b6dcd2390d89301a4f",
+      "trace_file": "analysis-order-usd-jpy.trace.json",
+      "trace_sha256": "69a4c5e0405db9a14b7cf7d2b55c01691b35d51af19ce37d39dfe0057c47c317"
+    },
+    "live-sunday-skip-usd-jpy": {
+      "scenario_file": "live-sunday-skip-usd-jpy.json",
+      "scenario_sha256": "d36f5b07f3b2f10265c41ef59b4241083d8337959b6e40df62d0062021383621",
+      "trace_file": "live-sunday-skip-usd-jpy.trace.json",
+      "trace_sha256": "d3c33f02e4c04c20065453904ece557a89221ed559522b6616088284c05be28f"
+    },
+    "live-update-window-usd-jpy": {
+      "scenario_file": "live-update-window-usd-jpy.json",
+      "scenario_sha256": "8046ee935aa7c20bfae4a7002bc1c19cdbb74eb8d05541cd1e7461789c495230",
+      "trace_file": "live-update-window-usd-jpy.trace.json",
+      "trace_sha256": "d5318f97e9a320ce2672a986e74292ae7cea572a50fde38b65edc949adf7770b"
+    },
+    "order-payload-limit-buy-eur-usd": {
+      "scenario_file": "order-payload-limit-buy-eur-usd.json",
+      "scenario_sha256": "4b0a656a56a97bbee2b7aebede48265d51159d2f2c5ed21b951ba6f13e3e2278",
+      "trace_file": "order-payload-limit-buy-eur-usd.trace.json",
+      "trace_sha256": "453965794904a974ca45b3cc43c4b894c1ab55d77a90a7def0b540aee93f2d74"
+    },
+    "order-payload-limit-sell-eur-usd": {
+      "scenario_file": "order-payload-limit-sell-eur-usd.json",
+      "scenario_sha256": "dbec3d0bce687a8b27a4b115d9fde0d9131fcab6e36282cc7831be3fc6144b73",
+      "trace_file": "order-payload-limit-sell-eur-usd.trace.json",
+      "trace_sha256": "de05365f9841389318f30d1b0f20d8232ee917d247d4014497ae37248ac0c8a2"
+    },
+    "order-payload-market-buy-usd-jpy": {
+      "scenario_file": "order-payload-market-buy-usd-jpy.json",
+      "scenario_sha256": "6574424adf23d2bfdd2f1ff92370c501e8ecf86e14ef88930cd0c8c0d675586b",
+      "trace_file": "order-payload-market-buy-usd-jpy.trace.json",
+      "trace_sha256": "7d43d19a01011dd7358d6469261f839f95ce1fdd5056e2f21cc9af2d5b6f86c2"
+    },
+    "order-payload-market-sell-usd-jpy": {
+      "scenario_file": "order-payload-market-sell-usd-jpy.json",
+      "scenario_sha256": "ce6dd402fa83bfc7a8cad8ea6ed14a43c2e21a14dfbd2c64aa7532f4b3bc3a27",
+      "trace_file": "order-payload-market-sell-usd-jpy.trace.json",
+      "trace_sha256": "71d19072456ffece2a86f0c7d1b8520179b73271199d9688fd049639798da8a5"
+    },
+    "order-payload-stop-buy-aud-usd": {
+      "scenario_file": "order-payload-stop-buy-aud-usd.json",
+      "scenario_sha256": "3d701afdabb17fa97c995e0fe76bb1978df1f5c5117081a545d03ee7a1ea170f",
+      "trace_file": "order-payload-stop-buy-aud-usd.trace.json",
+      "trace_sha256": "618249a8e6d04918b7f955dce5c36abc2b18852a2c0584d49bf0f19244adc268"
+    },
+    "order-payload-stop-sell-aud-usd": {
+      "scenario_file": "order-payload-stop-sell-aud-usd.json",
+      "scenario_sha256": "f7be04d870ffdd2ac0e009cc283cea1e48f7ccbbddaf7640a1c282a22a226ab6",
+      "trace_file": "order-payload-stop-sell-aud-usd.trace.json",
+      "trace_sha256": "b59f963e488e0c5dc8db3fcd86fbd46f6ed637f986ab831fe466bf5e19753582"
+    },
+    "position-lifecycle-empty-usd-jpy": {
+      "scenario_file": "position-lifecycle-empty-usd-jpy.json",
+      "scenario_sha256": "0457662daf66712e87f0b8db584788e1d547f1900fd31aa9d2c1c09700061f6f",
+      "trace_file": "position-lifecycle-empty-usd-jpy.trace.json",
+      "trace_sha256": "1cbb3a63d869fffc0ad75c0e677febc0ab5b5d9a9bf0bb208ced1f86587bfaee"
+    }
+  }
+}

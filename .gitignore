@@ -9,3 +9,4 @@ tokens.py
 SAMPLE_BasicFormats.py
 requirements.txt
 fxTradeTest/
+build/differential/

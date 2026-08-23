@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "order-payload-stop-buy-aud-usd",
+  "kind": "order_payload",
+  "pair": "AUD_USD",
+  "current_price": 0.7065,
+  "decision_time": "2026/01/02 11:55:00",
+  "order_input": {
+    "name": "stop_buy_aud_usd",
+    "current_price": 0.7065,
+    "target": 0.0009,
+    "direction": 1,
+    "type": "STOP",
+    "tp": 0.0015,
+    "lc": 0.0008,
+    "lc_change": [],
+    "units": 9000,
+    "priority": 1,
+    "decision_time": "2026/01/02 11:55:00",
+    "pair": "AUD_USD"
+  }
+}
