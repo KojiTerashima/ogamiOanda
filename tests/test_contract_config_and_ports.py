@@ -27,6 +27,8 @@ accounts:
     account_id: ${OANDA_ACCOUNT_ID}
     access_token: ${OANDA_ACCESS_TOKEN}
     environment: practice
+    client_extensions_enabled: true
+    require_hedging: true
 trading:
   default_pair: EUR_USD
   line_units: 1.5
@@ -53,6 +55,8 @@ paths:
     )
 
     assert settings.account("primary").account_id == "account"
+    assert settings.account("primary").client_extensions_enabled is True
+    assert settings.account("primary").require_hedging is True
     assert settings.trading.default_pair == "EUR_USD"
     assert settings.trading.line_units == 1.5
     assert settings.trading.risk_yen == 750
@@ -64,6 +68,16 @@ paths:
     assert settings.trading.high_priority_threshold == 200
     assert settings.notifications.pair_webhooks["EUR_USD"] == ""
     assert settings.paths.cache_dir == "cache"
+
+
+@pytest.mark.contract
+def test_account_correlation_features_default_to_mt4_safe_values():
+    from ogami_oanda.infrastructure.config.models import RuntimeAccountConfig
+
+    account = RuntimeAccountConfig("id", "token", "practice")
+
+    assert account.client_extensions_enabled is False
+    assert account.require_hedging is True
 
 
 @pytest.mark.contract

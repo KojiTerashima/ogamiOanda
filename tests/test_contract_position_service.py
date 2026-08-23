@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 
+from ogami_oanda.application.ports.broker import OrderSubmissionResult
 from ogami_oanda.application.services.order_planner import OrderPlanner
 from ogami_oanda.application.services.position_service import (
     CandleStopLossInput,
@@ -22,6 +23,16 @@ from tests.fakes import (
     FixedClock,
     InMemoryTradeHistoryRepository,
 )
+
+
+class _SubmissionBroker(FakeBroker):
+    def __init__(self, submission_result):
+        super().__init__()
+        self.submission_result = submission_result
+
+    def submit(self, request):
+        self.requests.append(request)
+        return self.submission_result
 
 
 def _order_plan():
@@ -133,6 +144,86 @@ def test_position_service_register_sync_and_close_lifecycle():
     assert history.records[0]["name"] == "position-test"
     assert history.records[0]["res"] == "250"
     assert history.records[0]["pl_per_units"] == 25.0
+
+
+@pytest.mark.contract
+def test_position_service_registers_immediate_fill_without_pending_query():
+    broker = _SubmissionBroker(
+        OrderSubmissionResult.filled(
+            order_id="order-market",
+            trade_id="trade-market",
+            fill_price=150.125,
+        )
+    )
+    clock = FixedClock(datetime(2026, 1, 2, 3, 4, 5))
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+
+    opened = service.register(
+        ManagedPosition.registered("market-filled", "USD_JPY"),
+        _order_plan(),
+    )
+
+    assert opened.snapshot.order_state is OrderState.FILLED
+    assert opened.snapshot.trade_state is TradeState.OPEN
+    assert opened.snapshot.order_id == "order-market"
+    assert opened.snapshot.trade_id == "trade-market"
+    assert opened.snapshot.current_price == 150.125
+    assert opened.runtime.filled_at == clock.now()
+    assert len(broker.requests) == 1
+
+
+@pytest.mark.contract
+def test_position_service_preserves_uncertain_submission_without_resubmitting():
+    broker = _SubmissionBroker(OrderSubmissionResult.unknown("request outcome unknown"))
+    notifier = FakeNotifier()
+    service = PositionService(
+        broker,
+        broker,
+        notifier,
+        InMemoryTradeHistoryRepository(),
+        FixedClock(datetime(2026, 1, 2, 3, 4, 5)),
+    )
+
+    uncertain = service.register(
+        ManagedPosition.registered("uncertain", "USD_JPY"),
+        _order_plan(),
+    )
+    unchanged = service.sync_result(uncertain, current_price=150.0)
+
+    assert uncertain.snapshot.order_state is OrderState.SUBMISSION_UNCERTAIN
+    assert uncertain.snapshot.life is True
+    assert uncertain.runtime.submission_reason == "request outcome unknown"
+    assert unchanged.reason == "submission_uncertain"
+    assert len(broker.requests) == 1
+    assert "request outcome unknown" in notifier.messages[0][0]
+
+
+@pytest.mark.contract
+def test_position_service_reports_broker_rejection_reason():
+    broker = _SubmissionBroker(OrderSubmissionResult.rejected("PRICE_INVALID"))
+    notifier = FakeNotifier()
+    service = PositionService(
+        broker,
+        broker,
+        notifier,
+        InMemoryTradeHistoryRepository(),
+        FixedClock(datetime(2026, 1, 2, 3, 4, 5)),
+    )
+
+    rejected = service.register(
+        ManagedPosition.registered("rejected", "USD_JPY"),
+        _order_plan(),
+    )
+
+    assert rejected.snapshot.order_state is OrderState.REJECTED
+    assert rejected.snapshot.life is False
+    assert "PRICE_INVALID" in notifier.messages[0][0]
 
 
 @pytest.mark.contract

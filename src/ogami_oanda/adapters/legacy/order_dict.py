@@ -11,6 +11,7 @@ from ogami_oanda.domain.orders.models import (
     OrderIntent,
     OrderPlan,
     OrderType,
+    submission_fingerprint,
 )
 
 
@@ -234,6 +235,15 @@ def legacy_dict_to_order_plan(
         price=target_price,
         take_profit_price=take_profit_price,
         stop_loss_price=stop_loss_price,
+        client_reference=submission_fingerprint(
+            pair=pair_name,
+            name=str(plan["name"]),
+            decision_time=str(plan["decision_time"]),
+            direction=direction.value,
+            order_type=order_type,
+            target_price=target_price,
+            units=int(plan["units"]),
+        ),
     )
     return OrderPlan(
         intent=intent,

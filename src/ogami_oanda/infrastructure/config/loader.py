@@ -23,6 +23,19 @@ def _environment_value(value: object, environment: Mapping[str, str]) -> str:
     return value
 
 
+def _boolean_value(value: object, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid boolean setting: {value}")
+
+
 def load_settings(path: str | Path, environment: Mapping[str, str] | None = None) -> AppSettings:
     environment = os.environ if environment is None else environment
     with Path(path).open(encoding="utf-8") as settings_file:
@@ -32,6 +45,11 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
             account_id=_environment_value(values.get("account_id"), environment),
             access_token=_environment_value(values.get("access_token"), environment),
             environment=str(values.get("environment", "practice")),
+            client_extensions_enabled=_boolean_value(
+                values.get("client_extensions_enabled"),
+                False,
+            ),
+            require_hedging=_boolean_value(values.get("require_hedging"), True),
         )
         for name, values in raw.get("accounts", {}).items()
     }

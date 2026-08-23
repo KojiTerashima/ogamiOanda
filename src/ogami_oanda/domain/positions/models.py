@@ -15,6 +15,7 @@ class OrderState(str, Enum):
     FILLED = "FILLED"
     CANCELLED = "CANCELLED"
     REJECTED = "REJECTED"
+    SUBMISSION_UNCERTAIN = "SUBMISSION_UNCERTAIN"
     ERROR = "ERROR"
 
 
@@ -73,6 +74,7 @@ class PositionRuntimeState:
     watch_step1_started_at: datetime | None = None
     watch_step2_started_at: datetime | None = None
     watch_step1_over_price: float = 0.0
+    submission_reason: str = ""
 
 
 @dataclass(frozen=True)

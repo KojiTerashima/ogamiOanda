@@ -5,6 +5,7 @@ from .models import (
     OrderIntent,
     OrderPlan,
     OrderType,
+    submission_fingerprint,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "OrderIntent",
     "OrderPlan",
     "OrderType",
+    "submission_fingerprint",
 ]

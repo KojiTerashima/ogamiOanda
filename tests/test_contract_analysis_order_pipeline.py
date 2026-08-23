@@ -362,9 +362,14 @@ def test_accepted_pair_candidates_preserve_intent_plan_and_payload_order(
         assert plan.target_price == legacy_plan["target_price"]
         assert plan.take_profit_price == legacy_plan["tp_price"]
         assert plan.stop_loss_price == legacy_plan["lc_price"]
-        assert broker_request_to_oanda(plan.broker_request) == legacy_plan[
+        assert order_plan_to_legacy_dict(plan)["for_api_json"] == legacy_plan[
             "for_api_json"
         ]
+        wire_order = broker_request_to_oanda(plan.broker_request)["order"]
+        assert wire_order == {
+            **legacy_plan["for_api_json"]["order"],
+            "timeInForce": "GTC",
+        }
 
 
 @pytest.mark.contract

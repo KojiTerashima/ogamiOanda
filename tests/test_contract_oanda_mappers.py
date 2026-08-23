@@ -12,6 +12,7 @@ from ogami_oanda.adapters.oanda.mappers import (
     map_trade_protection_response,
     map_trade_snapshot,
 )
+from ogami_oanda.application.ports.broker import OrderSubmissionState
 from ogami_oanda.domain.orders.models import BrokerOrderRequest, OrderType
 
 
@@ -60,6 +61,7 @@ def test_broker_request_maps_to_oanda_payload():
             "instrument": "EUR_USD",
             "units": "-10000",
             "type": "LIMIT",
+            "timeInForce": "GTC",
             "positionFill": "DEFAULT",
             "price": "1.101",
             "takeProfitOnFill": {"timeInForce": "GTC", "price": "1.099"},
@@ -69,9 +71,140 @@ def test_broker_request_maps_to_oanda_payload():
 
 
 @pytest.mark.contract
+@pytest.mark.parametrize(
+    ("pair_name", "price", "take_profit", "stop_loss", "expected_prices"),
+    [
+        ("USD_JPY", 150.1234, 150.3234, 150.0234, ("150.123", "150.323", "150.023")),
+        ("EUR_USD", 1.101234, 1.103234, 1.100234, ("1.10123", "1.10323", "1.10023")),
+        ("AUD_USD", 0.651234, 0.653234, 0.650234, ("0.65123", "0.65323", "0.65023")),
+    ],
+)
+@pytest.mark.parametrize("order_type", [OrderType.MARKET, OrderType.LIMIT, OrderType.STOP])
+def test_broker_request_maps_three_pairs_and_order_types_to_oanda_wire_contract(
+    pair_name,
+    price,
+    take_profit,
+    stop_loss,
+    expected_prices,
+    order_type,
+):
+    request = BrokerOrderRequest(pair_name, -123, order_type, price, take_profit, stop_loss)
+
+    order = broker_request_to_oanda(request)["order"]
+
+    expected_price, expected_take_profit, expected_stop_loss = expected_prices
+    assert order["instrument"] == pair_name
+    assert order["units"] == "-123"
+    assert order["type"] == order_type.value
+    assert order["positionFill"] == "DEFAULT"
+    assert order["timeInForce"] == ("FOK" if order_type is OrderType.MARKET else "GTC")
+    if order_type is OrderType.MARKET:
+        assert "price" not in order
+    else:
+        assert order["price"] == expected_price
+    assert order["takeProfitOnFill"] == {
+        "timeInForce": "GTC",
+        "price": expected_take_profit,
+    }
+    assert order["stopLossOnFill"] == {
+        "timeInForce": "GTC",
+        "price": expected_stop_loss,
+    }
+
+
+@pytest.mark.contract
+def test_oanda_client_extensions_are_opt_in_and_use_stable_reference():
+    request = BrokerOrderRequest(
+        "USD_JPY",
+        100,
+        OrderType.LIMIT,
+        150.0,
+        150.2,
+        149.9,
+        client_reference="ogm-0123456789abcdef0123",
+    )
+
+    default_order = broker_request_to_oanda(request)["order"]
+    opted_in_order = broker_request_to_oanda(
+        request,
+        include_client_extensions=True,
+    )["order"]
+
+    assert "clientExtensions" not in default_order
+    assert "tradeClientExtensions" not in default_order
+    assert opted_in_order["clientExtensions"] == {
+        "id": "ogm-0123456789abcdef0123",
+        "tag": "ogami-oanda",
+    }
+    assert opted_in_order["tradeClientExtensions"] == {
+        "id": "ogm-0123456789abcdef0123",
+        "tag": "ogami-oanda",
+    }
+
+
+@pytest.mark.contract
 def test_order_response_mapping_distinguishes_rejection():
-    assert map_order_create_response({"orderCreateTransaction": {"id": "123"}}) == (True, "123")
-    assert map_order_create_response({"orderCancelTransaction": {"id": "124"}}) == (False, None)
+    pending = map_order_create_response({"orderCreateTransaction": {"id": "123"}})
+    filled = map_order_create_response(
+        {
+            "orderCreateTransaction": {"id": "124"},
+            "orderFillTransaction": {
+                "orderID": "124",
+                "price": "150.125",
+                "tradeOpened": {"tradeID": "trade-1", "price": "150.125"},
+            },
+        }
+    )
+    rejected = map_order_create_response(
+        {"orderRejectTransaction": {"rejectReason": "PRICE_INVALID"}}
+    )
+    cancelled = map_order_create_response(
+        {"orderCancelTransaction": {"orderID": "125", "reason": "MARKET_HALTED"}}
+    )
+    terminal = map_order_create_response(
+        {
+            "orderCreateTransaction": {"id": "126"},
+            "orderFillTransaction": {
+                "orderID": "126",
+                "tradeReduced": {"tradeID": "existing-trade"},
+            },
+        }
+    )
+    closed_multiple = map_order_create_response(
+        {
+            "orderFillTransaction": {
+                "orderID": "127",
+                "tradesClosed": [
+                    {"tradeID": "existing-1"},
+                    {"tradeID": "existing-2"},
+                ],
+            },
+        }
+    )
+    unknown = map_order_create_response({})
+
+    assert (pending.state, pending.order_id) == (OrderSubmissionState.PENDING, "123")
+    assert (filled.state, filled.order_id, filled.trade_id, filled.fill_price) == (
+        OrderSubmissionState.FILLED,
+        "124",
+        "trade-1",
+        150.125,
+    )
+    assert (rejected.state, rejected.reason) == (
+        OrderSubmissionState.REJECTED,
+        "PRICE_INVALID",
+    )
+    assert (cancelled.state, cancelled.order_id, cancelled.reason) == (
+        OrderSubmissionState.CANCELLED,
+        "125",
+        "MARKET_HALTED",
+    )
+    assert (terminal.state, terminal.affected_trade_ids) == (
+        OrderSubmissionState.TERMINAL,
+        ("existing-trade",),
+    )
+    assert closed_multiple.affected_trade_ids == ("existing-1", "existing-2")
+    assert unknown.state is OrderSubmissionState.UNKNOWN
 
 
 @pytest.mark.contract

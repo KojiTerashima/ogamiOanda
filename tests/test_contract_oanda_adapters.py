@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from oandapyV20.endpoints.accounts import AccountSummary
 
 import pytest
 from oandapyV20.endpoints.instruments import InstrumentsCandles
@@ -11,7 +12,12 @@ from ogami_oanda.adapters.oanda.client import OandaClient
 from ogami_oanda.adapters.oanda.execution import OandaExecutionAdapter
 from ogami_oanda.adapters.oanda.market_data import OandaMarketDataAdapter
 from ogami_oanda.adapters.oanda.query import OandaQueryAdapter
-from ogami_oanda.application.ports.broker import BrokerExecutionPort, BrokerQueryPort
+from ogami_oanda.application.ports.broker import (
+    BrokerExecutionPort,
+    BrokerQueryPort,
+    MutationState,
+    OrderSubmissionState,
+)
 from ogami_oanda.application.ports.market_data import MarketDataPort
 from ogami_oanda.domain.orders.models import BrokerOrderRequest, OrderType
 
@@ -33,6 +39,13 @@ class _Client:
 
     def request(self, endpoint):
         self.endpoints.append(endpoint)
+        if isinstance(endpoint, AccountSummary):
+            return {
+                "account": {
+                    "id": "account-1",
+                    "hedgingEnabled": True,
+                }
+            }
         if isinstance(endpoint, PricingInfo):
             return {"prices": [{"bids": [{"price": "150.10"}], "asks": [{"price": "150.12"}]}]}
         if isinstance(endpoint, InstrumentsCandles):
@@ -260,16 +273,99 @@ def test_execution_adapter_normalizes_oanda_api_exceptions_as_rejections():
 
 
 @pytest.mark.contract
+def test_execution_adapter_classifies_submit_rejection_transient_and_unknown_errors():
+    request = BrokerOrderRequest(
+        "USD_JPY",
+        1,
+        OrderType.MARKET,
+        150.0,
+        150.2,
+        149.8,
+    )
+    rejected = OandaExecutionAdapter(
+        _MutationClient(
+            [V20Error(400, '{"errorCode":"ORDER_REJECTED","errorMessage":"Invalid order"}')]
+        )
+    ).submit(request)
+    unknown = OandaExecutionAdapter(
+        _MutationClient(
+            [V20Error(503, '{"errorCode":"SERVICE_UNAVAILABLE","errorMessage":"Retry later"}')]
+        )
+    ).submit(request)
+
+    assert (rejected.state, rejected.reason) == (
+        OrderSubmissionState.REJECTED,
+        "ORDER_REJECTED: Invalid order",
+    )
+    assert (unknown.state, unknown.reason) == (
+        OrderSubmissionState.UNKNOWN,
+        "SERVICE_UNAVAILABLE: Retry later",
+    )
+
+    with pytest.raises(RuntimeError, match="programming defect"):
+        OandaExecutionAdapter(
+            _MutationClient([RuntimeError("programming defect")])
+        ).submit(request)
+
+
+@pytest.mark.contract
+def test_execution_adapter_marks_transient_mutation_failure_as_unknown():
+    adapter = OandaExecutionAdapter(
+        _MutationClient(
+            [V20Error(503, '{"errorCode":"SERVICE_UNAVAILABLE","errorMessage":"Retry later"}')]
+        )
+    )
+
+    result = adapter.cancel_order("order-1")
+
+    assert result.state is MutationState.UNKNOWN
+    assert result.accepted is False
+    assert result.message == "SERVICE_UNAVAILABLE: Retry later"
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    "error",
+    [
+        TimeoutError("request timed out"),
+        V20Error(429, '{"errorCode":"RATE_LIMIT","errorMessage":"Slow down"}'),
+    ],
+)
+def test_execution_adapter_never_blindly_retries_uncertain_submit(error):
+    client = _MutationClient([error])
+    adapter = OandaExecutionAdapter(client)
+
+    result = adapter.submit(
+        BrokerOrderRequest(
+            "USD_JPY",
+            1,
+            OrderType.MARKET,
+            150.0,
+            150.2,
+            149.8,
+        )
+    )
+
+    assert result.state is OrderSubmissionState.UNKNOWN
+    assert result.accepted is False
+    with pytest.raises(StopIteration):
+        client.request(object())
+
+
+@pytest.mark.contract
 def test_query_adapter_maps_pending_and_open_runtime_state_behind_query_port():
     client = _Client()
     adapter = OandaQueryAdapter(client)
 
+    capabilities = adapter.account_capabilities()
     order = adapter.order("order-1")
     trade = adapter.trade("trade-1")
     pending = adapter.pending_orders()
     opened = adapter.open_positions()
 
     assert isinstance(adapter, BrokerQueryPort)
+    assert capabilities.account_id == "account-1"
+    assert capabilities.hedging_enabled is True
     assert order is not None and order.order_id == "order-1"
     assert trade is not None and trade.trade_id == "trade-1"
     assert pending[0].direction == -1

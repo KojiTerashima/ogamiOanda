@@ -15,7 +15,11 @@ from ogami_oanda.adapters.oanda.mappers import (
     map_trade_protection_response,
     oanda_error_reason,
 )
-from ogami_oanda.application.ports.broker import ExecutionResult
+from ogami_oanda.application.ports.broker import (
+    ExecutionResult,
+    MutationState,
+    OrderSubmissionResult,
+)
 from ogami_oanda.domain.orders.models import BrokerOrderRequest
 
 
@@ -23,16 +27,32 @@ class OandaExecutionAdapter:
     def __init__(self, client: OandaClient) -> None:
         self.client = client
 
-    def submit(self, request: BrokerOrderRequest) -> ExecutionResult:
-        response = self.client.request(OrderCreate(accountID=self.client.account_id, data=broker_request_to_oanda(request)))
-        accepted, reference_id = map_order_create_response(response)
-        return ExecutionResult(accepted=accepted, reference_id=reference_id)
+    def submit(self, request: BrokerOrderRequest) -> OrderSubmissionResult:
+        try:
+            response = self.client.request(
+                OrderCreate(
+                    accountID=self.client.account_id,
+                    data=broker_request_to_oanda(
+                        request,
+                        include_client_extensions=bool(
+                            getattr(
+                                getattr(self.client, "account", None),
+                                "client_extensions_enabled",
+                                False,
+                            )
+                        ),
+                    ),
+                )
+            )
+        except Exception as error:
+            return _submission_exception_result(error)
+        return map_order_create_response(response)
 
     def cancel_order(self, order_id: str) -> ExecutionResult:
         try:
             response = self.client.request(OrderCancel(accountID=self.client.account_id, orderID=order_id))
         except Exception as error:
-            return _rejected_exception(error)
+            return _mutation_exception_result(error)
         accepted, reference_id, reason = map_order_cancel_response(response, order_id)
         return ExecutionResult(accepted=accepted, reference_id=reference_id, message=reason)
 
@@ -41,7 +61,7 @@ class OandaExecutionAdapter:
         try:
             response = self.client.request(TradeClose(accountID=self.client.account_id, tradeID=trade_id, data=data))
         except Exception as error:
-            return _rejected_exception(error)
+            return _mutation_exception_result(error)
         accepted, reference_id, reason = map_trade_close_response(response, trade_id)
         return ExecutionResult(accepted=accepted, reference_id=reference_id, message=reason)
 
@@ -54,18 +74,57 @@ class OandaExecutionAdapter:
         try:
             response = self.client.request(TradeCRCDO(accountID=self.client.account_id, tradeID=trade_id, data=data))
         except Exception as error:
-            return _rejected_exception(error)
+            return _mutation_exception_result(error)
         accepted, reference_id, reason = map_trade_protection_response(response, trade_id)
         return ExecutionResult(accepted=accepted, reference_id=reference_id, message=reason)
 
 
-def _rejected_exception(error: Exception) -> ExecutionResult:
+def _submission_exception_result(error: Exception) -> OrderSubmissionResult:
+    reason = _exception_reason(error)
+    if _is_transient(error):
+        return OrderSubmissionResult.unknown(reason)
+    if _is_broker_rejection(error):
+        return OrderSubmissionResult.rejected(reason)
+    raise error
+
+
+def _mutation_exception_result(error: Exception) -> ExecutionResult:
+    reason = _exception_reason(error)
+    if _is_transient(error):
+        return ExecutionResult(False, message=reason, state=MutationState.UNKNOWN)
+    if not _is_broker_rejection(error):
+        raise error
+    return ExecutionResult(False, message=reason, state=MutationState.REJECTED)
+
+
+def _exception_reason(error: Exception) -> str:
     raw_message = getattr(error, "msg", None)
     if isinstance(raw_message, Mapping):
-        reason = oanda_error_reason(raw_message, str(error) or error.__class__.__name__)
-    else:
-        reason = _exception_text(raw_message, error)
-    return ExecutionResult(accepted=False, message=reason)
+        return oanda_error_reason(raw_message, str(error) or error.__class__.__name__)
+    return _exception_text(raw_message, error)
+
+
+def _status_code(error: Exception) -> int | None:
+    raw_code = getattr(error, "code", None)
+    try:
+        return int(raw_code) if raw_code is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_transient(error: Exception) -> bool:
+    code = _status_code(error)
+    if code in {408, 425, 429} or (code is not None and code >= 500):
+        return True
+    if isinstance(error, (TimeoutError, ConnectionError)):
+        return True
+    error_name = error.__class__.__name__.lower()
+    return "timeout" in error_name or "connection" in error_name or "proxy" in error_name
+
+
+def _is_broker_rejection(error: Exception) -> bool:
+    code = _status_code(error)
+    return code is not None and 400 <= code < 500
 
 
 def _exception_text(raw_message: object, error: Exception) -> str:

@@ -57,11 +57,45 @@ class ManagedPosition:
     def pending(self, order_id: str) -> "ManagedPosition":
         return self._replace(order_state=OrderState.PENDING, order_id=order_id, waiting_order=False, life=True)
 
-    def filled(self, trade_id: str, filled_at: datetime | None = None) -> "ManagedPosition":
-        position = self._replace(order_state=OrderState.FILLED, trade_state=TradeState.OPEN, trade_id=trade_id, waiting_order=False, life=True)
+    def filled(
+        self,
+        trade_id: str,
+        filled_at: datetime | None = None,
+        *,
+        order_id: str | None = None,
+        fill_price: float | None = None,
+    ) -> "ManagedPosition":
+        changes: dict[str, object] = {
+            "order_state": OrderState.FILLED,
+            "trade_state": TradeState.OPEN,
+            "trade_id": trade_id,
+            "waiting_order": False,
+            "life": True,
+        }
+        if order_id is not None:
+            changes["order_id"] = order_id
+        if fill_price is not None:
+            changes["current_price"] = fill_price
+        position = self._replace(**changes)
         if filled_at is None or position.runtime.filled_at is not None:
             return position
         return replace(position, runtime=replace(position.runtime, filled_at=filled_at))
+
+    def rejected(self, reason: str = "") -> "ManagedPosition":
+        position = self._replace(
+            order_state=OrderState.REJECTED,
+            waiting_order=False,
+            life=False,
+        )
+        return replace(position, runtime=replace(position.runtime, submission_reason=reason))
+
+    def submission_uncertain(self, reason: str) -> "ManagedPosition":
+        position = self._replace(
+            order_state=OrderState.SUBMISSION_UNCERTAIN,
+            waiting_order=False,
+            life=True,
+        )
+        return replace(position, runtime=replace(position.runtime, submission_reason=reason))
 
     def cancelled(self) -> "ManagedPosition":
         return self._replace(order_state=OrderState.CANCELLED, waiting_order=False, life=False)

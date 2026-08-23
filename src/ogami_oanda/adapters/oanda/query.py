@@ -1,16 +1,28 @@
 from __future__ import annotations
 
+from oandapyV20.endpoints.accounts import AccountSummary
 from oandapyV20.endpoints.orders import OrderDetails, OrdersPending
 from oandapyV20.endpoints.trades import OpenTrades, TradeDetails
 
 from ogami_oanda.adapters.oanda.client import OandaClient
 from ogami_oanda.adapters.oanda.mappers import map_order_snapshot, map_trade_snapshot
+from ogami_oanda.application.ports.broker import AccountCapabilities
 from ogami_oanda.domain.positions.models import PositionSnapshot
 
 
 class OandaQueryAdapter:
     def __init__(self, client: OandaClient) -> None:
         self.client = client
+
+    def account_capabilities(self) -> AccountCapabilities:
+        response = self.client.request(
+            AccountSummary(accountID=self.client.account_id)
+        )
+        account = response.get("account", {})
+        return AccountCapabilities(
+            account_id=str(account.get("id", self.client.account_id)),
+            hedging_enabled=bool(account.get("hedgingEnabled", False)),
+        )
 
     def position(self, reference_id: str) -> PositionSnapshot | None:
         order = self.order(reference_id)

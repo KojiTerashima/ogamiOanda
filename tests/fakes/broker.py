@@ -1,22 +1,36 @@
 from __future__ import annotations
 
-from ogami_oanda.application.ports.broker import ExecutionResult
+from ogami_oanda.application.ports.broker import (
+    AccountCapabilities,
+    ExecutionResult,
+    OrderSubmissionResult,
+)
 from ogami_oanda.domain.orders.models import BrokerOrderRequest
 from ogami_oanda.domain.positions.models import PositionSnapshot
 
 
 class FakeBroker:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        account_id: str = "id",
+        hedging_enabled: bool = True,
+    ) -> None:
+        self.account_id = account_id
+        self.hedging_enabled = hedging_enabled
         self.requests: list[BrokerOrderRequest] = []
         self.commands: list[tuple[str, tuple[object, ...]]] = []
         self.positions: dict[str, PositionSnapshot] = {}
         self.orders: dict[str, PositionSnapshot] = {}
         self.trades: dict[str, PositionSnapshot] = {}
 
-    def submit(self, request: BrokerOrderRequest) -> ExecutionResult:
+    def account_capabilities(self) -> AccountCapabilities:
+        return AccountCapabilities(self.account_id, self.hedging_enabled)
+
+    def submit(self, request: BrokerOrderRequest) -> OrderSubmissionResult:
         self.requests.append(request)
         reference_id = f"order-{len(self.requests)}"
-        return ExecutionResult(accepted=True, reference_id=reference_id)
+        return OrderSubmissionResult.pending(reference_id)
 
     def cancel_order(self, order_id: str) -> ExecutionResult:
         self.commands.append(("cancel_order", (order_id,)))

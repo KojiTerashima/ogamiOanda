@@ -276,6 +276,14 @@ def build_live_application(
         market_data = market_data or OandaMarketDataAdapter(client)
         broker_execution = broker_execution or OandaExecutionAdapter(client)
         broker_query = broker_query or OandaQueryAdapter(client)
+    account = settings.account(account_name)
+    capabilities = broker_query.account_capabilities()
+    if capabilities.account_id != account.account_id:
+        raise ValueError("Broker account identity does not match configuration")
+    if account.require_hedging and not capabilities.hedging_enabled:
+        raise ValueError(
+            "Configured account must have hedging enabled for positionFill=DEFAULT"
+        )
     notifier = notifier or DiscordNotifier(settings.notifications, clock, create_http_session())
     history = history or CsvTradeHistoryRepository(settings.paths.history_file)
     position_service = PositionService(

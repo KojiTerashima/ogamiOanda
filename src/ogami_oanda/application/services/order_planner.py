@@ -7,6 +7,7 @@ from ogami_oanda.domain.orders.models import (
     OrderIntent,
     OrderPlan,
     OrderType,
+    submission_fingerprint,
 )
 
 
@@ -24,6 +25,15 @@ class OrderPlanner:
             price=target_price,
             take_profit_price=take_profit_price,
             stop_loss_price=stop_loss_price,
+            client_reference=submission_fingerprint(
+                pair=intent.pair,
+                name=intent.name,
+                decision_time=context.decision_time,
+                direction=direction,
+                order_type=intent.order_type,
+                target_price=target_price,
+                units=intent.units,
+            ),
         )
         return OrderPlan(
             intent=intent,

@@ -5,8 +5,9 @@ from typing import Mapping
 import pandas as pd
 
 from ogami_oanda.domain.market.currency_pair import currency_pair
-from ogami_oanda.domain.orders.models import BrokerOrderRequest
+from ogami_oanda.domain.orders.models import BrokerOrderRequest, OrderType
 from ogami_oanda.domain.positions.models import OrderState, PositionSnapshot, TradeState
+from ogami_oanda.application.ports.broker import OrderSubmissionResult
 
 
 def map_price_response(pair_name: str, response: Mapping[str, object]) -> dict[str, float]:
@@ -50,26 +51,106 @@ def map_candle_response(response: Mapping[str, object]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns).sort_values("time_jp_dt", ascending=False).reset_index(drop=True)
 
 
-def broker_request_to_oanda(request: BrokerOrderRequest) -> dict[str, object]:
+def broker_request_to_oanda(
+    request: BrokerOrderRequest,
+    *,
+    include_client_extensions: bool = False,
+) -> dict[str, object]:
     pair = currency_pair(request.instrument)
-    return {
-        "order": {
-            "instrument": request.instrument,
-            "units": str(request.units),
-            "type": request.order_type.value,
-            "positionFill": "DEFAULT",
-            "price": pair.price_to_str(request.price),
-            "takeProfitOnFill": {"timeInForce": "GTC", "price": pair.price_to_str(request.take_profit_price)},
-            "stopLossOnFill": {"timeInForce": "GTC", "price": pair.price_to_str(request.stop_loss_price)},
-        }
+    order = {
+        "instrument": request.instrument,
+        "units": str(request.units),
+        "type": request.order_type.value,
+        "timeInForce": "FOK" if request.order_type is OrderType.MARKET else "GTC",
+        "positionFill": "DEFAULT",
+        "takeProfitOnFill": {"timeInForce": "GTC", "price": pair.price_to_str(request.take_profit_price)},
+        "stopLossOnFill": {"timeInForce": "GTC", "price": pair.price_to_str(request.stop_loss_price)},
     }
+    if request.order_type is not OrderType.MARKET:
+        order["price"] = pair.price_to_str(request.price)
+    if include_client_extensions and request.client_reference:
+        extensions = {
+            "id": request.client_reference,
+            "tag": "ogami-oanda",
+        }
+        order["clientExtensions"] = extensions
+        order["tradeClientExtensions"] = dict(extensions)
+    return {"order": order}
 
 
-def map_order_create_response(response: Mapping[str, object]) -> tuple[bool, str | None]:
-    if "orderCancelTransaction" in response:
-        return False, None
-    transaction = response.get("orderCreateTransaction", {})
-    return True, str(transaction.get("id")) if transaction.get("id") is not None else None
+def map_order_create_response(response: Mapping[str, object]) -> OrderSubmissionResult:
+    rejected = response.get("orderRejectTransaction")
+    if isinstance(rejected, Mapping):
+        return OrderSubmissionResult.rejected(
+            _transaction_reason(rejected, response, "OANDA rejected order creation")
+        )
+
+    created = response.get("orderCreateTransaction")
+    order_id = (
+        str(created["id"])
+        if isinstance(created, Mapping) and created.get("id") is not None
+        else None
+    )
+    cancelled = response.get("orderCancelTransaction")
+    if isinstance(cancelled, Mapping):
+        cancelled_order_id = cancelled.get("orderID", order_id)
+        return OrderSubmissionResult.cancelled(
+            _transaction_reason(cancelled, response, "OANDA cancelled order on creation"),
+            order_id=str(cancelled_order_id) if cancelled_order_id is not None else None,
+        )
+
+    filled = response.get("orderFillTransaction")
+    if isinstance(filled, Mapping):
+        fill_order_id = filled.get("orderID", order_id)
+        opened = filled.get("tradeOpened")
+        if isinstance(opened, Mapping) and opened.get("tradeID") is not None:
+            raw_price = opened.get("price", filled.get("price"))
+            return OrderSubmissionResult.filled(
+                order_id=str(fill_order_id) if fill_order_id is not None else None,
+                trade_id=str(opened["tradeID"]),
+                fill_price=float(raw_price) if raw_price is not None else None,
+            )
+        affected_trade_ids = _affected_trade_ids(filled)
+        if affected_trade_ids:
+            return OrderSubmissionResult.terminal(
+                "entry order reduced or closed an existing trade",
+                order_id=str(fill_order_id) if fill_order_id is not None else None,
+                affected_trade_ids=affected_trade_ids,
+            )
+        return OrderSubmissionResult.terminal(
+            "order fill did not open a managed trade",
+            order_id=str(fill_order_id) if fill_order_id is not None else None,
+        )
+
+    if order_id is not None:
+        return OrderSubmissionResult.pending(order_id)
+    return OrderSubmissionResult.unknown("OANDA order response had no recognized transaction")
+
+
+def _transaction_reason(
+    transaction: Mapping[str, object],
+    response: Mapping[str, object],
+    fallback: str,
+) -> str:
+    for key in ("rejectReason", "reason"):
+        if transaction.get(key) is not None:
+            return str(transaction[key])
+    return oanda_error_reason(response, fallback)
+
+
+def _affected_trade_ids(transaction: Mapping[str, object]) -> tuple[str, ...]:
+    ids: list[str] = []
+    reduced = transaction.get("tradeReduced")
+    if isinstance(reduced, Mapping) and reduced.get("tradeID") is not None:
+        ids.append(str(reduced["tradeID"]))
+    closed = transaction.get("tradesClosed")
+    if isinstance(closed, list):
+        ids.extend(
+            str(item["tradeID"])
+            for item in closed
+            if isinstance(item, Mapping) and item.get("tradeID") is not None
+        )
+    return tuple(ids)
 
 
 def map_order_cancel_response(

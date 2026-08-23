@@ -459,6 +459,11 @@ def test_live_composition_shares_one_oanda_client_across_all_broker_adapters(mon
         def __init__(self, client):
             self.client = client
 
+        def account_capabilities(self):
+            from ogami_oanda.application.ports.broker import AccountCapabilities
+
+            return AccountCapabilities("id", True)
+
         def open_positions(self):
             return []
 
@@ -482,3 +487,29 @@ def test_live_composition_shares_one_oanda_client_across_all_broker_adapters(mon
     assert application.market_data.client is clients[0]
     assert application.portfolio.broker_execution.client is clients[0]
     assert application.portfolio.broker_query.client is clients[0]
+
+
+@pytest.mark.contract
+def test_live_composition_fails_closed_when_required_hedging_is_disabled(candle_frame):
+    settings = AppSettings(
+        {"primary": RuntimeAccountConfig("id", "token", "practice")}
+    )
+    broker = FakeBroker(hedging_enabled=False)
+    market = FakeMarketData(
+        {("USD_JPY", "M5"): candle_frame},
+        {"USD_JPY": 150.0},
+    )
+
+    with pytest.raises(ValueError, match="hedging enabled"):
+        build_live_application(
+            settings,
+            market_data=market,
+            broker_execution=broker,
+            broker_query=broker,
+            notifier=FakeNotifier(),
+            history=InMemoryTradeHistoryRepository(),
+            clock=FixedClock(datetime(2026, 1, 2)),
+        )
+
+    assert broker.requests == []
+    assert broker.commands == []

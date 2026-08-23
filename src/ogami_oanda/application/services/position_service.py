@@ -4,6 +4,10 @@ from dataclasses import dataclass, replace
 from typing import Callable, Mapping
 
 from ogami_oanda.application.ports.broker import BrokerExecutionPort, BrokerQueryPort
+from ogami_oanda.application.ports.broker import (
+    OrderSubmissionResult,
+    OrderSubmissionState,
+)
 from ogami_oanda.application.ports.clock import Clock
 from ogami_oanda.application.ports.notifications import Notifier
 from ogami_oanda.application.ports.trade_history import TradeHistoryRepository
@@ -13,6 +17,7 @@ from ogami_oanda.application.services.closure_reporting_service import (
 from ogami_oanda.domain.orders.models import OrderPlan
 from ogami_oanda.domain.positions.managed_position import ManagedPosition
 from ogami_oanda.domain.positions.models import (
+    OrderState,
     PositionCommand,
     PositionEvent,
     PositionSnapshot,
@@ -71,11 +76,7 @@ class PositionService:
         if not submit:
             return position.watching()
         result = self.broker_execution.submit(order_plan.broker_request)
-        if not result.accepted or result.reference_id is None:
-            self.notifier.send(f"Order rejected: {position.snapshot.name}", pair=position.snapshot.pair)
-            return position.cancelled()
-        self.notifier.send(f"Order submitted: {position.snapshot.name}", pair=position.snapshot.pair)
-        return position.pending(result.reference_id)
+        return self._apply_submission_result(position, result)
 
     def sync(self, position: ManagedPosition) -> ManagedPosition:
         return self.sync_result(position).position
@@ -88,6 +89,8 @@ class PositionService:
         candle_stop_loss: CandleStopLossInput | None = None,
         dry_run: bool = False,
     ) -> PositionSyncResult:
+        if position.snapshot.order_state is OrderState.SUBMISSION_UNCERTAIN:
+            return PositionSyncResult(position, reason="submission_uncertain")
         if position.snapshot.waiting_order:
             return self._sync_watching(position, current_price, dry_run)
         if position.snapshot.trade_id is not None:
@@ -208,15 +211,56 @@ class PositionService:
                 reason=decision.reason,
             )
         result = self.broker_execution.submit(plan.broker_request)
-        if not result.accepted or result.reference_id is None:
-            return PositionSyncResult(updated.cancelled(), commands=(command,), reason="broker_rejected")
-        pending = updated.pending(result.reference_id)
+        submitted = self._apply_submission_result(updated, result)
+        if submitted.snapshot.order_state is OrderState.SUBMISSION_UNCERTAIN:
+            return PositionSyncResult(submitted, commands=(command,), reason="submission_uncertain")
+        if not result.accepted:
+            return PositionSyncResult(submitted, commands=(command,), reason=result.reason or "broker_rejected")
+        event_kind = "trade_opened" if result.state is OrderSubmissionState.FILLED else "order_submitted"
         return PositionSyncResult(
-            pending,
+            submitted,
             commands=(command,),
-            events=self._events_once(self._event("order_submitted", pending, pending.snapshot), False),
+            events=self._events_once(self._event(event_kind, submitted, submitted.snapshot), False),
             reason=decision.reason,
         )
+
+    def _apply_submission_result(
+        self,
+        position: ManagedPosition,
+        result: OrderSubmissionResult,
+    ) -> ManagedPosition:
+        if result.state is OrderSubmissionState.PENDING and result.order_id is not None:
+            self.notifier.send(
+                f"Order submitted: {position.snapshot.name}",
+                pair=position.snapshot.pair,
+            )
+            return position.pending(result.order_id)
+        if result.state is OrderSubmissionState.FILLED and result.trade_id is not None:
+            self.notifier.send(
+                f"Order filled: {position.snapshot.name}",
+                pair=position.snapshot.pair,
+            )
+            return position.filled(
+                result.trade_id,
+                self.clock.now(),
+                order_id=result.order_id,
+                fill_price=result.fill_price,
+            )
+        if result.state is OrderSubmissionState.UNKNOWN:
+            reason = result.reason or "request outcome unknown"
+            self.notifier.send(
+                f"Order submission uncertain: {position.snapshot.name}: {reason}",
+                pair=position.snapshot.pair,
+            )
+            return position.submission_uncertain(reason)
+        reason = result.reason or result.state.value
+        self.notifier.send(
+            f"Order rejected: {position.snapshot.name}: {reason}",
+            pair=position.snapshot.pair,
+        )
+        if result.state is OrderSubmissionState.CANCELLED:
+            return position.cancelled().with_runtime(submission_reason=reason)
+        return position.rejected(reason)
 
     def _pending_timeout(
         self,

@@ -12,6 +12,8 @@ class RuntimeAccountConfig:
     account_id: str
     access_token: str
     environment: str
+    client_extensions_enabled: bool = False
+    require_hedging: bool = True
 
 
 @dataclass(frozen=True)

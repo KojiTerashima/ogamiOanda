@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
@@ -61,6 +62,31 @@ class BrokerOrderRequest:
     price: float
     take_profit_price: float
     stop_loss_price: float
+    client_reference: str = ""
+
+
+def submission_fingerprint(
+    *,
+    pair: str,
+    name: str,
+    decision_time: str,
+    direction: int,
+    order_type: OrderType,
+    target_price: float,
+    units: int,
+) -> str:
+    identity = "\x1f".join(
+        (
+            pair,
+            name,
+            decision_time,
+            str(direction),
+            order_type.value,
+            format(target_price, ".10f"),
+            str(units),
+        )
+    )
+    return f"ogm-{hashlib.sha256(identity.encode('utf-8')).hexdigest()[:20]}"
 
 
 @dataclass(frozen=True)
