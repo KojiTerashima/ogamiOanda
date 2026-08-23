@@ -1,0 +1,1 @@
+{"events":[{"commands":[],"elapsed_seconds":60,"kind":"position_tick","slot":{"life":true,"trade_state":"OPEN"}},{"commands":[],"elapsed_seconds":61,"kind":"position_tick","slot":{"life":true,"trade_state":"OPEN"}}],"kind":"position_lifecycle","pair":"USD_JPY","runner":"trace-runner","scenario_id":"position-trade-timeout-disabled-usd-jpy","schema_version":"1.1.0"}

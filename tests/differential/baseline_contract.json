@@ -83,5 +83,14 @@
       "pandas.read_csv",
       "DataFrame.to_csv"
     ]
+  },
+  "bootstrap_oracles": {
+    "relationship": "Pre-differential characterization fixtures; exact eff331c provenance was not recorded and must not be inferred.",
+    "disposition": "Retained for focused bootstrap tests; checked-in differential traces supersede them as baseline provenance.",
+    "sha256": {
+      "analysis_oracle_aud_usd.json": "cd3354e523573ef7c3770716bdfea36025e93857f6932fa4188679a3caf86769",
+      "analysis_oracle_eur_usd.json": "24bed70408ccc17f68283d1f8bb0e55c35e23d9b74b797517949fc025367b10e",
+      "analysis_oracle_usd_jpy.json": "7e4ebeccb5956d771a5e9952d837fadb99f085a0268ac9cb7b0f1658fae0cdc2"
+    }
   }
 }

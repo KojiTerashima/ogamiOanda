@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-watching-stop-sell-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "watching",
+    "order": {
+      "name": "stop-sell-watch",
+      "current_price": 150.01,
+      "target": 150.0,
+      "direction": -1,
+      "type": "STOP",
+      "tp": 0.1,
+      "lc": 0.1,
+      "lc_change": [],
+      "units": 1000,
+      "priority": 1,
+      "order_timeout_min": 2,
+      "order_permission": false
+    },
+    "ticks": [
+      {"at": "2026-01-02T10:00:00", "price": 149.99},
+      {"at": "2026-01-02T10:00:29", "price": 149.99},
+      {"at": "2026-01-02T10:00:30", "price": 149.99}
+    ]
+  }
+}

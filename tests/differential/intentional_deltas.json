@@ -1,1 +1,502 @@
-[]
+[
+  {
+    "delta_id": "analysis-multi-eur-adapter-plans",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/adapter_plans",
+    "left": {"$sha256": "6a0864b71f658a6858b45824a74c7d85f5c65adb2bfa67af0cb3338207afc99c"},
+    "right": {"$sha256": "88a6c40414e815fcbf7af54ada02ae33669da63e38fbe5dd11fcc866ab2b6f9d"},
+    "reason": "Legacy finalization removes three near-duplicate selected lines and keeps six flat plans; current analysis preserves all nine adapter plans. Exact ordered arrays keep every field and future shape change observable.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-enriched-candidates",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/candidates/enriched/future_break",
+    "left": {"$sha256": "37c408ddfc2072e13a42440573b8b841426d19c07a8b37f25fe5d6e1a098cdf2"},
+    "right": {"$sha256": "0f30fd3f54e61f3b4cd74f7cb4d59c4930a5833f6b17ce315f9a87e90d7b0afc"},
+    "reason": "The exact ordered enrichment arrays expose legacy near-line finalization and current all-selected behavior while preserving candidate, reason, session, sizing, and plan contents.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-intent-metadata-loss",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/intent_metadata_loss",
+    "left": {"$sha256": "ee736357bbbb900b35fdf3839f2b31042a6c10de7d382a7132f9eb92b763f2a7"},
+    "right": {"$sha256": "efdd02a5f03217fb879976079937931b320066313a832f5a5cb2c68948755065"},
+    "reason": "Legacy has six empty loss records for flat plans; current reports the exact adapter metadata loss for all nine typed intents.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-intents",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/intents",
+    "left": {"$sha256": "74c0b2d4b926e30e64b351b2f3f8e24e910624705dee966011fcab99321cb3a9"},
+    "right": {"$sha256": "7472ccf27627cea971fa9b79e9b534f91c5b65f640e7d3e035067c3c92ec5f5b"},
+    "reason": "The ordered legacy flat-intent projection contains six finalized lines; current exposes nine typed intents with lossless strategy metadata.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-semantic-plans",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/plans",
+    "left": {"$sha256": "6a0864b71f658a6858b45824a74c7d85f5c65adb2bfa67af0cb3338207afc99c"},
+    "right": {"$sha256": "4c9d2bd553cdf7726751689f67127da52d2b2b2771ac69835b1e515a2259627a"},
+    "reason": "Legacy emits six finalized flat plans after near-line filtering; current emits nine semantic plans and retains path and effective sizing metadata.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-payloads",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/payloads",
+    "left": {"$sha256": "83eba89a444b77ce42b71704e0c7adbb29674041c539b3c2a71eff113688a4f6"},
+    "right": {"$sha256": "80865cfbc98676de88deee77488097bf07b830c22ae132276204846444189d3a"},
+    "reason": "The exact payload arrays combine legacy six-plan filtering with current nine-plan output and the reviewed OANDA GTC wire field; any payload or ordering change invalidates the hashes.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-legacy-plans",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/legacy_plans",
+    "left": {"$sha256": "4c7e667377a8c94f8d0ea8a9f9cfad444cb8cf95413335f60b5529ddc30a89d8"},
+    "right": {"$sha256": "97819ea5107ac19f1cdb8d8c54d49de137c77f0774cfcd156507ce91f2997ac9"},
+    "reason": "Legacy compatibility views preserve the exact six-versus-nine final-plan behavior and plan ordering for review.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-h1-range-max",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/lines/h1_upper/4/range_max",
+    "left": 11139.0,
+    "right": 11140.5,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-h1-range-min",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/lines/h1_upper/4/range_min",
+    "left": 11133.0,
+    "right": 11134.5,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "position-not-found-legacy-close-query",
+    "scenario_id": "position-broker-not-found-usd-jpy",
+    "pointer": "/events/0/broker_actions/5",
+    "left": "order",
+    "right": {"$missing": true},
+    "reason": "Legacy performs one final order-detail query while closing after the fourth missing response. Current preserves the unresolved pending position and issues no assumed-terminal query.",
+    "reference": "docs/differential-verification.md#broker-reconciliation-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "position-pending-timeout-broker-command-shape",
+    "scenario_id": "position-pending-timeout-usd-jpy",
+    "pointer": "/events/2/broker_actions/1",
+    "left": "order",
+    "right": "cancel_order",
+    "reason": "Legacy re-queries order state inside close_order before finalizing cancellation; current uses the authoritative snapshot already read in the tick and sends the cancel command directly.",
+    "reference": "docs/differential-verification.md#broker-reconciliation-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-h1-range-max",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/lines/h1_upper/5/range_max",
+    "left": 7111.0,
+    "right": 7112.5,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-h1-range-min",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/lines/h1_upper/5/range_min",
+    "left": 7105.0,
+    "right": 7106.5,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-adapter-plan-subtree",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/adapter_plans/0",
+    "left": {"$sha256": "cbaf68835ab5ef86d99a22d5506b19bcdc4ded96a2c1f38b2213c51eae4c9215"},
+    "right": {"$sha256": "3145df59a165cce2b2e2f822f84af57b3ff04e29f5a30b9fb1d1281092f7d145"},
+    "reason": "The current legacy adapter records effective TP/LC as original prices and omits top-level path-adjustment metadata; the exact adapter outputs remain independently visible.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-enriched-candidate-subtree",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/candidates/enriched/future_break/0",
+    "left": {"$sha256": "ef59490c77b0761181057707287ce9526f255509c742f88dc8bbdc2046554772"},
+    "right": {"$sha256": "c5ae45514da125d48f1b261d5e62ce736883af131ca774db161973010255affb"},
+    "reason": "Source-specific enrichment has different object shapes; this exact record fixes every selected candidate, strategy, session, path, sizing, and final-plan field on both sides.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-intent-metadata-loss-subtree",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/intent_metadata_loss/0",
+    "left": {"$sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"},
+    "right": {"$sha256": "47f016eddf5fe4946b59dba09183a8a817e8c8d9838a6a27be4fe6b9ff32583c"},
+    "reason": "Legacy starts from one flat plan, while the current legacy adapter drops an exact set of non-core top-level intent metadata; the loss map is compared explicitly.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-intent-subtree",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/intents/0",
+    "left": {"$sha256": "ed48b1e6e96b31c31f02f5dc859e5e10fbc91ccd028effc2a4a5ff6c949f3a99"},
+    "right": {"$sha256": "a952d1c72378e924a8c165f4aab85a4ec7f62a3af726e315ce210c7eb442a509"},
+    "reason": "The current typed intent preserves explicit effective and base sizing metadata and binary-float pips values; the legacy intent is reconstructed from its flat final plan.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-plan-subtree",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/plans/0",
+    "left": {"$sha256": "cbaf68835ab5ef86d99a22d5506b19bcdc4ded96a2c1f38b2213c51eae4c9215"},
+    "right": {"$sha256": "d61e87e94860c4fc6a6ab362a58382bb406ed496c80529f35f4f60c67fd160e2"},
+    "reason": "The semantic current plan supplements the adapter output with all non-core intent metadata so path and effective sizing fields cannot be pruned.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-h1-range-max",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/lines/h1_upper/4/range_max",
+    "left": 11139.0,
+    "right": 11140.5,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-h1-range-min",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/lines/h1_upper/4/range_min",
+    "left": 11133.0,
+    "right": 11134.5,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-usd-h1-range-max",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/lines/h1_upper/1/range_max",
+    "left": 15095.5,
+    "right": 15096.0,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-usd-h1-range-min",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/lines/h1_upper/1/range_min",
+    "left": 15089.5,
+    "right": 15090.0,
+    "reason": "Legacy and current form the same H1 line from the same prices, count, median, and strength, but retain different clustering range boundaries.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-analysis-eur-stop-time-in-force",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/payloads/0/timeInForce",
+    "left": {"$missing": true},
+    "right": "GTC",
+    "reason": "The current execution adapter emits the OANDA-required top-level GTC timeInForce for STOP orders; the legacy projection omitted it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-limit-buy-time-in-force",
+    "scenario_id": "order-payload-limit-buy-eur-usd",
+    "pointer": "/events/0/payload/timeInForce",
+    "left": {"$missing": true},
+    "right": "GTC",
+    "reason": "The current execution adapter emits the OANDA-required top-level GTC timeInForce for LIMIT orders; the legacy projection omitted it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-limit-sell-time-in-force",
+    "scenario_id": "order-payload-limit-sell-eur-usd",
+    "pointer": "/events/0/payload/timeInForce",
+    "left": {"$missing": true},
+    "right": "GTC",
+    "reason": "The current execution adapter emits the OANDA-required top-level GTC timeInForce for LIMIT orders; the legacy projection omitted it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-market-buy-price-removed",
+    "scenario_id": "order-payload-market-buy-usd-jpy",
+    "pointer": "/events/0/payload/price",
+    "left": "150.2",
+    "right": {"$missing": true},
+    "reason": "The current OANDA MARKET wire payload omits top-level price; the legacy compatibility projection retained it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-market-buy-time-in-force",
+    "scenario_id": "order-payload-market-buy-usd-jpy",
+    "pointer": "/events/0/payload/timeInForce",
+    "left": {"$missing": true},
+    "right": "FOK",
+    "reason": "The current OANDA MARKET wire payload uses FOK timeInForce; the legacy projection omitted it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-market-sell-price-removed",
+    "scenario_id": "order-payload-market-sell-usd-jpy",
+    "pointer": "/events/0/payload/price",
+    "left": "150.2",
+    "right": {"$missing": true},
+    "reason": "The current OANDA MARKET wire payload omits top-level price; the legacy compatibility projection retained it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-market-sell-time-in-force",
+    "scenario_id": "order-payload-market-sell-usd-jpy",
+    "pointer": "/events/0/payload/timeInForce",
+    "left": {"$missing": true},
+    "right": "FOK",
+    "reason": "The current OANDA MARKET wire payload uses FOK timeInForce; the legacy projection omitted it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-stop-buy-time-in-force",
+    "scenario_id": "order-payload-stop-buy-aud-usd",
+    "pointer": "/events/0/payload/timeInForce",
+    "left": {"$missing": true},
+    "right": "GTC",
+    "reason": "The current execution adapter emits the OANDA-required top-level GTC timeInForce for STOP orders; the legacy projection omitted it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "api-wire-stop-sell-time-in-force",
+    "scenario_id": "order-payload-stop-sell-aud-usd",
+    "pointer": "/events/0/payload/timeInForce",
+    "left": {"$missing": true},
+    "right": "GTC",
+    "reason": "The current execution adapter emits the OANDA-required top-level GTC timeInForce for STOP orders; the legacy projection omitted it.",
+    "reference": "docs/differential-verification.md#oanda-wire-contract-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "position-not-found-life",
+    "scenario_id": "position-broker-not-found-usd-jpy",
+    "pointer": "/events/0/life",
+    "left": false,
+    "right": true,
+    "reason": "Legacy cancels a position after four consecutive missing order-detail responses. Current preserves the pending position for authoritative reconciliation.",
+    "reference": "docs/differential-verification.md#broker-reconciliation-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "position-not-found-order-state",
+    "scenario_id": "position-broker-not-found-usd-jpy",
+    "pointer": "/events/0/order_state",
+    "left": "CANCELLED",
+    "right": "PENDING",
+    "reason": "Legacy converts repeated missing order details to CANCELLED. Current keeps PENDING until broker reconciliation establishes a terminal state.",
+    "reference": "docs/differential-verification.md#broker-reconciliation-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "position-not-found-fourth-query-life",
+    "scenario_id": "position-broker-not-found-usd-jpy",
+    "pointer": "/events/0/queries/3/life",
+    "left": false,
+    "right": true,
+    "reason": "The fourth missing legacy order-detail response clears life; current retains life while the order remains unresolved.",
+    "reference": "docs/differential-verification.md#broker-reconciliation-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "position-not-found-fourth-query-state",
+    "scenario_id": "position-broker-not-found-usd-jpy",
+    "pointer": "/events/0/queries/3/order_state",
+    "left": "CANCELLED",
+    "right": "PENDING",
+    "reason": "The fourth missing legacy order-detail response marks cancellation; current requires authoritative reconciliation before a terminal transition.",
+    "reference": "docs/differential-verification.md#broker-reconciliation-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "close-history-realized-pl-format",
+    "scenario_id": "position-close-reporting-usd-jpy",
+    "pointer": "/events/0/history/rows/0/2",
+    "left": "200",
+    "right": "200.0",
+    "reason": "The typed current broker snapshot serializes realized P/L as a float while legacy preserves the original string representation.",
+    "reference": "docs/differential-verification.md#close-reporting-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "close-history-max-plus-format",
+    "scenario_id": "position-close-reporting-usd-jpy",
+    "pointer": "/events/0/history/rows/0/5",
+    "left": "12",
+    "right": "12.0",
+    "reason": "Current typed history serialization writes excursion pips as a float; legacy writes equivalent integer text.",
+    "reference": "docs/differential-verification.md#close-reporting-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "close-history-max-minus-format",
+    "scenario_id": "position-close-reporting-usd-jpy",
+    "pointer": "/events/0/history/rows/0/6",
+    "left": "-4",
+    "right": "-4.0",
+    "reason": "Current typed history serialization writes excursion pips as a float; legacy writes equivalent integer text.",
+    "reference": "docs/differential-verification.md#close-reporting-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "close-history-order-time-format",
+    "scenario_id": "position-close-reporting-usd-jpy",
+    "pointer": "/events/0/history/rows/0/7",
+    "left": "2026/01/02 09:00:00",
+    "right": "2026-01-02 09:00:00",
+    "reason": "Current CSV serializes typed datetime values with ISO date separators; legacy stores slash-separated timestamps.",
+    "reference": "docs/differential-verification.md#close-reporting-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "close-history-memo-source",
+    "scenario_id": "position-close-reporting-usd-jpy",
+    "pointer": "/events/0/history/rows/0/28",
+    "left": "order memo",
+    "right": "close memo",
+    "reason": "Legacy reads memo from the mutable order object; current persists the immutable OrderIntent memo captured at planning time.",
+    "reference": "docs/differential-verification.md#close-reporting-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "close-notification-format",
+    "scenario_id": "position-close-reporting-usd-jpy",
+    "pointer": "/events/0/notifications/0",
+    "left": {"$sha256": "e2398e602e1f1e3ec5c9e05299925a2b41ec28d363b9a191e252707573aa7145"},
+    "right": "Trade closed: close-test-12345 15.0p 200.0",
+    "reason": "Current emits a concise typed close notification; legacy emits the full mutable-position report. History and analytics are compared separately.",
+    "reference": "docs/differential-verification.md#close-reporting-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "portfolio-overflow-accepted-subtree",
+    "scenario_id": "position-portfolio-overflow-usd-jpy",
+    "pointer": "/events/0/accepted",
+    "left": {"$sha256": "393f429ace8ce68cb08dc8305109c4607add246f34612e96d20582d472768a57"},
+    "right": {"$sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"},
+    "reason": "Legacy partially accepts a seven-order batch into six normal slots. Current rejects the complete overfull tier atomically.",
+    "reference": "docs/differential-verification.md#portfolio-acceptance-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "portfolio-overflow-rejected-subtree",
+    "scenario_id": "position-portfolio-overflow-usd-jpy",
+    "pointer": "/events/0/rejected",
+    "left": {"$sha256": "b0e1fd802da318feaa5ba0d8865557907c23b9442d68aa096e961f7deb110ad1"},
+    "right": {"$sha256": "1c64946223b84e8eb096a630963427ec09095b93a827065cc3d615c282b1a2f7"},
+    "reason": "Legacy rejects only the overflow remainder; current rejects every candidate in the overfull tier atomically.",
+    "reference": "docs/differential-verification.md#portfolio-acceptance-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "portfolio-overflow-slots-subtree",
+    "scenario_id": "position-portfolio-overflow-usd-jpy",
+    "pointer": "/events/0/slots",
+    "left": {"$sha256": "7223d2a24cffa04f687c59451a0da49026cced94df6013d4241db782a962f66b"},
+    "right": {"$sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"},
+    "reason": "Legacy leaves six partially accepted slots active; current leaves the portfolio unchanged for an overfull tier.",
+    "reference": "docs/differential-verification.md#portfolio-acceptance-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "live-analysis-window-sequence",
+    "scenario_id": "live-analysis-second-window-usd-jpy",
+    "pointer": "/events/1/sequence",
+    "left": {"$sha256": "1e035aa4c384001e7a9969f7083f0934a1ebb9e18dc0095b07036a01e103a390"},
+    "right": {"$sha256": "94c704233a50914adf85540d5499e80dab8487b0f68c42b36d3630e2057c4f86"},
+    "reason": "Current explicitly calls register_plans([]) after zero-candidate analysis; legacy skips that no-op call.",
+    "reference": "docs/differential-verification.md#live-orchestration-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "live-analysis-window-second-sequence",
+    "scenario_id": "live-analysis-second-window-usd-jpy",
+    "pointer": "/events/2/sequence",
+    "left": {"$sha256": "2e304ae8caa5b54150fadb44996dac6a913ee628c97f14fd8658bdf57bb41cb8"},
+    "right": {"$sha256": "710d51bb21ffa2d89ccaf1a88b7fc8ca00400b3d3f5d04936f17668dc3da9785"},
+    "reason": "Current explicitly calls register_plans([]) after zero-candidate analysis; legacy skips that no-op call.",
+    "reference": "docs/differential-verification.md#live-orchestration-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "live-elapsed-sequence",
+    "scenario_id": "live-elapsed-sync-boundary-usd-jpy",
+    "pointer": "/events/1/sequence",
+    "left": {"$sha256": "2e304ae8caa5b54150fadb44996dac6a913ee628c97f14fd8658bdf57bb41cb8"},
+    "right": {"$sha256": "710d51bb21ffa2d89ccaf1a88b7fc8ca00400b3d3f5d04936f17668dc3da9785"},
+    "reason": "Current explicitly calls register_plans([]) after zero-candidate analysis; legacy skips that no-op call.",
+    "reference": "docs/differential-verification.md#live-orchestration-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "live-first-sequence",
+    "scenario_id": "live-first-tick-update-window-usd-jpy",
+    "pointer": "/events/0/sequence",
+    "left": {"$sha256": "dec365da976caf7e8cb6dae54b2c623d511794cb9c63cf4ca903946a7eb4d14f"},
+    "right": {"$sha256": "078d5d636b79fa6553dc8cf4a8a47d668aa2faed0eddc3208d0a78bab826cf5a"},
+    "reason": "Current explicitly calls register_plans([]) on the first zero-candidate analysis; legacy skips that no-op call.",
+    "reference": "docs/differential-verification.md#live-orchestration-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "live-monday-sequence",
+    "scenario_id": "live-monday-boundary-usd-jpy",
+    "pointer": "/events/1/sequence",
+    "left": {"$sha256": "1e035aa4c384001e7a9969f7083f0934a1ebb9e18dc0095b07036a01e103a390"},
+    "right": {"$sha256": "94c704233a50914adf85540d5499e80dab8487b0f68c42b36d3630e2057c4f86"},
+    "reason": "Current explicitly calls register_plans([]) after zero-candidate analysis; legacy skips that no-op call.",
+    "reference": "docs/differential-verification.md#live-orchestration-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "live-spread-sequence",
+    "scenario_id": "live-spread-boundary-usd-jpy",
+    "pointer": "/events/1/sequence",
+    "left": {"$sha256": "1e035aa4c384001e7a9969f7083f0934a1ebb9e18dc0095b07036a01e103a390"},
+    "right": {"$sha256": "94c704233a50914adf85540d5499e80dab8487b0f68c42b36d3630e2057c4f86"},
+    "reason": "At the allowed spread boundary, current explicitly calls register_plans([]); legacy skips that no-op call.",
+    "reference": "docs/differential-verification.md#live-orchestration-deltas",
+    "expires_on": "2027-02-23"
+  }
+]

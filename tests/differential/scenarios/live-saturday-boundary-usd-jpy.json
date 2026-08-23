@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "live-saturday-boundary-usd-jpy",
+  "kind": "live_schedule",
+  "pair": "USD_JPY",
+  "live": {
+    "dry_run": true,
+    "first_exe": false,
+    "latest_exe_time": "2026-01-03T03:57:00",
+    "ticks": [
+      {"now": "2026-01-03T03:59:30", "price_response": {"prices": [{"bids": [{"price": "150.000"}], "asks": [{"price": "150.005"}], "status": "tradeable"}]}},
+      {"now": "2026-01-03T04:00:00", "price_response": {"prices": [{"bids": [{"price": "150.000"}], "asks": [{"price": "150.005"}], "status": "tradeable"}]}}
+    ]
+  }
+}

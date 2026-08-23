@@ -41,6 +41,12 @@ graph. Operational completion still requires a credentialed practice
 read-only run and the isolated real-order acceptance report; without those
 external gates the repository must not be declared order-ready.
 
+The retained behavior oracle is exercised through the local two-stage process
+in [differential-verification.md](differential-verification.md). Legacy parity
+and OANDA API compliance are independent gates: a documented API or safety
+correction stays as a narrow, expiring intentional delta rather than being
+removed to reproduce a historical defect.
+
 ## Retained comparison and excluded surfaces
 
 | Root surface | State | Why it remains | Removal gate |

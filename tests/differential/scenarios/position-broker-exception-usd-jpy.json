@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-broker-exception-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "broker_outcome",
+    "outcome": "exception",
+    "message": "scripted broker exception",
+    "order": {
+      "name": "broker-exception",
+      "current_price": 150.0,
+      "target": 150.1,
+      "direction": 1,
+      "type": "STOP",
+      "tp": 0.2,
+      "lc": 0.1,
+      "lc_change": [],
+      "units": 1000,
+      "priority": 1,
+      "order_timeout_min": 30
+    }
+  },
+  "broker_steps": [
+    {"action": "submit", "response": {"exception": "scripted broker exception"}}
+  ]
+}

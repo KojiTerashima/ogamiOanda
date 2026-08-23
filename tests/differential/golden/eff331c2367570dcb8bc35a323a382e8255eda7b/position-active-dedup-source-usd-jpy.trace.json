@@ -1,0 +1,1 @@
+{"events":[{"gap_pips":2.0,"is_exist":true,"kind":"active_dedup","line_strategy":"future_break","name":"matching","source":"line"}],"kind":"position_lifecycle","pair":"USD_JPY","runner":"trace-runner","scenario_id":"position-active-dedup-source-usd-jpy","schema_version":"1.1.0"}

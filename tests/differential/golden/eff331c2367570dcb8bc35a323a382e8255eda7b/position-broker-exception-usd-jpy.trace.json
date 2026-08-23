@@ -1,0 +1,1 @@
+{"events":[{"accepted":false,"broker_actions":["submit"],"error":"scripted broker exception","kind":"broker_outcome","life":false,"order_state":"ERROR","outcome":"exception","queries":[],"submit_count":1}],"kind":"position_lifecycle","pair":"USD_JPY","runner":"trace-runner","scenario_id":"position-broker-exception-usd-jpy","schema_version":"1.1.0"}

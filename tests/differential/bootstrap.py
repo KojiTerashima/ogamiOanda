@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -18,11 +19,15 @@ class BaselineContractError(RuntimeError):
 
 
 def _git(repo_root: Path, *args: str) -> str:
+    env = os.environ.copy()
+    env.setdefault("GIT_CONFIG_GLOBAL", "/dev/null")
+    env.setdefault("GIT_CONFIG_NOSYSTEM", "1")
     completed = subprocess.run(
         ["git", "-C", str(repo_root), *args],
         check=False,
         capture_output=True,
         text=True,
+        env=env,
     )
     if completed.returncode != 0:
         raise BaselineContractError(

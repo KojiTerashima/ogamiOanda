@@ -55,7 +55,40 @@ def _to_jst_iso(value: Any) -> str:
     return timestamp.isoformat()
 
 
-def _looks_like_broker_id(value: str) -> bool:
+_BROKER_ID_FIELDS = {
+    "id",
+    "order_id",
+    "trade_id",
+    "transaction_id",
+    "reference_id",
+    "broker_reference_id",
+    "last_transaction_id",
+}
+
+_PRICE_FIELDS = {
+    "price",
+    "current_price",
+    "target_price",
+    "tp_price",
+    "lc_price",
+    "stop_loss_price",
+    "take_profit_price",
+    "watching_price",
+    "line_price",
+    "median_price",
+    "open",
+    "close",
+    "high",
+    "low",
+    "bid",
+    "ask",
+    "mid",
+}
+
+
+def _looks_like_broker_id(value: str, *, field_name: str | None) -> bool:
+    if field_name not in _BROKER_ID_FIELDS:
+        return False
     if value.startswith("broker-id-"):
         return False
     if value.isdigit() and len(value) >= 1:
@@ -65,7 +98,13 @@ def _looks_like_broker_id(value: str) -> bool:
     return False
 
 
-def _normalize_scalar(value: Any, *, pair: str | None, id_normalizer: _BrokerIdNormalizer) -> Any:
+def _normalize_scalar(
+    value: Any,
+    *,
+    pair: str | None,
+    id_normalizer: _BrokerIdNormalizer,
+    field_name: str | None,
+) -> Any:
     if _is_nan_like(value):
         return None
     if _is_datetime_like(value):
@@ -80,13 +119,13 @@ def _normalize_scalar(value: Any, *, pair: str | None, id_normalizer: _BrokerIdN
         return value
 
     if isinstance(value, str):
-        if _looks_like_broker_id(value):
+        if _looks_like_broker_id(value, field_name=field_name):
             return id_normalizer.normalize(value)
         return value
 
     if isinstance(value, (np.floating, float)):
         number = float(value)
-        if pair is not None:
+        if pair is not None and field_name in _PRICE_FIELDS:
             return round(number, pair_round_digits(pair))
         return number
 
@@ -100,14 +139,28 @@ def _normalize_dataframe_like(value: Any, *, pair: str | None, id_normalizer: _B
         return {
             "columns": [str(column) for column in value["columns"]],
             "rows": [
-                [_normalize_value(item, pair=pair, id_normalizer=id_normalizer) for item in row]
+                [
+                    _normalize_value(
+                        item,
+                        pair=pair,
+                        id_normalizer=id_normalizer,
+                        field_name=str(value["columns"][index]),
+                    )
+                    for index, item in enumerate(row)
+                ]
                 for row in value["rows"]
             ],
         }
     return value
 
 
-def _normalize_value(value: Any, *, pair: str | None, id_normalizer: _BrokerIdNormalizer) -> Any:
+def _normalize_value(
+    value: Any,
+    *,
+    pair: str | None,
+    id_normalizer: _BrokerIdNormalizer,
+    field_name: str | None = None,
+) -> Any:
     dataframe_like = _normalize_dataframe_like(value, pair=pair, id_normalizer=id_normalizer)
     if dataframe_like is not value:
         return dataframe_like
@@ -117,7 +170,17 @@ def _normalize_value(value: Any, *, pair: str | None, id_normalizer: _BrokerIdNo
         normalized_items = [
             (
                 str(key),
-                _normalize_value(item, pair=nested_pair, id_normalizer=id_normalizer),
+                _normalize_value(
+                    item,
+                    pair=nested_pair,
+                    id_normalizer=id_normalizer,
+                    field_name=(
+                        f"{key}_price"
+                        if key in {"target", "take_profit", "stop_loss"}
+                        and bool(value.get(f"{key}_is_price", False))
+                        else str(key)
+                    ),
+                ),
             )
             for key, item in value.items()
         ]
@@ -125,17 +188,32 @@ def _normalize_value(value: Any, *, pair: str | None, id_normalizer: _BrokerIdNo
 
     if isinstance(value, list):
         return [
-            _normalize_value(item, pair=pair, id_normalizer=id_normalizer)
+            _normalize_value(
+                item,
+                pair=pair,
+                id_normalizer=id_normalizer,
+                field_name=field_name,
+            )
             for item in value
         ]
 
     if isinstance(value, tuple):
         return [
-            _normalize_value(item, pair=pair, id_normalizer=id_normalizer)
+            _normalize_value(
+                item,
+                pair=pair,
+                id_normalizer=id_normalizer,
+                field_name=field_name,
+            )
             for item in value
         ]
 
-    return _normalize_scalar(value, pair=pair, id_normalizer=id_normalizer)
+    return _normalize_scalar(
+        value,
+        pair=pair,
+        id_normalizer=id_normalizer,
+        field_name=field_name,
+    )
 
 
 def normalize_trace(trace: dict[str, Any]) -> dict[str, Any]:

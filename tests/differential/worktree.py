@@ -85,12 +85,30 @@ def baseline_worktree(repo_root: Path, *, commit: str = BASELINE_COMMIT):
         tmp_path = Path(tmp_dir)
         worktree_path = tmp_path / "baseline"
         _git(repo_root, "worktree", "add", "--detach", str(worktree_path), baseline.commit)
+        body_error: BaseException | None = None
         try:
             assert_worktree_head(worktree_path, baseline.commit)
             assert_worktree_clean(worktree_path, reason="after creation")
             yield WorktreeInfo(repo_root=repo_root, worktree_path=worktree_path, baseline=baseline)
-            assert_worktree_head(worktree_path, baseline.commit)
-            assert_worktree_clean(worktree_path, reason="before cleanup")
+        except BaseException as error:
+            body_error = error
+            raise
         finally:
-            with contextlib.suppress(WorktreeError):
-                _git(repo_root, "worktree", "remove", "--force", str(worktree_path))
+            try:
+                assert_worktree_head(worktree_path, baseline.commit)
+                assert_worktree_clean(worktree_path, reason="before cleanup")
+            except WorktreeError as verification_error:
+                if body_error is None:
+                    raise
+                body_error.add_note(
+                    f"legacy worktree exit verification also failed: {verification_error}"
+                )
+            finally:
+                with contextlib.suppress(WorktreeError):
+                    _git(
+                        repo_root,
+                        "worktree",
+                        "remove",
+                        "--force",
+                        str(worktree_path),
+                    )

@@ -41,6 +41,31 @@ class BaselineCaptureItem:
     legacy_log: str
 
 
+@dataclass(frozen=True)
+class LegacyProcessOutcome:
+    returncode: int
+    stdout: str
+    stderr: str
+    timed_out: bool = False
+    signal: int | None = None
+
+
+class LegacyProcessError(RuntimeError):
+    def __init__(self, outcome: LegacyProcessOutcome) -> None:
+        self.outcome = outcome
+        state = (
+            "timed out"
+            if outcome.timed_out
+            else f"terminated by signal {outcome.signal}"
+            if outcome.signal is not None
+            else f"exited {outcome.returncode}"
+        )
+        super().__init__(
+            "legacy subprocess "
+            f"{state}\nstdout:\n{outcome.stdout}\nstderr:\n{outcome.stderr}"
+        )
+
+
 def compare_current_with_legacy(
     *,
     repo_root: Path,
@@ -134,20 +159,37 @@ def _run_legacy_in_isolated_worktree(*, repo_root: Path, scenario: DifferentialS
             env.pop("PYTHONPATH", None)
             env["PYTHONDONTWRITEBYTECODE"] = "1"
 
-            completed = subprocess.run(
-                command,
-                cwd=str(wt.worktree_path),
-                env=env,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
+            try:
+                completed = subprocess.run(
+                    command,
+                    cwd=str(wt.worktree_path),
+                    env=env,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+            except subprocess.TimeoutExpired as error:
+                raise LegacyProcessError(
+                    LegacyProcessOutcome(
+                        returncode=-1,
+                        stdout=str(error.stdout or ""),
+                        stderr=str(error.stderr or ""),
+                        timed_out=True,
+                    )
+                ) from error
             if completed.returncode != 0:
-                raise RuntimeError(
-                    "legacy subprocess failed\n"
-                    f"stdout:\n{completed.stdout}\n"
-                    f"stderr:\n{completed.stderr}"
+                raise LegacyProcessError(
+                    LegacyProcessOutcome(
+                        returncode=completed.returncode,
+                        stdout=completed.stdout,
+                        stderr=completed.stderr,
+                        signal=(
+                            -completed.returncode
+                            if completed.returncode < 0
+                            else None
+                        ),
+                    )
                 )
 
             trace = json.loads(output_path.read_text(encoding="utf-8"))

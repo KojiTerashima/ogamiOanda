@@ -1,94 +1,319 @@
 {
   "baseline_commit": "eff331c2367570dcb8bc35a323a382e8255eda7b",
   "baseline_tree": "7dc341e37b663e7f206736abfe001e81fe74dd6a",
-  "trace_schema_version": "1.0.0",
+  "trace_schema_version": "1.1.0",
   "python_version": "3.12.5",
   "package_versions": {
     "pandas": "2.3.1",
     "numpy": "2.3.2"
   },
   "runner_sha256": {
-    "tests/differential/cli.py": "0975291a0a48894bbd3ba5d3c40838246a57c5e0957f4e2b159525fbc36f7403",
-    "tests/differential/legacy_runner.py": "aa8174c87a2f254c3d9f2b71e4596fd4e826b2a2f44b747b636b62df81296050",
-    "tests/differential/legacy_subprocess.py": "d75c243268e5e0549ff66927c6a27c0dc8e60ea2f160c5b26e6c897eada5cc83",
-    "tests/differential/current_runner.py": "c186699af26c3c18d5c03f73157db96dbc46c6c0be67d4f82b388c677617fb5c",
-    "tests/differential/normalize.py": "0c954a36d242c72a933cc2520805d2b7758f8d5491aa88571620267c4956f843",
-    "tests/differential/compare.py": "73a89d479e2b3585342920520ad2a88ec7d64e94b427f0c8718f56e5ba6dc476",
-    "tests/differential/scenario.py": "5182413f6ad2954ac785545dad4e6557ab40986aeb57d084ac6e157f7ed263a5",
-    "tests/differential/orchestrator.py": "3152816749d37ff07de85646afbeb9b0ace481e1e82230899b4c619563a0a359"
+    "tests/differential/baseline_contract.json": "27f22cee5e8999da94b18a690993a6ed6225a6198e3a27b45c85f0373d985cff",
+    "tests/differential/bootstrap.py": "7cedc24b69b5c639b4825ef0a2f334563f9d20072a01562da384cbbcfe1f80e1",
+    "tests/differential/cli.py": "3457e9dadcfaa2650776fb0023e3e524a60f71635b12168cab77538ddf9aa3e3",
+    "tests/differential/constants.py": "a12339c9f970fd49fe6060bf8cc38e9d993d4b0f7518aa4f3e795c739ef1d333",
+    "tests/differential/legacy_runner.py": "8128da6fd8dc42c8731a2ce41098e174ea4f122b81708920840c1135baca7e35",
+    "tests/differential/legacy_subprocess.py": "39d15c3c2d224d7b185ef980a3a2360cd1596c2d80626f818da2f42caf51b589",
+    "tests/differential/current_runner.py": "919a5ef2d477efef118dcd09ce416e11277568321b2481d157dd0fb2b208ef5d",
+    "tests/differential/analysis_trace.py": "f90b073a133f5a5f4aaed6304e483b5c8974988b6bad2a4ca81b94a0ba593bd0",
+    "tests/differential/frame_factory.py": "bf557440cfbb6b53a1fdfbd3594aaef8be0e0d4c78013ad23bf8fe582fbeb1ca",
+    "tests/differential/golden.py": "b8dd3f1f98ff0406c76d138bf66b0893cc66653472fb482ad7f91e96fcb24caf",
+    "tests/differential/normalize.py": "3cc4bf82cd8382a68894e4d15ce057efb87c8059c8dae0a20ca966a554c32d87",
+    "tests/differential/offline.py": "7a2935fbc8ae255c20607746d7b9ce78bcdfb77bc1d5f017954103a223708376",
+    "tests/differential/compare.py": "da877dbb2b04fef6a5ea6adba8e64840d7dd966d0415fb0968d97ba996067aa8",
+    "tests/differential/scenario.py": "ac2b579bd6f9c434e65408cb39da1314d366e0cba28c1c072d9df159861309ef",
+    "tests/differential/orchestrator.py": "f0341f96574032c3baebbba3263ffac71ee0b5cedc4ce512e6b26ffb56dd8965",
+    "tests/differential/scripted_broker.py": "5475ebd620c744488df3ae278f12d63216103f23ce6e4bd89dcdaf7d1c10c6fe",
+    "tests/differential/trace.py": "cab189dd34315c6164eab1cadab0f4ec8ce904a3439a7dc53fdfcb4c74de1fda",
+    "tests/differential/worktree.py": "051656ea48aadd607a4732001f3575206d596467ad8674ba1e8bf461b611c4d0"
   },
   "scenarios": {
     "analysis-order-aud-usd": {
       "scenario_file": "analysis-order-aud-usd.json",
-      "scenario_sha256": "2f3848dbfb3fc88a42001b4fcf5732924d76b6822ef26eea8065e0067db747dc",
+      "scenario_sha256": "00ca90373fa2ec65c809ce25e2b3a6808f76706487f59a3e23624b0561929b46",
+      "materialized_input_sha256": "01c43d8e89782ef3a12621c11b8c8a9e08bd53a7d742270008279726ca4f8c8a",
       "trace_file": "analysis-order-aud-usd.trace.json",
-      "trace_sha256": "8125dbfa79fb0fc9c72e36914d7e3d387b7057898966bbb96feb33b15ff903fc"
+      "trace_sha256": "87d938c04fd8f58a0087c6f23881029117f83957bc03dd406139b03bea0b5a1f"
     },
     "analysis-order-eur-usd": {
       "scenario_file": "analysis-order-eur-usd.json",
-      "scenario_sha256": "a6e024fce81fbb139a9f7477b846cffe2c043f5b9e375f8a970eeec48dbe9a46",
+      "scenario_sha256": "c71dafb1641927f2f93489d0bcabfba4989f4e9889e01bd1eb7e47c1e1072528",
+      "materialized_input_sha256": "3db80e22ae9f6fc4b62ca508772eed727855a3510f04cc3d09dbd301183681a5",
       "trace_file": "analysis-order-eur-usd.trace.json",
-      "trace_sha256": "e7759d96616c7779a3f17dff5a2f8a06d04b736912cfba671f4c76a0564d6f88"
+      "trace_sha256": "3d049195ef928b01df4be35e3be5e916ed30a130802f675ca18c4cccd03d876c"
+    },
+    "analysis-order-multi-eur-usd": {
+      "scenario_file": "analysis-order-multi-eur-usd.json",
+      "scenario_sha256": "b4d4da87cab06dff679b59e4e0c2b336985795d097c37b98ded34697b91d5c3d",
+      "materialized_input_sha256": "2393407d79f7903088cbe49dda98b2e8cd20d9b0292dec289c41ad5f5048a9b0",
+      "trace_file": "analysis-order-multi-eur-usd.trace.json",
+      "trace_sha256": "fdeb373c625ca33f6c5f0023efa2851fa1c589499287d1d71309eb733035abbb"
     },
     "analysis-order-usd-jpy": {
       "scenario_file": "analysis-order-usd-jpy.json",
-      "scenario_sha256": "3de26fc405b436fa173c2dba0db20a6fc46318a9b96d91b6dcd2390d89301a4f",
+      "scenario_sha256": "e7e4cf51a6be3c7e453f81dab0de6216e58dfe4cdc0005959999bd85b3535837",
+      "materialized_input_sha256": "e8cbc0a33d3dc808d0e09b89f54d247f0b56a23533bcb21c3f129ec7444e771c",
       "trace_file": "analysis-order-usd-jpy.trace.json",
-      "trace_sha256": "69a4c5e0405db9a14b7cf7d2b55c01691b35d51af19ce37d39dfe0057c47c317"
+      "trace_sha256": "c6060e4f0c392223e81b65818939df649f033efa00772107dbc226a7779bc806"
+    },
+    "live-analysis-second-window-usd-jpy": {
+      "scenario_file": "live-analysis-second-window-usd-jpy.json",
+      "scenario_sha256": "23d1110dafbf412ce12145ce975f8083e36f91848b841284dbb2ce3232249c38",
+      "materialized_input_sha256": "e7bcd3735eeb4ddce87ac9fb1bcf837a26ea2729b673e9b127d783600f96cb6b",
+      "trace_file": "live-analysis-second-window-usd-jpy.trace.json",
+      "trace_sha256": "6c6c1dafb96b8a2689e60bee0ecb5623855e94ccfaa1fcd97c899ab876379152"
+    },
+    "live-candidate-register-usd-jpy": {
+      "scenario_file": "live-candidate-register-usd-jpy.json",
+      "scenario_sha256": "73db53b4a22ea862d844f336b85c3868b4a190aca184901c6675ad0ecb90c00b",
+      "materialized_input_sha256": "cac9215bd8d9fd8ac16544c544db53a01ac7f76a17cb787ce73b350bb4ebf31c",
+      "trace_file": "live-candidate-register-usd-jpy.trace.json",
+      "trace_sha256": "1533c9b20f513ea7fd29991c106dbd1f0122b424a3d899d20b810b3f73b1539c"
+    },
+    "live-elapsed-sync-boundary-usd-jpy": {
+      "scenario_file": "live-elapsed-sync-boundary-usd-jpy.json",
+      "scenario_sha256": "90ac34a70dc6558b60f49021bcd61a0c54adb0b3612e44b7380cd405a19258bc",
+      "materialized_input_sha256": "5c3bf50eacce43d9a60061fccfcfb587c2acdb897a3b18dccc1f28a398b4a7a2",
+      "trace_file": "live-elapsed-sync-boundary-usd-jpy.trace.json",
+      "trace_sha256": "341ed85b7ec80e04e880e97b49e3e66c8dd807412eadda0cc57e08a3cba63d5e"
+    },
+    "live-first-tick-update-window-usd-jpy": {
+      "scenario_file": "live-first-tick-update-window-usd-jpy.json",
+      "scenario_sha256": "5c7cd9b70bd8ae1b6b0b86cbc2dfa8b9bab2c737252c00f55961ae061d2aef9c",
+      "materialized_input_sha256": "b42fc29c0b547ebfff931755675f01014bc188581443a6897970a3a37e458f35",
+      "trace_file": "live-first-tick-update-window-usd-jpy.trace.json",
+      "trace_sha256": "32b7766ab823eab5f94cb6c207013c56ed0fd231b56136706a5a183f4c3042f3"
+    },
+    "live-monday-boundary-usd-jpy": {
+      "scenario_file": "live-monday-boundary-usd-jpy.json",
+      "scenario_sha256": "1198c8f5552a7b28d3a81d5023b4ba4e6a714c9563eed58b030bd2902b64614a",
+      "materialized_input_sha256": "8bcd21c8295766da4b17fcf3051bb98250a654b5463f8e68235eeedaab8926c9",
+      "trace_file": "live-monday-boundary-usd-jpy.trace.json",
+      "trace_sha256": "5dbab08163673a2af6b80435bdc5433bbc8e5cdbf66e152f1197861716e4b780"
+    },
+    "live-saturday-boundary-usd-jpy": {
+      "scenario_file": "live-saturday-boundary-usd-jpy.json",
+      "scenario_sha256": "db76c0e2e618381004e29f328cb92e176726efc030bc14625c83976edbdb3652",
+      "materialized_input_sha256": "69d857bd8478db8328dc6012d4a51648bc89448a54cb9c6802119315cd4a26f8",
+      "trace_file": "live-saturday-boundary-usd-jpy.trace.json",
+      "trace_sha256": "0a31e7d0403eb5d267edf87b53b091ad1b6f8e69847a90a5fd83b52374990086"
+    },
+    "live-spread-boundary-usd-jpy": {
+      "scenario_file": "live-spread-boundary-usd-jpy.json",
+      "scenario_sha256": "db002f18f424054ee710d3a70226e3da4444f2615b2621f8eef21ca542394da2",
+      "materialized_input_sha256": "450c0d58fb325053147c7b6ab8c9a8846d849c0c7098bdc6c9247f0f145bd80b",
+      "trace_file": "live-spread-boundary-usd-jpy.trace.json",
+      "trace_sha256": "e4c955acf04d7a45538c98c5a09f9e671cf0f4bcfda8f5220d5f525dd501d006"
+    },
+    "live-startup-cancel-usd-jpy": {
+      "scenario_file": "live-startup-cancel-usd-jpy.json",
+      "scenario_sha256": "bcdc6bef3b8e5879e65a5e6b1d2e9a30c925c3eaae318b607949a8f6226e2136",
+      "materialized_input_sha256": "15080b8fbf61dbac117a910482e74ae22afeb67573c8c8270bf812ef7606426d",
+      "trace_file": "live-startup-cancel-usd-jpy.trace.json",
+      "trace_sha256": "10f9f4b2187db3547bdeae8367c3049f4bcf761fc1a635143716f00608a010ff"
     },
     "live-sunday-skip-usd-jpy": {
       "scenario_file": "live-sunday-skip-usd-jpy.json",
-      "scenario_sha256": "d36f5b07f3b2f10265c41ef59b4241083d8337959b6e40df62d0062021383621",
+      "scenario_sha256": "cd589b146c200289c202145cd47fad2b89c9f3621f51e22227aa547a74711356",
+      "materialized_input_sha256": "1ae9125b59dfca3108cc13aba15e5c4ca8fbef021231653c8cd8b44d78828a87",
       "trace_file": "live-sunday-skip-usd-jpy.trace.json",
-      "trace_sha256": "d3c33f02e4c04c20065453904ece557a89221ed559522b6616088284c05be28f"
+      "trace_sha256": "9de7c6c279693acbd11c41e34069bdec1b4d4589c09d4d3d9e1a4f8e06e9bf93"
     },
     "live-update-window-usd-jpy": {
       "scenario_file": "live-update-window-usd-jpy.json",
-      "scenario_sha256": "8046ee935aa7c20bfae4a7002bc1c19cdbb74eb8d05541cd1e7461789c495230",
+      "scenario_sha256": "c9a66bcb1dd24e11218dd657083769f4bbdb8d16a849bc93bdd76a4e9b85e63d",
+      "materialized_input_sha256": "ec02e76a5ef6c2a77e8764f71d6b31e0d7f20813855bbb37777dbecfafa6c287",
       "trace_file": "live-update-window-usd-jpy.trace.json",
-      "trace_sha256": "d5318f97e9a320ce2672a986e74292ae7cea572a50fde38b65edc949adf7770b"
+      "trace_sha256": "ba5621db6985ac38ef7330925fe753b68a6cf765ea6cee940775f0554907ec44"
     },
     "order-payload-limit-buy-eur-usd": {
       "scenario_file": "order-payload-limit-buy-eur-usd.json",
-      "scenario_sha256": "4b0a656a56a97bbee2b7aebede48265d51159d2f2c5ed21b951ba6f13e3e2278",
+      "scenario_sha256": "14b600f38792a7a7a2f4c71102d029d8c9f7282efde4a020c61f4811e30ae234",
+      "materialized_input_sha256": "4b0a656a56a97bbee2b7aebede48265d51159d2f2c5ed21b951ba6f13e3e2278",
       "trace_file": "order-payload-limit-buy-eur-usd.trace.json",
-      "trace_sha256": "453965794904a974ca45b3cc43c4b894c1ab55d77a90a7def0b540aee93f2d74"
+      "trace_sha256": "5631e9795b49973f5429ade091a2ac6a727cc77f980be311ef8651a1f47b2546"
     },
     "order-payload-limit-sell-eur-usd": {
       "scenario_file": "order-payload-limit-sell-eur-usd.json",
-      "scenario_sha256": "dbec3d0bce687a8b27a4b115d9fde0d9131fcab6e36282cc7831be3fc6144b73",
+      "scenario_sha256": "be70c85edc0a28a66bcc6d16f691ec45d627291e8242dbfc6c61f9800c58cd63",
+      "materialized_input_sha256": "dbec3d0bce687a8b27a4b115d9fde0d9131fcab6e36282cc7831be3fc6144b73",
       "trace_file": "order-payload-limit-sell-eur-usd.trace.json",
-      "trace_sha256": "de05365f9841389318f30d1b0f20d8232ee917d247d4014497ae37248ac0c8a2"
+      "trace_sha256": "4bbf6a48c82022121afda5926254157d0e449195d6c7eb06df42a256f477cbaa"
     },
     "order-payload-market-buy-usd-jpy": {
       "scenario_file": "order-payload-market-buy-usd-jpy.json",
-      "scenario_sha256": "6574424adf23d2bfdd2f1ff92370c501e8ecf86e14ef88930cd0c8c0d675586b",
+      "scenario_sha256": "be0ccd0c47c32997e8dc9665cfa19ad02170463d1a9e5473cbf38c08903ea627",
+      "materialized_input_sha256": "6574424adf23d2bfdd2f1ff92370c501e8ecf86e14ef88930cd0c8c0d675586b",
       "trace_file": "order-payload-market-buy-usd-jpy.trace.json",
-      "trace_sha256": "7d43d19a01011dd7358d6469261f839f95ce1fdd5056e2f21cc9af2d5b6f86c2"
+      "trace_sha256": "bd7de8d1a4e96f928fa1fa0e6b0e3bb13a867b8653bd0a2b71d3ce2680457004"
     },
     "order-payload-market-sell-usd-jpy": {
       "scenario_file": "order-payload-market-sell-usd-jpy.json",
-      "scenario_sha256": "ce6dd402fa83bfc7a8cad8ea6ed14a43c2e21a14dfbd2c64aa7532f4b3bc3a27",
+      "scenario_sha256": "3398e2a9ad26e3deacd192ee6f1fc9fd9252058352cf179ab5b3953641de40c7",
+      "materialized_input_sha256": "ce6dd402fa83bfc7a8cad8ea6ed14a43c2e21a14dfbd2c64aa7532f4b3bc3a27",
       "trace_file": "order-payload-market-sell-usd-jpy.trace.json",
-      "trace_sha256": "71d19072456ffece2a86f0c7d1b8520179b73271199d9688fd049639798da8a5"
+      "trace_sha256": "fa39e51ba78c6c7792c7d637f476fae1cdb12f26e4791a323112c0f21edfcf59"
     },
     "order-payload-stop-buy-aud-usd": {
       "scenario_file": "order-payload-stop-buy-aud-usd.json",
-      "scenario_sha256": "3d701afdabb17fa97c995e0fe76bb1978df1f5c5117081a545d03ee7a1ea170f",
+      "scenario_sha256": "445577545a23cb1b1994611ba588ccd2aaa5bc9843c3726566575e5660f6c3a2",
+      "materialized_input_sha256": "3d701afdabb17fa97c995e0fe76bb1978df1f5c5117081a545d03ee7a1ea170f",
       "trace_file": "order-payload-stop-buy-aud-usd.trace.json",
-      "trace_sha256": "618249a8e6d04918b7f955dce5c36abc2b18852a2c0584d49bf0f19244adc268"
+      "trace_sha256": "2326310d25c5fb4ac2c41a1dcff5794466781d45abba6516578ca94c6e8a5a4d"
     },
     "order-payload-stop-sell-aud-usd": {
       "scenario_file": "order-payload-stop-sell-aud-usd.json",
-      "scenario_sha256": "f7be04d870ffdd2ac0e009cc283cea1e48f7ccbbddaf7640a1c282a22a226ab6",
+      "scenario_sha256": "f3581fddac6f0b81fc7bee95f9d80eb8c05d4935144d8052526eed19b1a33629",
+      "materialized_input_sha256": "f7be04d870ffdd2ac0e009cc283cea1e48f7ccbbddaf7640a1c282a22a226ab6",
       "trace_file": "order-payload-stop-sell-aud-usd.trace.json",
-      "trace_sha256": "b59f963e488e0c5dc8db3fcd86fbd46f6ed637f986ab831fe466bf5e19753582"
+      "trace_sha256": "7112eacc53e25d74d48324f7af2aadd1f0dcd5b964cfb129c0e72475bec71e48"
+    },
+    "position-active-dedup-source-usd-jpy": {
+      "scenario_file": "position-active-dedup-source-usd-jpy.json",
+      "scenario_sha256": "5a2af4c9dd5e3b4bed2bce69cb084939f4f060fff68dbe1f2651ee92070d0b6b",
+      "materialized_input_sha256": "3b1a53fa5106c8b5b45aa5f181727284fc0dd7b3b1c11af1f915f7bd6b01369f",
+      "trace_file": "position-active-dedup-source-usd-jpy.trace.json",
+      "trace_sha256": "d85b8f971ea6aeeef866c08943622501e924a543e6e674af98635306ba875ea8"
+    },
+    "position-broker-exception-usd-jpy": {
+      "scenario_file": "position-broker-exception-usd-jpy.json",
+      "scenario_sha256": "42ab0121de3de4e5314b17b7bbcbdacf6b09baaf1fcb9e9a3ba79aee01088c9d",
+      "materialized_input_sha256": "4f961386ab2870805ca3e6d7da2397cee32f72088be85916532c945e933bb184",
+      "trace_file": "position-broker-exception-usd-jpy.trace.json",
+      "trace_sha256": "05b8e73f7dcc4dcdeb57aef7bc0baaa7dae134fd1ac91e88488251d3676d3a30"
+    },
+    "position-broker-not-found-usd-jpy": {
+      "scenario_file": "position-broker-not-found-usd-jpy.json",
+      "scenario_sha256": "869caa353e8f96ecad2cf1df693274e108f6c35d08afc801a849e662f9874924",
+      "materialized_input_sha256": "a21e2412ff0f0e9d71896dad45ef2a8b331ee95b86c90bbf64152b986ae24ef4",
+      "trace_file": "position-broker-not-found-usd-jpy.trace.json",
+      "trace_sha256": "125f8926533ed55ac07dc08ada7818dc1ac1a2a0e17ad6be5c40d8b42e4086e6"
+    },
+    "position-broker-reject-usd-jpy": {
+      "scenario_file": "position-broker-reject-usd-jpy.json",
+      "scenario_sha256": "4cb5863a31ff586a2659e7aeaae074d499dc35cef26b47181919d71ddccb664d",
+      "materialized_input_sha256": "4cecd90d70bbe25b13eab164da37597634f0463401d64743fea767f858fe7dda",
+      "trace_file": "position-broker-reject-usd-jpy.trace.json",
+      "trace_sha256": "452b9ee1d9232bf4a23970af9a0cb7324d418ed9d84ca2e3c226d490f68ea949"
+    },
+    "position-candle-lc-usd-jpy": {
+      "scenario_file": "position-candle-lc-usd-jpy.json",
+      "scenario_sha256": "2410cdc822c2dca7203b66f70adfa7d464b4d5987cfa07f0630cbf1ee49c5b76",
+      "materialized_input_sha256": "a8131bba19039fded7ee2eb6df9674816ab6d6cecc5f4bbbe444e6469c7c1cfe",
+      "trace_file": "position-candle-lc-usd-jpy.trace.json",
+      "trace_sha256": "6e67322d4129b1db55a1be94e14b2544c0ab95838f7fa878b7f119da2ec6df60"
+    },
+    "position-close-reporting-usd-jpy": {
+      "scenario_file": "position-close-reporting-usd-jpy.json",
+      "scenario_sha256": "9cf9f478c698255e57c144f8d7348026c0c3f4577b4e0c8b86877dc1da98891a",
+      "materialized_input_sha256": "99c5a27481ab29ad194942e03c49dc98537777d8b4c3df840cd518b504f80986",
+      "trace_file": "position-close-reporting-usd-jpy.trace.json",
+      "trace_sha256": "f6020bbf3109239464ba1bf6eac93dea5b38083ba2877a32a447ea1afac97418"
+    },
+    "position-lc-change-buy-usd-jpy": {
+      "scenario_file": "position-lc-change-buy-usd-jpy.json",
+      "scenario_sha256": "5dda261d1be33b7224310da9352874b0af5bcf0141fb1c0b8d09b3c1e05d671e",
+      "materialized_input_sha256": "3441b2e252ba0fe1eb9e9385bdceac5c96d6729c9b550167d5425c1c29ad450c",
+      "trace_file": "position-lc-change-buy-usd-jpy.trace.json",
+      "trace_sha256": "d266cb53cae888a680b864819dd8c8eca8dd579db32d2523f112c600200ad33e"
+    },
+    "position-lc-change-sell-usd-jpy": {
+      "scenario_file": "position-lc-change-sell-usd-jpy.json",
+      "scenario_sha256": "16d9785ab56e689a7d79e976d0e32fbcbba8d8643bac8c48c75b4ffcf5c06b3f",
+      "materialized_input_sha256": "5596e07da07bdc56528ca89db5f9d234e252ac85739b145410f428e3bf9e7845",
+      "trace_file": "position-lc-change-sell-usd-jpy.trace.json",
+      "trace_sha256": "0ac286c6c3eabe172e1b1242f1cf4eef332a5cb4c1b248977c5c901576cb442a"
     },
     "position-lifecycle-empty-usd-jpy": {
       "scenario_file": "position-lifecycle-empty-usd-jpy.json",
-      "scenario_sha256": "0457662daf66712e87f0b8db584788e1d547f1900fd31aa9d2c1c09700061f6f",
+      "scenario_sha256": "1d715cab2da65e71b05d0230a0cd9af244f3309f66fe8bd7bb58209c6b7d70c2",
+      "materialized_input_sha256": "a720feb0ce60779682fd99244f440b6669515f1a774350872706838495858f2a",
       "trace_file": "position-lifecycle-empty-usd-jpy.trace.json",
-      "trace_sha256": "1cbb3a63d869fffc0ad75c0e677febc0ab5b5d9a9bf0bb208ced1f86587bfaee"
+      "trace_sha256": "5310da47e8151045fe02e23e4590dd798b2a231b049aabd8f00977839c1193b4"
+    },
+    "position-linkage-hedge-usd-jpy": {
+      "scenario_file": "position-linkage-hedge-usd-jpy.json",
+      "scenario_sha256": "85434565827a3c714882696e5302b75258f6e0c958c8263ee58261b7a0545b12",
+      "materialized_input_sha256": "396ed6efcf5e67ea63ce0bbb1e325716c443e1af6e2355e247f8bf06c9bfe416",
+      "trace_file": "position-linkage-hedge-usd-jpy.trace.json",
+      "trace_sha256": "dfb2b1d41fe4fa8829b3928dde8008b688e0c3c2d8c91c0f1331a44c66a06eb9"
+    },
+    "position-pending-timeout-usd-jpy": {
+      "scenario_file": "position-pending-timeout-usd-jpy.json",
+      "scenario_sha256": "3f9e4c61f2a8a77a457c59d8a52a5bd69073bf3a9c04028cb4f88414cecd646e",
+      "materialized_input_sha256": "99c0d171cae75de7ecf52db2165c69571607824e7f9cf070984ba923bb05d4c7",
+      "trace_file": "position-pending-timeout-usd-jpy.trace.json",
+      "trace_sha256": "4f7fd56566cddbc7a834afd2d95466086779fbc20ae69192e460e94c9509a6fb"
+    },
+    "position-portfolio-dedup-boundary-usd-jpy": {
+      "scenario_file": "position-portfolio-dedup-boundary-usd-jpy.json",
+      "scenario_sha256": "52477407701be8ff0aae9900f09fbf174637ee8e5fdd51327f86cd607b8245f3",
+      "materialized_input_sha256": "37e75f12c1ecf2d35a1a052756a881510748b929342d0c58e43495522be20867",
+      "trace_file": "position-portfolio-dedup-boundary-usd-jpy.trace.json",
+      "trace_sha256": "199184bd4e0d4f6e7fe0adbe8b89b2d00313fb5e47c92c3eca1fce6ab4451229"
+    },
+    "position-portfolio-overflow-usd-jpy": {
+      "scenario_file": "position-portfolio-overflow-usd-jpy.json",
+      "scenario_sha256": "5c707658f65eb6cc9ebe2ae78013d98c6117fd8f6e3522b8d7652c30a443fb4b",
+      "materialized_input_sha256": "83ccb4b44c2ba31b537e3ee9376f576f030720df7cad8498599dd046e6931425",
+      "trace_file": "position-portfolio-overflow-usd-jpy.trace.json",
+      "trace_sha256": "b782b7fd5cdcf2a4f8e530f26541ab408ecf251c9b105363ef7207ac9978ad64"
+    },
+    "position-portfolio-priority-usd-jpy": {
+      "scenario_file": "position-portfolio-priority-usd-jpy.json",
+      "scenario_sha256": "a52fede301c922ced2fe9303237be666d0168bdd3580fb997a6b80355b951533",
+      "materialized_input_sha256": "672e436e5ca4a1712c3e123ea237b6fc0a7af60c956d7ea0b74d4793ab7c1897",
+      "trace_file": "position-portfolio-priority-usd-jpy.trace.json",
+      "trace_sha256": "851884de84415ee54bd8f6b1adbb9a1643cbc05d712786c9c2ce15dd6bf6b51e"
+    },
+    "position-restore-first-empty-usd-jpy": {
+      "scenario_file": "position-restore-first-empty-usd-jpy.json",
+      "scenario_sha256": "44807319d44a1ecafce9b771966df12c10ef8728a76a6bef759fbb76541067c2",
+      "materialized_input_sha256": "cfe8453efef9e8003bf1957acc719bd876dcc46359b1be8b6629a7ecb331a119",
+      "trace_file": "position-restore-first-empty-usd-jpy.trace.json",
+      "trace_sha256": "3d818fdf6e9e090a91b7b62650f2224522d657d9e0e0cf0e79ee036cf08f6a68"
+    },
+    "position-trade-timeout-disabled-usd-jpy": {
+      "scenario_file": "position-trade-timeout-disabled-usd-jpy.json",
+      "scenario_sha256": "09e352f740512b5a1545a24b1a5e8d402654caeb7c74504799a77b729783fe69",
+      "materialized_input_sha256": "c8b6cddd8a7d66d2ca535d4292ded4e33c7cacbe8459f53c792cdf23a7682aab",
+      "trace_file": "position-trade-timeout-disabled-usd-jpy.trace.json",
+      "trace_sha256": "4e066828b01b35032bc9eb711e50199196b9b4f5feec2a9b51c6fc4faa36435c"
+    },
+    "position-watching-limit-buy-usd-jpy": {
+      "scenario_file": "position-watching-limit-buy-usd-jpy.json",
+      "scenario_sha256": "780b70d8fcd15ea36b299ec81e1649c2ef958b58e397efd24db53eb2f206134d",
+      "materialized_input_sha256": "64c7e8b3cc411185ee2365be452dce87c4410c2f66a738c047fa3bfe3fc3d9c4",
+      "trace_file": "position-watching-limit-buy-usd-jpy.trace.json",
+      "trace_sha256": "7453b1764933e49a7802fc9ce1acbba85755af5b7dfb3b3a8f2d1b4f4bc2c3dd"
+    },
+    "position-watching-limit-sell-usd-jpy": {
+      "scenario_file": "position-watching-limit-sell-usd-jpy.json",
+      "scenario_sha256": "6717c8434630ee15b53f60c8e20c0abcf70d43da2365abc76e22f6289335207b",
+      "materialized_input_sha256": "eb4410ccff2a3c8226c8ba8d8d338ae33f6eddbb569ebd0348b29f0752aa8bf1",
+      "trace_file": "position-watching-limit-sell-usd-jpy.trace.json",
+      "trace_sha256": "3bfb0281872c81530f38034f75439eccd825728248cb5ae16eaecdab8a54377c"
+    },
+    "position-watching-stop-buy-usd-jpy": {
+      "scenario_file": "position-watching-stop-buy-usd-jpy.json",
+      "scenario_sha256": "b8c87bbdfb26d0988ff582d9fe38c295af835d344dfa517c196e4e3202ed563b",
+      "materialized_input_sha256": "c96c81a1a8b60b2f75a06387a0d913050807a067ed9709163c4b7984af22e1b0",
+      "trace_file": "position-watching-stop-buy-usd-jpy.trace.json",
+      "trace_sha256": "ca60b55e0873428b2900cab58fa5449e29a55fc2013c4ee8ff1d9a357756f5e4"
+    },
+    "position-watching-stop-sell-usd-jpy": {
+      "scenario_file": "position-watching-stop-sell-usd-jpy.json",
+      "scenario_sha256": "9a847f19b5d30bb337a68fcbf0a8ec82498e068802bdf18f749cc4475641cd55",
+      "materialized_input_sha256": "fc21a74e3f1c40228ec84405b757dec3e3301a00e271770317739698be9a21f7",
+      "trace_file": "position-watching-stop-sell-usd-jpy.trace.json",
+      "trace_sha256": "813d8e8cc62a038f8e6f5090d3f9b30f8ff72deb9450a9d1001bdea9f4351cd4"
+    },
+    "position-watching-timeout-usd-jpy": {
+      "scenario_file": "position-watching-timeout-usd-jpy.json",
+      "scenario_sha256": "ccdc8c08b3850c56daf3138e150a5a260313215e96b1a89b6cb23fb7c0a70df2",
+      "materialized_input_sha256": "6f33413cafc14d18f293a193615ce4b0e8aca4cb6e50ae050f509e75f6608591",
+      "trace_file": "position-watching-timeout-usd-jpy.trace.json",
+      "trace_sha256": "7274835d36f75f8c0348f9bfc5199dab9b25aa41a03e03fcecaf1e2e3b688288"
     }
   }
 }

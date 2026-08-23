@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "live-startup-cancel-usd-jpy",
+  "kind": "live_schedule",
+  "pair": "USD_JPY",
+  "live": {
+    "dry_run": true,
+    "first_exe": false,
+    "latest_exe_time": "2026-01-05T08:03:00",
+    "cancel_pending_on_start": true,
+    "startup_pending_orders": [
+      {"order_id": "startup-1", "name": "startup-one"},
+      {"order_id": "startup-2", "name": "startup-two"}
+    ],
+    "ticks": [
+      {"now": "2026-01-05T08:04:01", "price_response": {"prices": [{"bids": [{"price": "150.000"}], "asks": [{"price": "150.005"}], "status": "tradeable"}]}}
+    ]
+  }
+}

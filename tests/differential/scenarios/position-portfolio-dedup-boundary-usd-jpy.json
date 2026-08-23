@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-portfolio-dedup-boundary-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "portfolio_acceptance",
+    "batches": [
+      [
+        {"name": "nearest", "current_price": 150.0, "target": 150.01, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "exact-3p", "current_price": 150.0, "target": 150.04, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "outside-3p", "current_price": 150.0, "target": 150.041, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1}
+      ]
+    ]
+  }
+}

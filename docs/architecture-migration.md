@@ -186,6 +186,13 @@ by the new live call graph. See `docs/migration-map.md` for their removal gates.
 
 ## Offline acceptance
 
+Legacy parity is enforced by the two-stage differential suite documented in
+[differential-verification.md](differential-verification.md). A matching trace
+means the current code reproduces the pinned legacy behavior; it does not prove
+that the legacy behavior satisfies the current OANDA API. Reviewed API-wire and
+safety fixes remain explicit intentional deltas and must not be reverted solely
+to obtain byte-for-byte legacy parity.
+
 Run the complete gate:
 
 ```sh

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-trade-timeout-disabled-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "trade_timeout_disabled",
+    "order": {
+      "name": "trade-timeout-disabled",
+      "current_price": 150.0,
+      "target": 150.0,
+      "direction": 1,
+      "type": "LIMIT",
+      "tp": 0.2,
+      "lc": 0.1,
+      "lc_change": [],
+      "units": 1000,
+      "priority": 1,
+      "order_timeout_min": 30,
+      "trade_timeout_min": 1
+    },
+    "ticks": [
+      {"at": "2026-01-02T10:01:00", "elapsed_seconds": 60, "price": 149.95, "unrealized_pl": -50},
+      {"at": "2026-01-02T10:01:01", "elapsed_seconds": 61, "price": 149.95, "unrealized_pl": -50}
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-restore-first-empty-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "restore",
+    "occupied_slots": 1,
+    "broker_positions": [
+      {"id": "701", "name": "restored-701", "instrument": "USD_JPY", "price": "150.01", "currentUnits": "1000", "takeProfitOrder": {"price": "150.21"}, "stopLossOrder": {"price": "149.91"}},
+      {"id": "999", "name": "foreign", "instrument": "EUR_USD", "price": "1.1050", "currentUnits": "1000"},
+      {"id": "702", "name": "restored-702", "instrument": "USD_JPY", "price": "149.80", "currentUnits": "-500", "takeProfitOrder": {"price": "149.60"}, "stopLossOrder": {"price": "149.95"}}
+    ]
+  }
+}

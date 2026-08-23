@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-portfolio-overflow-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "portfolio_acceptance",
+    "batches": [
+      [
+        {"name": "normal-1", "current_price": 150.0, "target": 149.7, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "normal-2", "current_price": 150.0, "target": 149.8, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "normal-3", "current_price": 150.0, "target": 149.9, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "normal-4", "current_price": 150.0, "target": 150.0, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "normal-5", "current_price": 150.0, "target": 150.1, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "normal-6", "current_price": 150.0, "target": 150.2, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1},
+        {"name": "normal-7", "current_price": 150.0, "target": 150.3, "direction": 1, "type": "LIMIT", "tp": 0.2, "lc": 0.1, "units": 1000, "priority": 1}
+      ]
+    ]
+  }
+}

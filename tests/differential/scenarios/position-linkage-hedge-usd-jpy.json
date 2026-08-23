@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-linkage-hedge-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "linkage_hedge",
+    "checks": ["pending_cancel", "loss_lc", "hedge_noop"]
+  }
+}

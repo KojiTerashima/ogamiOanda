@@ -4,25 +4,34 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
 
-from tests.differential.compare import compare_traces, load_allowlist, save_failure_artifacts
+from tests.differential.compare import (
+    CompareError,
+    compare_traces,
+    load_allowlist,
+    save_failure_artifacts,
+    verify_allowlist_application,
+)
 from tests.differential.constants import BASELINE_COMMIT, GOLDEN_ROOT
 from tests.differential.current_runner import run_current_scenario
 from tests.differential.golden import (
     build_manifest,
     load_golden_trace,
-    write_golden_trace,
-    write_manifest,
+    provenance_runner_files,
+    verify_checked_in_manifest,
 )
 from tests.differential.orchestrator import capture_legacy_trace
 from tests.differential.scenario import load_all_scenarios, select_scenarios
 from tests.differential.trace import canonical_sha256, ensure_trace_envelope
+from tests.differential.trace import canonical_json_bytes
 from tests.differential.worktree import verify_baseline_reference
 
 
@@ -68,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         return _compare_current(selected)
     if args.command == "update-golden":
         _require_exact_baseline_ref(args.legacy_ref)
+        if not args.all or args.scenario_id:
+            raise SystemExit("update-golden requires --all and forbids --scenario-id")
         if args.confirm_baseline_sha != BASELINE_COMMIT:
             raise SystemExit(
                 f"--confirm-baseline-sha must be exact baseline SHA {BASELINE_COMMIT}"
@@ -91,6 +102,10 @@ def _capture_legacy(repo_root: Path, selected, out_dir: Path) -> int:
 
 def _verify_baseline(repo_root: Path, selected) -> int:
     verify_baseline_reference(repo_root)
+    verify_checked_in_manifest(
+        scenarios=load_all_scenarios(),
+        runner_files=provenance_runner_files(),
+    )
     failures = 0
 
     for scenario in selected:
@@ -119,8 +134,14 @@ def _verify_baseline(repo_root: Path, selected) -> int:
 
 
 def _compare_current(selected) -> int:
+    all_scenarios = load_all_scenarios()
+    verify_checked_in_manifest(
+        scenarios=all_scenarios,
+        runner_files=provenance_runner_files(),
+    )
     allowlist = load_allowlist()
     failures = 0
+    applied_entries = []
 
     for scenario in selected:
         golden = load_golden_trace(scenario.scenario_id)
@@ -132,6 +153,7 @@ def _compare_current(selected) -> int:
             current_trace=current_trace,
             allowlist_entries=allowlist,
         )
+        applied_entries.extend(compare_result.allowlist_applied_entries)
         if not compare_result.matched:
             artifact_dir = save_failure_artifacts(
                 scenario_id=scenario.scenario_id,
@@ -145,30 +167,64 @@ def _compare_current(selected) -> int:
         else:
             print(f"current ok: {scenario.scenario_id} sha256={canonical_sha256(current_trace)}")
 
+    try:
+        verify_allowlist_application(
+            allowlist_entries=allowlist,
+            applied_entries=applied_entries,
+            scenario_ids={scenario.scenario_id for scenario in selected},
+            known_scenario_ids={
+                scenario.scenario_id for scenario in all_scenarios
+            },
+        )
+    except CompareError as error:
+        failures += 1
+        print(f"current allowlist mismatch: {error}")
+
     return 1 if failures else 0
 
 
 def _update_golden(repo_root: Path, selected) -> int:
     verify_baseline_reference(repo_root)
     traces = {}
-    for scenario in selected:
-        captured = capture_legacy_trace(repo_root=repo_root, scenario=scenario)
-        traces[scenario.scenario_id] = captured.trace
-        write_golden_trace(scenario.scenario_id, captured.trace)
-        print(f"updated golden: {scenario.scenario_id} sha256={captured.trace_sha256}")
+    with tempfile.TemporaryDirectory(
+        prefix="ogami-differential-golden-stage-",
+        dir=str(GOLDEN_ROOT.parent),
+    ) as stage_dir:
+        stage = Path(stage_dir)
+        for scenario in selected:
+            captured = capture_legacy_trace(repo_root=repo_root, scenario=scenario)
+            traces[scenario.scenario_id] = captured.trace
+            (stage / f"{scenario.scenario_id}.trace.json").write_bytes(
+                canonical_json_bytes(captured.trace)
+            )
+            print(f"updated golden: {scenario.scenario_id} sha256={captured.trace_sha256}")
 
-    runner_files = [
-        Path(__file__).resolve(),
-        (Path(__file__).resolve().parent / "legacy_runner.py"),
-        (Path(__file__).resolve().parent / "legacy_subprocess.py"),
-        (Path(__file__).resolve().parent / "current_runner.py"),
-        (Path(__file__).resolve().parent / "normalize.py"),
-        (Path(__file__).resolve().parent / "compare.py"),
-        (Path(__file__).resolve().parent / "scenario.py"),
-        (Path(__file__).resolve().parent / "orchestrator.py"),
-    ]
-    manifest = build_manifest(scenarios=selected, traces=traces, runner_files=runner_files)
-    write_manifest(manifest)
+        runner_files = provenance_runner_files()
+        manifest = build_manifest(
+            scenarios=selected,
+            traces=traces,
+            runner_files=runner_files,
+        )
+        (stage / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
+        replacement = GOLDEN_ROOT.with_name(GOLDEN_ROOT.name + ".replacement")
+        backup = GOLDEN_ROOT.with_name(GOLDEN_ROOT.name + ".backup")
+        shutil.rmtree(replacement, ignore_errors=True)
+        shutil.rmtree(backup, ignore_errors=True)
+        shutil.copytree(stage, replacement)
+        if GOLDEN_ROOT.exists():
+            GOLDEN_ROOT.replace(backup)
+        try:
+            replacement.replace(GOLDEN_ROOT)
+        except BaseException:
+            if backup.exists() and not GOLDEN_ROOT.exists():
+                backup.replace(GOLDEN_ROOT)
+            raise
+        finally:
+            shutil.rmtree(replacement, ignore_errors=True)
+            shutil.rmtree(backup, ignore_errors=True)
     print(f"manifest updated: {GOLDEN_ROOT / 'manifest.json'}")
     return 0
 

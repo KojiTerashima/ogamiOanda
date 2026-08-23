@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-candle-lc-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:04:40",
+  "position": {
+    "case": "candle_lc",
+    "order": {
+      "name": "candle-lc",
+      "current_price": 150.0,
+      "target": 150.0,
+      "direction": 1,
+      "type": "LIMIT",
+      "tp": 0.2,
+      "lc": 149.9,
+      "lc_price": 149.9,
+      "lc_change": [],
+      "units": 1000,
+      "priority": 1,
+      "order_timeout_min": 30
+    },
+    "latest_peak": {"count": 3, "direction": 1},
+    "previous_candle": {"time_jp": "2026/01/02 10:00:00", "open": 150.11, "close": 150.13, "low": 150.12, "high": 150.15},
+    "ticks": [
+      {"at": "2026-01-02T10:05:09", "elapsed_seconds": 29, "price": 150.14},
+      {"at": "2026-01-02T10:05:10", "elapsed_seconds": 30, "price": 150.14},
+      {"at": "2026-01-02T10:05:11", "elapsed_seconds": 31, "price": 150.14}
+    ]
+  }
+}

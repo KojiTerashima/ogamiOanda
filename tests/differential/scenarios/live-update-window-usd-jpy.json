@@ -4,10 +4,12 @@
   "kind": "live_schedule",
   "pair": "USD_JPY",
   "live": {
-    "now": "2026-01-05T07:59:30",
     "dry_run": true,
     "first_exe": false,
     "latest_exe_time": "2026-01-05T07:58:00",
-    "decision_time": "2026-01-05T07:59:30"
+    "decision_time": "2026-01-05T07:59:30",
+    "ticks": [
+      {"now": "2026-01-05T07:59:30", "price_response": {"prices": [{"bids": [{"price": "150.000"}], "asks": [{"price": "150.005"}], "status": "tradeable"}]}}
+    ]
   }
 }

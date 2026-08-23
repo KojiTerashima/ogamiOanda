@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-active-dedup-source-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "active_dedup",
+    "active": [
+      {"name": "different-source", "direction": 1, "target_price": 150.01, "source": "counter", "line_strategy": "future_break"},
+      {"name": "different-strategy", "direction": 1, "target_price": 150.015, "source": "line", "line_strategy": "counter"},
+      {"name": "matching", "direction": 1, "target_price": 150.02, "source": "line", "line_strategy": "future_break"},
+      {"name": "far", "direction": 1, "target_price": 150.08, "source": "line", "line_strategy": "future_break"}
+    ],
+    "candidate": {"direction": 1, "target_price": 150.0, "threshold_pips": 3, "source": "line", "line_strategy": "future_break"}
+  }
+}

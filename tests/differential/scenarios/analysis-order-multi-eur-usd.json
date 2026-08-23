@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "analysis-order-multi-eur-usd",
+  "kind": "analysis_order",
+  "pair": "EUR_USD",
+  "current_price": 1.1099,
+  "decision_time": "2026/01/02 21:55:00",
+  "frames": {
+    "M5": {"source": "analysis_frame_specs", "latest_time": "2026-01-02 22:00:00"},
+    "H1": {"source": "analysis_frame_specs", "latest_time": "2026-01-02 22:00:00"},
+    "M30": {"source": "analysis_frame_specs", "latest_time": "2026-01-02 22:00:00"},
+    "S5": {"source": "analysis_frame_specs", "latest_time": "2026-01-02 22:00:00"}
+  }
+}

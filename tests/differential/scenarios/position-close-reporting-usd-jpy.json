@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "position-close-reporting-usd-jpy",
+  "kind": "position_lifecycle",
+  "pair": "USD_JPY",
+  "decision_time": "2026/01/02 10:00:00",
+  "position": {
+    "case": "close_reporting",
+    "name": "close-test-12345",
+    "name_ymdhms": "close-test_2026/01/02 10:00:00",
+    "direction": 1,
+    "target_price": 150.05,
+    "close_price": 150.2,
+    "realized_pl": 200,
+    "units": 1000,
+    "order_id": "41",
+    "trade_id": "51",
+    "lc_price": 149.95,
+    "lc_price_original": 149.9,
+    "lc_range": 0.1,
+    "tp_price": 150.25,
+    "tp_price_original": 150.3,
+    "tp_range": 0.2,
+    "memo": "close memo"
+  }
+}

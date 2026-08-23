@@ -1,1 +1,1 @@
-{"events":[{"accepted_count":0,"decision":"market_closed","kind":"live_schedule","plan_count":0,"rejected_count":0}],"kind":"live_schedule","pair":"USD_JPY","runner":"legacy","scenario_id":"live-sunday-skip-usd-jpy","schema_version":"1.0.0"}
+{"events":[{"accepted_count":0,"decision":"market_closed","kind":"live_tick","now":"2026-01-04T10:00:00","plan_count":0,"quote":null,"quote_count":0,"rejected_count":0,"sequence":[]}],"kind":"live_schedule","pair":"USD_JPY","runner":"trace-runner","scenario_id":"live-sunday-skip-usd-jpy","schema_version":"1.1.0"}

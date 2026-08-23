@@ -9,3 +9,6 @@ transaction, and other sensitive values.
 `analysis_oracle_*.json` stores legacy analysis snapshots built from those
 frames for characterization tests, including raw line candidate dict snapshots,
 selected candidate order, and sanitized legacy order plan and API payload data.
+Their exact commit provenance was not recorded. The pinned hashes and explicit
+bootstrap-only disposition live in `tests/differential/baseline_contract.json`;
+the eff331c differential golden traces are the provenance source of truth.

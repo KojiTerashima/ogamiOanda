@@ -23,16 +23,28 @@ class TraceSerializationError(ValueError):
 def ensure_trace_envelope(trace: dict[str, Any], *, scenario_id: str, runner: str) -> dict[str, Any]:
     if not isinstance(trace, dict):
         raise TraceSerializationError("trace must be object")
-    base = {
+    expected = {
         "schema_version": TRACE_SCHEMA_VERSION,
         "scenario_id": scenario_id,
         "runner": runner,
     }
-    merged = base | trace
+    for key, value in expected.items():
+        if key in trace and trace[key] != value:
+            raise TraceSerializationError(
+                f"trace.{key} mismatch: expected {value!r}, got {trace[key]!r}"
+            )
+    merged = trace | expected
     if "events" not in merged:
         merged["events"] = []
     if not isinstance(merged["events"], list):
         raise TraceSerializationError("trace.events must be list")
+    for index, event in enumerate(merged["events"]):
+        if not isinstance(event, dict):
+            raise TraceSerializationError(f"trace.events[{index}] must be object")
+        if not isinstance(event.get("kind"), str) or not event["kind"]:
+            raise TraceSerializationError(
+                f"trace.events[{index}].kind must be non-empty string"
+            )
     return merged
 
 

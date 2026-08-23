@@ -6,8 +6,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from ogami_oanda.domain.analysis.indicators import add_bb_data, add_rsi
-
 _ANALYSIS_FIXTURE_SPEC_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "analysis_frame_specs.json"
 
 
@@ -24,8 +22,12 @@ def analysis_frame_specs() -> dict[str, dict[str, dict[str, object]]]:
     return json.loads(_ANALYSIS_FIXTURE_SPEC_PATH.read_text(encoding="utf-8"))
 
 
-def build_analysis_frame(pair_name: str, timeframe: str) -> pd.DataFrame:
-    spec = analysis_frame_specs()[pair_name][timeframe]
+def build_candle_response(
+    pair_name: str,
+    timeframe: str,
+    spec: dict[str, object] | None = None,
+) -> dict[str, list[dict[str, object]]]:
+    spec = spec or analysis_frame_specs()[pair_name][timeframe]
     digits = pair_round_digits(pair_name)
     pip_value = pair_pip_value(pair_name)
     times = pd.date_range(
@@ -48,62 +50,51 @@ def build_analysis_frame(pair_name: str, timeframe: str) -> pd.DataFrame:
         close_prices.append(close_price)
         open_prices.append(open_price)
 
-    frame = pd.DataFrame(
-        {
-            "time_jp_dt": times,
-            "time_jp": [time.strftime("%Y/%m/%d %H:%M:%S") for time in times],
-            "open": open_prices,
-            "close": close_prices,
-        }
-    )
-    frame["high"] = (frame[["open", "close"]].max(axis=1) + wick_pips * pip_value).round(digits)
-    frame["low"] = (frame[["open", "close"]].min(axis=1) - wick_pips * pip_value).round(digits)
-    frame["inner_high"] = frame[["open", "close"]].max(axis=1).round(digits)
-    frame["inner_low"] = frame[["open", "close"]].min(axis=1).round(digits)
-    frame["body"] = (frame["close"] - frame["open"]).round(digits)
-    frame["body_abs"] = frame["body"].abs().round(digits)
-    frame["moves"] = (frame["high"] - frame["low"]).round(digits)
-    frame["highlow"] = frame["moves"]
-    frame["mid_outer"] = ((frame["high"] + frame["low"]) / 2).round(digits)
-    frame["middle_price"] = ((frame["inner_high"] + frame["inner_low"]) / 2).round(digits)
-    frame["middle_price_wick"] = frame["mid_outer"]
-    frame["up_rod"] = (frame["high"] - frame[["open", "close"]].max(axis=1)).round(digits)
-    frame["low_rod"] = (frame[["open", "close"]].min(axis=1) - frame["low"]).round(digits)
-    frame = add_rsi(frame)
-    frame = add_bb_data(frame)
-    frame = frame.iloc[::-1].reset_index(drop=True)
-    frame["time_jp_dt"] = pd.to_datetime(frame["time_jp_dt"])
-
-    numeric_columns = [
-        "open",
-        "close",
-        "high",
-        "low",
-        "inner_high",
-        "inner_low",
-        "body",
-        "body_abs",
-        "moves",
-        "highlow",
-        "mid_outer",
-        "middle_price",
-        "middle_price_wick",
-        "up_rod",
-        "low_rod",
-        "bb_upper",
-        "bb_lower",
-        "bb_middle",
-        "bb_range",
-    ]
-    for column in numeric_columns:
-        frame[column] = frame[column].round(digits)
-    return frame
+    candles = []
+    for index, time in enumerate(times):
+        open_price = open_prices[index]
+        close_price = close_prices[index]
+        high = round(max(open_price, close_price) + wick_pips * pip_value, digits)
+        low = round(min(open_price, close_price) - wick_pips * pip_value, digits)
+        utc_time = time.tz_localize("Asia/Tokyo").tz_convert("UTC")
+        candles.append(
+            {
+                "time": utc_time.strftime("%Y-%m-%dT%H:%M:%S.000000000Z"),
+                "mid": {
+                    "o": str(open_price),
+                    "c": str(close_price),
+                    "h": str(high),
+                    "l": str(low),
+                },
+                "volume": 100 + index,
+                "complete": True,
+            }
+        )
+    return {"candles": candles}
 
 
-def build_frame_store(pair_name: str) -> dict[str, pd.DataFrame]:
+def response_to_legacy_frame(response: dict[str, object]) -> pd.DataFrame:
+    return pd.DataFrame(response["candles"])
+
+
+def build_response_store(
+    pair_name: str,
+    frame_specs: dict[str, dict[str, object]] | None = None,
+) -> dict[str, dict[str, list[dict[str, object]]]]:
+    specs = frame_specs or analysis_frame_specs()[pair_name]
     return {
-        timeframe: build_analysis_frame(pair_name, timeframe)
-        for timeframe in analysis_frame_specs()[pair_name]
+        timeframe: build_candle_response(pair_name, timeframe, dict(spec))
+        for timeframe, spec in specs.items()
+    }
+
+
+def build_frame_store(
+    pair_name: str,
+    frame_specs: dict[str, dict[str, object]] | None = None,
+) -> dict[str, pd.DataFrame]:
+    return {
+        timeframe: response_to_legacy_frame(response)
+        for timeframe, response in build_response_store(pair_name, frame_specs).items()
     }
 
 
