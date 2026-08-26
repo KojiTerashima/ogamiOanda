@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -14,6 +15,7 @@ import yaml
 from ogami_oanda.strategy.contracts import TradingStrategy
 
 STRATEGY_API_VERSION = 1
+_MISSING = object()
 
 
 class StrategyPluginError(ValueError):
@@ -93,9 +95,16 @@ def _load_module(python_path: Path) -> ModuleType:
     if spec is None or spec.loader is None:
         raise StrategyPluginError(f"could not import strategy Python {python_path}")
     module = importlib.util.module_from_spec(spec)
+    previous = sys.modules.get(module_name, _MISSING)
+    sys.modules[module_name] = module
     try:
         spec.loader.exec_module(module)
     except Exception as exc:
+        if sys.modules.get(module_name) is module:
+            if previous is _MISSING:
+                del sys.modules[module_name]
+            else:
+                sys.modules[module_name] = previous
         raise StrategyPluginError(f"could not import strategy Python {python_path}: {exc}") from exc
     return module
 

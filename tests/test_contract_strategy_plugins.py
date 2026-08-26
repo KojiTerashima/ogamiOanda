@@ -121,6 +121,23 @@ def test_loader_resolves_paths_from_cwd_and_hashes_plugin_contents_deterministic
         yaml_path.unlink(missing_ok=True)
 
 
+def test_loader_supports_dataclass_decorated_plugin():
+    loader = _loader_module()
+    plugin_path, yaml_path = _write_plugin(
+        _plugin_directory(),
+        "_test_dataclass_plugin",
+        "from __future__ import annotations\n\nfrom dataclasses import dataclass\n\nfrom ogami_oanda.strategy.contracts import StrategyDecision\n\nSTRATEGY_API_VERSION = 1\n\n@dataclass\nclass Plugin:\n    pair: str\n\n    def decide(self, input): return StrategyDecision()\n    def dump_state(self): return {}\n    def load_state(self, state): pass\n\ndef create_strategy(config): return Plugin(config['pair'])\n",
+        "pair: USD_JPY\n",
+    )
+    try:
+        loaded = loader.load_strategy(plugin_path, yaml_path)
+
+        assert loaded.strategy.pair == "USD_JPY"
+    finally:
+        plugin_path.unlink(missing_ok=True)
+        yaml_path.unlink(missing_ok=True)
+
+
 def test_market_quote_accepts_omitted_source_time_and_oanda_quote_uses_aware_price_time():
     from ogami_oanda.adapters.oanda.mappers import map_price_response
     from ogami_oanda.application.ports.market_data import MarketQuote
