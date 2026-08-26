@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import math
 from typing import Mapping
@@ -67,6 +67,7 @@ class MatchaConfig:
             "tp_sl_close_intent_suppress": True,
             "close_position": False,
             "timescale": 60,
+            "minutes_to_expire": 7,
         }
         for key, supported in supported_route.items():
             value = _required(raw, key)
@@ -101,7 +102,7 @@ class MatchaConfig:
             take_profit_distance=_nonnegative_float(raw, "take_profit_distance"),
             stop_loss_distance=_nonnegative_float(raw, "stop_loss_distance"),
             timescale=60,
-            minutes_to_expire=_positive_int(raw, "minutes_to_expire"),
+            minutes_to_expire=7,
             close_position=False,
         )
 
@@ -118,8 +119,10 @@ class MatchaStrategy:
     def decide(self, input: StrategyInput) -> StrategyDecision:
         prices = _price_levels(input.candles, input.quote.mid, self.config)
         candle_id = _newest_candle_id(input.candles)
-        is_new_candle = candle_id is not None and candle_id != self._last_candle
-        if candle_id is not None:
+        is_new_candle = candle_id is not None and (
+            self._last_candle is None or candle_id > self._last_candle
+        )
+        if is_new_candle:
             self._last_candle = candle_id
         diagnostics: dict[str, JSONValue] = {
             "price_levels": prices,
@@ -378,9 +381,15 @@ class MatchaStrategy:
         if state["source"] != MATCHA_SOURCE:
             raise ValueError(f"matcha state source must be {MATCHA_SOURCE!r}")
 
-        last_candle = state["last_candle"]
-        if last_candle is not None and (not isinstance(last_candle, str) or not last_candle):
-            raise ValueError("matcha state last_candle must be a non-empty string or null")
+        raw_last_candle = state["last_candle"]
+        if raw_last_candle is None:
+            last_candle = None
+        elif isinstance(raw_last_candle, str):
+            last_candle = _canonical_m1_timestamp(raw_last_candle)
+            if last_candle is None:
+                raise ValueError("matcha state last_candle must be an aware M1 timestamp or null")
+        else:
+            raise ValueError("matcha state last_candle must be an aware M1 timestamp or null")
         previous_net_units = state["previous_net_units"]
         if type(previous_net_units) is not int:
             raise ValueError("matcha state previous_net_units must be an integer")
@@ -558,11 +567,29 @@ def _newest_candle_id(candles: object | None) -> str | None:
     if not records:
         return None
     raw = records[0].get("time", records[0].get("time_jp"))
+    return _canonical_m1_timestamp(raw)
+
+
+def _canonical_m1_timestamp(raw: object) -> str | None:
     if raw is None:
         return None
-    isoformat = getattr(raw, "isoformat", None)
-    value = isoformat() if callable(isoformat) else str(raw)
-    return value if value else None
+    if isinstance(raw, datetime):
+        parsed = raw
+    else:
+        isoformat = getattr(raw, "isoformat", None)
+        value = isoformat() if callable(isoformat) else str(raw)
+        if value.endswith("Z"):
+            value = f"{value[:-1]}+00:00"
+        try:
+            parsed = datetime.fromisoformat(value)
+        except (TypeError, ValueError):
+            return None
+    if parsed.tzinfo is None:
+        return None
+    canonical = parsed.astimezone(timezone.utc)
+    if canonical.second != 0 or canonical.microsecond != 0:
+        return None
+    return canonical.isoformat()
 
 
 def _population_std(values: list[float]) -> float:

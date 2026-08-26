@@ -215,14 +215,21 @@ def test_factory_accepts_supported_tunable_values():
             max_latency=1200,
             take_profit_amount=30,
             stop_loss_amount=15,
-            minutes_to_expire=9,
         )
     )
 
     assert strategy.pair == "USD_JPY"
     assert strategy.config.lot_size == 1200
     assert strategy.config.siguma_4 == 1.4
-    assert strategy.config.minutes_to_expire == 9
+    assert strategy.config.minutes_to_expire == 7
+
+
+@pytest.mark.parametrize("unsupported", [9, 6, 7.0, True])
+def test_factory_rejects_minutes_to_expire_outside_exact_v1_route(unsupported: object):
+    from ogami_oanda.strategy.matcha_oanda import create_strategy
+
+    with pytest.raises(ValueError, match="minutes_to_expire.*supported"):
+        create_strategy(_config(minutes_to_expire=unsupported))
 
 
 def test_factory_accepts_zero_past_window_to_disable_breakout_threshold():
@@ -493,6 +500,53 @@ def test_normal_entry_runs_once_per_new_completed_m1_candle():
     assert len(next_candle.intents) == 2
 
 
+def test_equivalent_utc_candle_spelling_after_restore_does_not_duplicate_normal_entry():
+    strategy = _normal_strategy()
+    strategy.decide(_normal_input())
+    state = strategy.dump_state()
+    state["last_candle"] = "2026-08-27T11:06:00Z"
+    restored = _normal_strategy()
+    restored.load_state(state)
+
+    duplicate = restored.decide(_normal_input())
+
+    assert duplicate.intents == ()
+    assert restored.dump_state()["last_candle"] == "2026-08-27T11:06:00+00:00"
+
+
+def test_older_out_of_order_candle_never_emits_or_regresses_last_candle_state():
+    strategy = _normal_strategy()
+    strategy.decide(_normal_input())
+    older_candles = _newest_first_candles([10, 10, 99, 100, 101, 100, 100])
+    older_candles[0]["time"] = "2026-08-27T11:05:00+00:00"
+
+    older = strategy.decide(
+        StrategyInput(_normal_input().quote, candles=older_candles, evaluation_time=NOW)
+    )
+
+    assert older.intents == ()
+    assert strategy.dump_state()["last_candle"] == "2026-08-27T11:06:00+00:00"
+
+
+@pytest.mark.parametrize(
+    "invalid_timestamp",
+    ["not-a-time", "2026-08-27T11:06:30+00:00", "2026-08-27T11:06:00"],
+)
+def test_invalid_naive_or_non_m1_candle_timestamp_suppresses_normal_entry(
+    invalid_timestamp: str,
+):
+    strategy = _normal_strategy()
+    candles = _newest_first_candles([10, 10, 99, 100, 101, 100, 100])
+    candles[0]["time"] = invalid_timestamp
+
+    decision = strategy.decide(
+        StrategyInput(_normal_input().quote, candles=candles, evaluation_time=NOW)
+    )
+
+    assert decision.intents == ()
+    assert strategy.dump_state()["last_candle"] is None
+
+
 def test_breakout_risk_is_evaluated_on_every_tick_even_on_same_candle():
     strategy = _breakout_strategy()
     strategy_input = _breakout_input(1)
@@ -577,6 +631,9 @@ def test_restore_prevents_duplicate_normal_order_and_preserves_flatten_cleanup()
         {"version": 1, "source": "other", "last_candle": None, "previous_net_units": 0, "cooldown_minute": None, "latency_samples_ms": []},
         {"version": 1, "source": "matcha_oanda", "last_candle": 1, "previous_net_units": 0, "cooldown_minute": None, "latency_samples_ms": []},
         {"version": 1, "source": "matcha_oanda", "last_candle": None, "previous_net_units": True, "cooldown_minute": None, "latency_samples_ms": []},
+        {"version": 1, "source": "matcha_oanda", "last_candle": "not-a-time", "previous_net_units": 0, "cooldown_minute": None, "latency_samples_ms": []},
+        {"version": 1, "source": "matcha_oanda", "last_candle": "2026-08-27T11:06:30+00:00", "previous_net_units": 0, "cooldown_minute": None, "latency_samples_ms": []},
+        {"version": 1, "source": "matcha_oanda", "last_candle": "2026-08-27T11:06:00", "previous_net_units": 0, "cooldown_minute": None, "latency_samples_ms": []},
         {"version": 1, "source": "matcha_oanda", "last_candle": None, "previous_net_units": 0, "cooldown_minute": "not-a-time", "latency_samples_ms": []},
         {"version": 1, "source": "matcha_oanda", "last_candle": None, "previous_net_units": 0, "cooldown_minute": None, "latency_samples_ms": [-1]},
         {"version": 1, "source": "matcha_oanda", "last_candle": None, "previous_net_units": 0, "cooldown_minute": None, "latency_samples_ms": [0.0] * 101},
