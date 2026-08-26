@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 import pandas as pd
@@ -15,6 +16,7 @@ class MarketQuote:
     ask: float
     mid: float
     tradeable: bool = True
+    source_time: datetime | None = None
 
     @property
     def spread(self) -> float:

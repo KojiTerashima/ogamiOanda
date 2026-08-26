@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Mapping
 
 import pandas as pd
@@ -15,7 +16,7 @@ def map_price_response(pair_name: str, response: Mapping[str, object]) -> dict[s
     pair = currency_pair(pair_name)
     bid = pair.round_price(float(price["bids"][0]["price"]))
     ask = pair.round_price(float(price["asks"][0]["price"]))
-    return {
+    mapped = {
         "bid": bid,
         "ask": ask,
         "mid": pair.round_price((bid + ask) / 2),
@@ -23,6 +24,22 @@ def map_price_response(pair_name: str, response: Mapping[str, object]) -> dict[s
         "tradeable": str(price.get("status", "tradeable")).lower()
         == "tradeable",
     }
+    source_time = _parse_source_time(price.get("time"))
+    if source_time is not None:
+        mapped["source_time"] = source_time
+    return mapped
+
+
+def _parse_source_time(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"OANDA price time is invalid: {value!r}") from exc
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ValueError(f"OANDA price time must be timezone-aware: {value!r}")
+    return timestamp
 
 
 def map_candle_response(response: Mapping[str, object]) -> pd.DataFrame:

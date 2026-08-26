@@ -23,11 +23,12 @@ class OandaMarketDataAdapter:
     def current_quote(self, pair: str) -> MarketQuote:
         details = self.current_price_details(pair)
         return MarketQuote(
-            pair,
-            float(details["bid"]),
-            float(details["ask"]),
-            float(details["mid"]),
-            bool(details["tradeable"]),
+            pair=pair,
+            bid=float(details["bid"]),
+            ask=float(details["ask"]),
+            mid=float(details["mid"]),
+            tradeable=bool(details["tradeable"]),
+            source_time=details.get("source_time"),
         )
 
     def candles(self, pair: str, granularity: str, count: int):
