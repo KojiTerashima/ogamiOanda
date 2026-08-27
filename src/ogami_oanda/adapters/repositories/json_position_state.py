@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Mapping
 
 from ogami_oanda.application.ports.position_state import (
+    BUILTIN_LINE_STRATEGY_ID,
     CheckpointLoadResult,
     CheckpointLoadStatus,
     PendingBrokerMutation,
@@ -34,8 +35,8 @@ from ogami_oanda.domain.positions.models import (
 )
 
 
-SCHEMA_VERSION = 1
-_TOP_LEVEL_KEYS = frozenset(
+SCHEMA_VERSION = 2
+_TOP_LEVEL_KEYS_V1 = frozenset(
     {
         "version",
         "account_hash",
@@ -46,6 +47,12 @@ _TOP_LEVEL_KEYS = frozenset(
         "emitted_event_ids",
         "reported_event_ids",
         "analytics",
+    }
+)
+_TOP_LEVEL_KEYS_V2 = _TOP_LEVEL_KEYS_V1 | frozenset(
+    {
+        "strategy_id",
+        "strategy_state",
     }
 )
 
@@ -209,20 +216,28 @@ def _encode_checkpoint(checkpoint: PositionStateCheckpoint) -> dict[str, object]
         "emitted_event_ids": sorted(checkpoint.emitted_event_ids),
         "reported_event_ids": sorted(checkpoint.reported_event_ids),
         "analytics": _encode_analytics(checkpoint.analytics),
+        "strategy_id": checkpoint.strategy_id,
+        "strategy_state": checkpoint.strategy_state,
     }
 
 
 def _decode_checkpoint(raw: object) -> PositionStateCheckpoint:
     if not isinstance(raw, Mapping):
         raise _CheckpointDecodeError("checkpoint root must be an object")
-    unknown = set(raw) - _TOP_LEVEL_KEYS
+    version = raw.get("version")
+    if version not in {1, SCHEMA_VERSION}:
+        raise _SchemaMismatch(f"unsupported checkpoint schema: {version}")
+    allowed_keys = _TOP_LEVEL_KEYS_V1 if version == 1 else _TOP_LEVEL_KEYS_V2
+    unknown = set(raw) - allowed_keys
     if unknown:
         raise _CheckpointDecodeError(
             f"unknown checkpoint fields: {', '.join(sorted(unknown))}"
         )
-    if raw.get("version") != SCHEMA_VERSION:
-        raise _SchemaMismatch(
-            f"unsupported checkpoint schema: {raw.get('version')}"
+    if version == SCHEMA_VERSION and (
+        "strategy_id" not in raw or "strategy_state" not in raw
+    ):
+        raise _CheckpointDecodeError(
+            "schema v2 requires strategy_id and strategy_state"
         )
     slots = raw.get("slots")
     if not isinstance(slots, list):
@@ -270,6 +285,16 @@ def _decode_checkpoint(raw: object) -> PositionStateCheckpoint:
         emitted_event_ids=frozenset(str(item) for item in raw.get("emitted_event_ids", [])),
         reported_event_ids=frozenset(str(item) for item in raw.get("reported_event_ids", [])),
         analytics=_decode_analytics(raw.get("analytics", {})),
+        strategy_id=(
+            BUILTIN_LINE_STRATEGY_ID
+            if version == 1
+            else raw["strategy_id"]
+        ),
+        strategy_state=(
+            {}
+            if version == 1
+            else raw["strategy_state"]
+        ),
     )
 
 

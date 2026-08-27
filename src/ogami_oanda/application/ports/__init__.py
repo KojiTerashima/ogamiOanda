@@ -15,6 +15,7 @@ from .clock import Clock
 from .market_data import MarketDataPort
 from .notifications import Notifier
 from .position_state import (
+    BUILTIN_LINE_STRATEGY_ID,
     CheckpointLoadResult,
     CheckpointLoadStatus,
     PendingBrokerMutation,
@@ -42,6 +43,7 @@ __all__ = [
     "Notifier",
     "CheckpointLoadResult",
     "CheckpointLoadStatus",
+    "BUILTIN_LINE_STRATEGY_ID",
     "PendingBrokerMutation",
     "PortfolioAnalyticsState",
     "PositionStateCheckpoint",

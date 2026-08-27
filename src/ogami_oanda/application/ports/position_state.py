@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import Enum
@@ -8,6 +9,9 @@ from typing import Mapping, Protocol, runtime_checkable
 
 from ogami_oanda.domain.orders.models import OrderIntent
 from ogami_oanda.domain.positions.managed_position import ManagedPosition
+
+
+BUILTIN_LINE_STRATEGY_ID = "builtin-line"
 
 
 class CheckpointLoadStatus(str, Enum):
@@ -68,6 +72,8 @@ class PositionStateCheckpoint:
     emitted_event_ids: frozenset[str] = frozenset()
     reported_event_ids: frozenset[str] = frozenset()
     analytics: PortfolioAnalyticsState = field(default_factory=PortfolioAnalyticsState)
+    strategy_id: str = BUILTIN_LINE_STRATEGY_ID
+    strategy_state: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -78,6 +84,13 @@ class PositionStateCheckpoint:
         object.__setattr__(self, "pending_mutations", tuple(self.pending_mutations))
         object.__setattr__(self, "emitted_event_ids", frozenset(self.emitted_event_ids))
         object.__setattr__(self, "reported_event_ids", frozenset(self.reported_event_ids))
+        if not isinstance(self.strategy_id, str) or not self.strategy_id:
+            raise ValueError("strategy_id must be a non-empty string")
+        object.__setattr__(
+            self,
+            "strategy_state",
+            validated_strategy_state(self.strategy_state),
+        )
 
 
 @dataclass(frozen=True)
@@ -101,6 +114,36 @@ class PositionStateRepository(Protocol):
 
 def account_identity_hash(account_id: str) -> str:
     return hashlib.sha256(account_id.encode("utf-8")).hexdigest()[:24]
+
+
+def validated_strategy_state(state: Mapping[str, object]) -> dict[str, object]:
+    """Copy and validate a strategy state mapping as recursively JSON values."""
+
+    if not isinstance(state, Mapping):
+        raise ValueError("strategy_state must be a mapping")
+    normalized = _validated_strategy_value(state)
+    if not isinstance(normalized, dict):  # pragma: no cover - guarded above
+        raise ValueError("strategy_state must be a mapping")
+    return normalized
+
+
+def _validated_strategy_value(value: object) -> object:
+    if value is None or isinstance(value, (str, int, bool)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("strategy_state contains a non-finite number")
+        return value
+    if isinstance(value, Mapping):
+        result: dict[str, object] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError("strategy_state mapping keys must be strings")
+            result[key] = _validated_strategy_value(item)
+        return result
+    if isinstance(value, (list, tuple)):
+        return [_validated_strategy_value(item) for item in value]
+    raise ValueError("strategy_state contains a non-JSON value")
 
 
 _PERSISTED_METADATA_KEYS = frozenset(

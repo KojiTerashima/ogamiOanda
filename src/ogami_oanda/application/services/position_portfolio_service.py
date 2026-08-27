@@ -2,17 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+from typing import Mapping
 from ogami_oanda.application.ports.broker import (
     BrokerExecutionPort,
     BrokerQueryPort,
     MutationState,
 )
 from ogami_oanda.application.ports.position_state import (
+    BUILTIN_LINE_STRATEGY_ID,
     CheckpointLoadStatus,
     PendingBrokerMutation,
     PortfolioAnalyticsState,
     PositionStateCheckpoint,
     PositionStateRepository,
+    validated_strategy_state,
 )
 from ogami_oanda.application.settings import TradingSettings
 from ogami_oanda.application.services.portfolio import ActiveOrder, Portfolio
@@ -86,6 +89,7 @@ class PositionPortfolioService:
         state_repository: PositionStateRepository | None = None,
         account_hash: str = "",
         state_writable: bool = True,
+        strategy_id: str = BUILTIN_LINE_STRATEGY_ID,
     ) -> None:
         self.pair = pair
         self.position_service = position_service
@@ -98,6 +102,10 @@ class PositionPortfolioService:
         self.state_repository = state_repository
         self.account_hash = account_hash
         self.state_writable = state_writable
+        if not isinstance(strategy_id, str) or not strategy_id:
+            raise ValueError("strategy_id must be a non-empty string")
+        self.strategy_id = strategy_id
+        self._strategy_state: dict[str, object] = {}
         self.transaction_cursor: str | None = None
         self.pending_mutations: tuple[PendingBrokerMutation, ...] = ()
         self.startup_state = (
@@ -110,6 +118,22 @@ class PositionPortfolioService:
             self._begin_mutation,
             self._complete_mutation,
         )
+
+    @property
+    def strategy_state(self) -> Mapping[str, object]:
+        """Return a copy of the state selected for the active strategy."""
+
+        return validated_strategy_state(self._strategy_state)
+
+    def set_strategy_checkpoint_state(
+        self,
+        state: Mapping[str, object],
+        *,
+        persist: bool = True,
+    ) -> None:
+        self._strategy_state = validated_strategy_state(state)
+        if persist:
+            self._persist_state()
 
     def register_plans(self, plans: list[OrderPlan], submit: bool = True) -> RegistrationResult:
         if self.startup_state is PortfolioStartupState.NOT_STARTED:
@@ -262,9 +286,24 @@ class PositionPortfolioService:
             return self._quarantine(loaded.reason or loaded.status.value)
 
         checkpoint = loaded.checkpoint
+        identity_mismatch = checkpoint.strategy_id != self.strategy_id
+        if identity_mismatch and (
+            any(position is not None for position in checkpoint.slots)
+            or checkpoint.pending_mutations
+            or pending
+            or opened
+        ):
+            return self._quarantine(
+                "checkpoint strategy does not match selected strategy"
+            )
         self.slots = list(checkpoint.slots)
         self.transaction_cursor = checkpoint.transaction_cursor
         self.pending_mutations = checkpoint.pending_mutations
+        self._strategy_state = (
+            {}
+            if identity_mismatch
+            else validated_strategy_state(checkpoint.strategy_state)
+        )
         self.position_service._emitted_event_ids = set(checkpoint.emitted_event_ids)
         reporting = self.position_service.closure_reporting
         history_reported_ids = set(reporting._reported_event_ids)
@@ -933,6 +972,8 @@ class PositionPortfolioService:
             emitted_event_ids=frozenset(self.position_service._emitted_event_ids),
             reported_event_ids=frozenset(reporting._reported_event_ids),
             analytics=analytics_state,
+            strategy_id=self.strategy_id,
+            strategy_state=self._strategy_state,
         )
 
     def sync_all(
