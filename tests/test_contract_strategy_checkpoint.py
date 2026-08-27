@@ -154,8 +154,28 @@ def test_future_checkpoint_schema_fails_closed_even_with_usable_backup(tmp_path)
     repository = JsonPositionStateRepository(path)
     checkpoint = _checkpoint()
     repository.save(checkpoint)
+    repository.save(checkpoint)
     raw = json.loads(path.read_text(encoding="utf-8"))
     raw["version"] = 3
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    loaded = repository.load(
+        expected_account_hash=checkpoint.account_hash,
+        expected_pair=checkpoint.pair,
+    )
+
+    assert loaded.status is CheckpointLoadStatus.SCHEMA_MISMATCH
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize("version", [True, 1.0, 2.0])
+def test_non_integer_checkpoint_schema_versions_fail_closed(tmp_path, version):
+    path = tmp_path / "state.json"
+    repository = JsonPositionStateRepository(path)
+    checkpoint = _checkpoint()
+    repository.save(checkpoint)
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["version"] = version
     path.write_text(json.dumps(raw), encoding="utf-8")
 
     loaded = repository.load(

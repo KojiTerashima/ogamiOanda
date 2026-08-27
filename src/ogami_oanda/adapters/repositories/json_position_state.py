@@ -132,6 +132,8 @@ class JsonPositionStateRepository:
             CheckpointLoadStatus.PAIR_MISMATCH,
         }:
             return primary_result
+        if primary_result.status is CheckpointLoadStatus.SCHEMA_MISMATCH:
+            return primary_result
 
         backup_result = self._load_path(
             self.backup_path,
@@ -144,8 +146,6 @@ class JsonPositionStateRepository:
                 backup_result.checkpoint,
                 primary_result.reason,
             )
-        if primary_result.status is CheckpointLoadStatus.SCHEMA_MISMATCH:
-            return primary_result
         return CheckpointLoadResult(
             CheckpointLoadStatus.QUARANTINED,
             reason=primary_result.reason or backup_result.reason,
@@ -225,7 +225,7 @@ def _decode_checkpoint(raw: object) -> PositionStateCheckpoint:
     if not isinstance(raw, Mapping):
         raise _CheckpointDecodeError("checkpoint root must be an object")
     version = raw.get("version")
-    if version not in {1, SCHEMA_VERSION}:
+    if type(version) is not int or version not in {1, SCHEMA_VERSION}:
         raise _SchemaMismatch(f"unsupported checkpoint schema: {version}")
     allowed_keys = _TOP_LEVEL_KEYS_V1 if version == 1 else _TOP_LEVEL_KEYS_V2
     unknown = set(raw) - allowed_keys
