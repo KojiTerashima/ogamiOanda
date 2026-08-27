@@ -293,6 +293,62 @@ def test_unknown_reduction_keeps_journal_for_non_proven_broker_state(units, stat
 
 
 @pytest.mark.contract
+def test_unknown_reduction_preserves_pre_state_until_later_exact_recovery():
+    position = (
+        ManagedPosition.registered("retry", "USD_JPY")
+        .with_order_plan(_plan("retry"), datetime(2026, 1, 2, 10, 0, 0))
+        .filled("trade-retry", datetime(2026, 1, 2, 10, 1, 0))
+        ._replace(units=100)
+    )
+    mutation = PendingBrokerMutation(
+        "reduce_trade",
+        "retry",
+        broker_reference_id="trade-retry",
+        units=40,
+        pre_mutation_units=100,
+        direction=1,
+    )
+    repository = _StateRepository(
+        CheckpointLoadResult(
+            CheckpointLoadStatus.LOADED,
+            _checkpoint(position, mutation=(mutation,)),
+        )
+    )
+    broker = FakeBroker()
+    broker.positions["trade-retry"] = PositionSnapshot(
+        "retry",
+        "USD_JPY",
+        OrderState.FILLED,
+        TradeState.OPEN,
+        trade_id="trade-retry",
+        life=True,
+        direction=-1,
+        units=70,
+    )
+    service = _service(repository, broker)
+
+    first = service.restore_and_reconcile()
+
+    assert first.state is PortfolioStartupState.RECONCILING
+    assert service.pending_mutations == (mutation,)
+    assert service.slots[0].snapshot.units == 100
+    assert service.slots[0].runtime.direction == 1
+    assert repository.saved[-1].slots[0].snapshot.units == 100
+
+    broker.positions["trade-retry"] = replace(
+        broker.positions["trade-retry"],
+        direction=1,
+        units=60,
+    )
+
+    assert service.reconcile_pending_mutations() is True
+    assert service.startup_state is PortfolioStartupState.READY
+    assert service.pending_mutations == ()
+    assert service.slots[0].snapshot.direction == 1
+    assert service.slots[0].snapshot.units == 60
+
+
+@pytest.mark.contract
 def test_unknown_reduction_requires_local_pre_mutation_units_to_match_journal():
     position = (
         ManagedPosition.registered("partial", "USD_JPY")

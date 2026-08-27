@@ -428,6 +428,11 @@ class PositionPortfolioService:
             mutation.position_name
             for mutation in self.pending_mutations
         }
+        pending_reduction_names = {
+            mutation.position_name
+            for mutation in self.pending_mutations
+            if mutation.action == "reduce_trade"
+        }
         for index, position in enumerate(self.slots):
             if position is None or not position.snapshot.life:
                 continue
@@ -436,6 +441,8 @@ class PositionPortfolioService:
             ):
                 continue
             if position.snapshot.waiting_order:
+                continue
+            if position.snapshot.name in pending_reduction_names:
                 continue
             if position.snapshot.trade_id is not None:
                 broker_snapshot = opened_by_id.get(position.snapshot.trade_id)
@@ -1099,6 +1106,11 @@ class PositionPortfolioService:
                 allocated = min(available, remaining)
                 allocations.append((index, position, allocated))
                 remaining -= allocated
+            if remaining > 0:
+                return StrategyCommandResult(
+                    tuple(executed),
+                    ("insufficient_source_exposure",),
+                )
             action = "reduce_trade"
         else:  # pragma: no cover - enum exhaustiveness guard
             return StrategyCommandResult(

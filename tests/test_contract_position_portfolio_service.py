@@ -1007,6 +1007,125 @@ def test_strategy_reduce_exposure_tiebreaks_equal_fill_times_by_slot_and_updates
 
 
 @pytest.mark.contract
+def test_strategy_reduce_rejects_before_mutation_when_source_has_no_exposure():
+    service, broker = _service()
+    service.slots[0] = (
+        ManagedPosition.registered("other", "USD_JPY")
+        .with_order_plan(
+            _plan("other", 1, source="other"),
+            datetime(2026, 1, 2, 0, 0, 0),
+        )
+        .filled("trade-other", datetime(2026, 1, 2, 0, 1, 0))
+        .with_runtime(source="other")
+        ._replace(units=100)
+    )
+    before_slots = tuple(service.slots)
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.REDUCE_EXPOSURE,
+                "matcha_oanda",
+                "reduce",
+                50,
+            ),
+        )
+    )
+
+    assert result.allows_intents is False
+    assert result.rejected == ("insufficient_source_exposure",)
+    assert result.executed == ()
+    assert broker.commands == []
+    assert service.pending_mutations == ()
+    assert tuple(service.slots) == before_slots
+
+
+@pytest.mark.contract
+def test_strategy_reduce_rejects_before_mutation_when_source_exposure_is_partial():
+    service, broker = _service()
+    service.slots[0] = (
+        ManagedPosition.registered("partial", "USD_JPY")
+        .with_order_plan(
+            _plan("partial", 1),
+            datetime(2026, 1, 2, 0, 0, 0),
+        )
+        .filled("trade-partial", datetime(2026, 1, 2, 0, 1, 0))
+        .with_runtime(source="matcha_oanda")
+        ._replace(units=100)
+    )
+    before_slots = tuple(service.slots)
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.REDUCE_EXPOSURE,
+                "matcha_oanda",
+                "reduce",
+                150,
+            ),
+        )
+    )
+
+    assert result.allows_intents is False
+    assert result.rejected == ("insufficient_source_exposure",)
+    assert result.executed == ()
+    assert broker.commands == []
+    assert service.pending_mutations == ()
+    assert tuple(service.slots) == before_slots
+
+
+@pytest.mark.contract
+def test_strategy_reduce_shortfall_preserves_earlier_command_result_and_state():
+    service, broker = _service()
+    service.slots[:2] = [
+        (
+            ManagedPosition.registered("pending", "USD_JPY")
+            .with_order_plan(
+                _plan("pending", 1),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .pending("order-pending")
+            .with_runtime(source="matcha_oanda")
+        ),
+        (
+            ManagedPosition.registered("partial", "USD_JPY")
+            .with_order_plan(
+                _plan("partial", 1),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .filled("trade-partial", datetime(2026, 1, 2, 0, 1, 0))
+            .with_runtime(source="matcha_oanda")
+            ._replace(units=100)
+        ),
+    ]
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.CANCEL_PENDING,
+                "matcha_oanda",
+                "cancel",
+            ),
+            StrategyCommand(
+                StrategyCommandAction.REDUCE_EXPOSURE,
+                "matcha_oanda",
+                "reduce",
+                150,
+            ),
+        )
+    )
+
+    assert result.allows_intents is False
+    assert result.rejected == ("insufficient_source_exposure",)
+    assert [item.reference_id for item in result.executed] == ["order-pending"]
+    assert broker.commands == [("cancel_order", ("order-pending",))]
+    assert service.slots[0].snapshot.order_state is OrderState.CANCELLED
+    assert service.slots[1].snapshot.trade_state is TradeState.OPEN
+    assert service.slots[1].snapshot.units == 100
+    assert service.pending_mutations == ()
+
+
+@pytest.mark.contract
 def test_strategy_command_rejection_stops_remaining_commands_and_forbids_intents():
     class _RejectingBroker(FakeBroker):
         def cancel_order(self, order_id):
