@@ -161,6 +161,34 @@ def test_json_position_state_round_trips_full_runtime_without_arbitrary_metadata
 
 
 @pytest.mark.contract
+def test_json_position_state_round_trips_unit_aware_reduction_journal(tmp_path):
+    repository = JsonPositionStateRepository(tmp_path / "reduction.json")
+    mutation = PendingBrokerMutation(
+        "reduce_trade",
+        "persisted-position",
+        "ogm-reference",
+        broker_reference_id="trade-1",
+        reason="risk-reduction",
+        prepared_at=datetime(2026, 1, 2, 10, 2, 0),
+        units=40,
+        pre_mutation_units=100,
+        direction=1,
+    )
+    expected = replace(_checkpoint(), pending_mutations=(mutation,))
+
+    repository.save(expected)
+    loaded = repository.load(
+        expected_account_hash=expected.account_hash,
+        expected_pair="USD_JPY",
+    )
+
+    assert loaded.status is CheckpointLoadStatus.LOADED
+    assert loaded.checkpoint == expected
+    assert loaded.checkpoint.pending_mutations[0].requested_units == 40
+    assert loaded.checkpoint.pending_mutations[0].original_units == 100
+
+
+@pytest.mark.contract
 def test_json_position_state_uses_last_known_good_backup_when_primary_is_corrupt(tmp_path):
     path = tmp_path / "runtime.json"
     repository = JsonPositionStateRepository(path)

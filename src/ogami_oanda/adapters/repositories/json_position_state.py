@@ -278,6 +278,9 @@ def _decode_checkpoint(raw: object) -> PositionStateCheckpoint:
                     else None
                 ),
                 prepared_at=_decode_datetime(item.get("prepared_at")),
+                units=_optional_int(item.get("units")),
+                pre_mutation_units=_optional_int(item.get("pre_mutation_units")),
+                direction=_optional_int(item.get("direction")),
             )
             for item in pending
             if isinstance(item, Mapping)

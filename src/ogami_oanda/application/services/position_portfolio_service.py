@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Mapping
 from ogami_oanda.application.ports.broker import (
@@ -27,10 +28,12 @@ from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import OrderPlan
 from ogami_oanda.domain.positions.managed_position import ManagedPosition
 from ogami_oanda.domain.positions.models import (
+    OrderState,
     PositionCommand,
     PositionEvent,
     PositionSnapshot,
     SubmissionPhase,
+    TradeState,
 )
 from ogami_oanda.strategy.position_management import (
     HedgePolicy,
@@ -38,12 +41,32 @@ from ogami_oanda.strategy.position_management import (
     LinkagePolicy,
     LinkedPosition,
 )
+from ogami_oanda.strategy.contracts import StrategyCommand, StrategyCommandAction
 
 
 @dataclass(frozen=True)
 class RegistrationResult:
     accepted: tuple[str, ...]
     rejected: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
+class StrategyCommandResult:
+    """Application-level report for one source-scoped command batch."""
+
+    executed: tuple[PositionCommand, ...] = ()
+    rejected: tuple[str, ...] = ()
+    unresolved: bool = False
+
+    @property
+    def allows_intents(self) -> bool:
+        return not self.rejected and not self.unresolved
+
+    @property
+    def commands(self) -> tuple[PositionCommand, ...]:
+        """Alias used by runtime reporting callers."""
+
+        return self.executed
 
 
 @dataclass(frozen=True)
@@ -771,6 +794,8 @@ class PositionPortfolioService:
         transactions,
     ) -> bool:
         reference_id = mutation.broker_reference_id
+        if mutation.action == "reduce_trade":
+            return self._resolve_reduced_trade_mutation(mutation)
         if mutation.action == "cancel_order":
             if reference_id is None or reference_id in pending_by_id:
                 return False
@@ -868,6 +893,61 @@ class PositionPortfolioService:
             return True
         return False
 
+    def _resolve_reduced_trade_mutation(
+        self,
+        mutation: PendingBrokerMutation,
+    ) -> bool:
+        reference_id = mutation.broker_reference_id
+        if (
+            reference_id is None
+            or type(mutation.units) is not int
+            or mutation.units <= 0
+            or type(mutation.pre_mutation_units) is not int
+            or mutation.pre_mutation_units <= 0
+            or mutation.units > mutation.pre_mutation_units
+            or (mutation.direction not in {-1, 1})
+        ):
+            return False
+        matches = [
+            (index, position)
+            for index, position in enumerate(self.slots)
+            if position is not None
+            and position.snapshot.trade_id == reference_id
+        ]
+        if len(matches) != 1:
+            return False
+        index, position = matches[0]
+        local_direction = self._position_direction(position)
+        if (
+            position.snapshot.name != mutation.position_name
+            or abs(position.snapshot.units) != mutation.pre_mutation_units
+            or local_direction != mutation.direction
+        ):
+            return False
+        broker_snapshot = self.broker_query.trade(reference_id)
+        if broker_snapshot is None:
+            return False
+        if mutation.units == mutation.pre_mutation_units:
+            if broker_snapshot.trade_state.value != "CLOSED":
+                return False
+            self._apply_closed_snapshot(index, position, broker_snapshot)
+            resolved = self.slots[index]
+            if resolved is not None:
+                self.slots[index] = resolved._replace(units=0)
+            return True
+        expected_units = mutation.pre_mutation_units - mutation.units
+        if (
+            broker_snapshot.trade_state.value != "OPEN"
+            or abs(broker_snapshot.units) != expected_units
+            or broker_snapshot.direction != mutation.direction
+        ):
+            return False
+        self.slots[index] = self.position_service._with_broker_runtime(
+            position,
+            broker_snapshot,
+        )
+        return True
+
     def _restore_analytics(self, state: PortfolioAnalyticsState) -> None:
         analytics = self.position_service.closure_reporting.analytics
         for name in (
@@ -900,6 +980,217 @@ class PositionPortfolioService:
     def _quarantine(self, reason: str) -> PortfolioStartupResult:
         self.startup_state = PortfolioStartupState.QUARANTINED
         return PortfolioStartupResult(self.startup_state, reason=reason)
+
+    @staticmethod
+    def _strategy_source(position: ManagedPosition) -> str | None:
+        return position.runtime.source or position.snapshot.source
+
+    @staticmethod
+    def _position_direction(position: ManagedPosition) -> int:
+        snapshot_direction = position.snapshot.direction
+        if snapshot_direction in {-1, 1}:
+            return snapshot_direction
+        return position.runtime.direction
+
+    @staticmethod
+    def _filled_order_key(
+        item: tuple[int, ManagedPosition],
+    ) -> tuple[bool, datetime, int]:
+        index, position = item
+        filled_at = position.runtime.filled_at
+        if filled_at is None:
+            return True, datetime.max.replace(tzinfo=timezone.utc), index
+        if filled_at.tzinfo is None:
+            normalized = filled_at.replace(tzinfo=timezone.utc)
+        else:
+            normalized = filled_at.astimezone(timezone.utc)
+        return False, normalized, index
+
+    @staticmethod
+    def _command_client_reference(position: ManagedPosition) -> str:
+        plan = position.runtime.order_plan
+        return plan.broker_request.client_reference if plan is not None else ""
+
+    def execute_strategy_commands(
+        self,
+        commands: tuple[StrategyCommand, ...],
+        *,
+        dry_run: bool = False,
+    ) -> StrategyCommandResult:
+        if self.pending_mutations and not dry_run:
+            return StrategyCommandResult(unresolved=True)
+        working_slots = list(self.slots)
+        executed: list[PositionCommand] = []
+        self._checkpoint_slots = working_slots
+        try:
+            for command in commands:
+                result = self._run_strategy_command(
+                    command,
+                    working_slots,
+                    executed,
+                    dry_run,
+                )
+                if result is not None:
+                    if not dry_run:
+                        self.slots = working_slots
+                        if not result.unresolved:
+                            self._persist_state()
+                    return result
+            if not dry_run:
+                self.slots = working_slots
+                self._persist_state()
+            return StrategyCommandResult(tuple(executed))
+        finally:
+            self._checkpoint_slots = None
+
+    def _run_strategy_command(
+        self,
+        command: StrategyCommand,
+        working_slots: list[ManagedPosition | None],
+        executed: list[PositionCommand],
+        dry_run: bool,
+    ) -> StrategyCommandResult | None:
+        if not isinstance(command, StrategyCommand):
+            return StrategyCommandResult(tuple(executed), ("invalid_strategy_command",))
+        return self._run_strategy_action(command, working_slots, executed, dry_run)
+
+    def _run_strategy_action(
+        self,
+        command: StrategyCommand,
+        working_slots: list[ManagedPosition | None],
+        executed: list[PositionCommand],
+        dry_run: bool,
+    ) -> StrategyCommandResult | None:
+        matching = [
+            (index, position)
+            for index, position in enumerate(working_slots)
+            if position is not None
+            and self._strategy_source(position) == command.source
+        ]
+        if command.action is StrategyCommandAction.CANCEL_PENDING:
+            allocations = [
+                (index, position, None)
+                for index, position in matching
+                if position.snapshot.order_state is OrderState.PENDING
+                and position.snapshot.order_id is not None
+            ]
+            action = "cancel_order"
+        elif command.action is StrategyCommandAction.CLOSE_ALL:
+            allocations = [
+                (index, position, None)
+                for index, position in matching
+                if position.snapshot.trade_state is TradeState.OPEN
+                and position.snapshot.trade_id is not None
+            ]
+            action = "close_trade"
+        elif command.action is StrategyCommandAction.REDUCE_EXPOSURE:
+            remaining = int(command.units or 0)
+            allocations = []
+            for index, position in sorted(matching, key=self._filled_order_key):
+                available = abs(position.snapshot.units)
+                if (
+                    remaining <= 0
+                    or position.snapshot.trade_state is not TradeState.OPEN
+                    or position.snapshot.trade_id is None
+                    or type(available) is not int
+                    or available <= 0
+                ):
+                    continue
+                allocated = min(available, remaining)
+                allocations.append((index, position, allocated))
+                remaining -= allocated
+            action = "reduce_trade"
+        else:  # pragma: no cover - enum exhaustiveness guard
+            return StrategyCommandResult(
+                tuple(executed),
+                ("unsupported_strategy_command",),
+            )
+
+        for index, position, requested_units in allocations:
+            if action == "cancel_order":
+                reference_id = position.snapshot.order_id
+            else:
+                reference_id = position.snapshot.trade_id
+            if reference_id is None:  # pragma: no cover - filtered above
+                continue
+            command_data = (
+                {"units": requested_units}
+                if requested_units is not None
+                else None
+            )
+            position_command = PositionCommand(
+                action,
+                reference_id,
+                command.reason,
+                data=command_data,
+            )
+            executed.append(position_command)
+            if dry_run:
+                continue
+
+            direction = self._position_direction(position)
+            if action == "reduce_trade" and direction not in {-1, 1}:
+                return StrategyCommandResult(
+                    tuple(executed),
+                    ("position_direction_unknown",),
+                )
+            mutation = PendingBrokerMutation(
+                action,
+                position.snapshot.name,
+                self._command_client_reference(position),
+                broker_reference_id=reference_id,
+                reason=command.reason,
+                prepared_at=self.position_service.clock.now(),
+                units=requested_units,
+                pre_mutation_units=(
+                    abs(position.snapshot.units)
+                    if requested_units is not None
+                    else None
+                ),
+                direction=direction if requested_units is not None else None,
+            )
+            self.slots = working_slots
+            if action == "cancel_order":
+                result = self._execute_mutation(
+                    mutation,
+                    lambda reference_id=reference_id: (
+                        self.broker_execution.cancel_order(reference_id)
+                    ),
+                    persist_confirmed=False,
+                )
+            else:
+                result = self._execute_mutation(
+                    mutation,
+                    lambda reference_id=reference_id, requested_units=requested_units: (
+                        self.broker_execution.close_trade(
+                            reference_id,
+                            requested_units,
+                        )
+                    ),
+                    persist_confirmed=False,
+                )
+            if result.state is MutationState.UNKNOWN:
+                return StrategyCommandResult(
+                    tuple(executed),
+                    unresolved=True,
+                )
+            if result.state is not MutationState.CONFIRMED or not result.accepted:
+                return StrategyCommandResult(
+                    tuple(executed),
+                    (result.message or f"{action}_rejected",),
+                )
+            if action == "cancel_order":
+                working_slots[index] = position.cancelled()
+            elif requested_units is None or requested_units == abs(
+                position.snapshot.units
+            ):
+                working_slots[index] = position._replace(units=0).closed()
+            else:
+                working_slots[index] = position._replace(
+                    units=abs(position.snapshot.units) - requested_units
+                )
+            self._persist_state()
+        return None
 
     def _begin_mutation(self, mutation: PendingBrokerMutation) -> None:
         if self.startup_state is PortfolioStartupState.QUARANTINED:

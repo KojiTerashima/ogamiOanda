@@ -25,6 +25,8 @@ from ogami_oanda.domain.positions.models import (
     SubmissionPhase,
     TradeState,
 )
+from ogami_oanda.domain.positions.managed_position import ManagedPosition
+from ogami_oanda.strategy.contracts import StrategyCommand, StrategyCommandAction
 from ogami_oanda.infrastructure.config.models import TradingSettings
 from tests.fakes import (
     FakeBroker,
@@ -178,6 +180,7 @@ class _TracingBroker(FakeBroker):
     def cancel_order(self, order_id):
         self.trace.append(("broker", "cancel_order"))
         if self.unknown_action == "cancel_order":
+            self.commands.append(("cancel_order", (order_id,)))
             return ExecutionResult(
                 False,
                 message="cancel outcome unknown",
@@ -188,6 +191,7 @@ class _TracingBroker(FakeBroker):
     def close_trade(self, trade_id, units=None):
         self.trace.append(("broker", "close_trade"))
         if self.unknown_action == "close_trade":
+            self.commands.append(("close_trade", (trade_id, units)))
             return ExecutionResult(
                 False,
                 message="close outcome unknown",
@@ -797,3 +801,457 @@ def test_position_portfolio_sync_collects_events_and_executes_linkage_after_dry_
         and item.slots[1].snapshot.order_state is OrderState.PENDING
         for item in state_repository.saved[journal_index + 1 :]
     )
+
+
+@pytest.mark.contract
+def test_strategy_commands_are_source_scoped_and_reduce_oldest_then_partial():
+    service, broker = _service()
+    first = (
+        ManagedPosition.registered("first", "USD_JPY")
+        .with_order_plan(_plan("first", 1), datetime(2026, 1, 2, 0, 0, 0))
+        .filled("trade-first", datetime(2026, 1, 2, 0, 1, 0))
+    )
+    second = (
+        ManagedPosition.registered("second", "USD_JPY")
+        .with_order_plan(_plan("second", 1), datetime(2026, 1, 2, 0, 0, 0))
+        .filled("trade-second", datetime(2026, 1, 2, 0, 2, 0))
+    )
+    other = (
+        ManagedPosition.registered("other", "USD_JPY")
+        .with_order_plan(_plan("other", 1, source="other"), datetime(2026, 1, 2, 0, 0, 0))
+        .filled("trade-other", datetime(2026, 1, 2, 0, 0, 0))
+    )
+    service.slots[:3] = [
+        first.with_runtime(source="matcha_oanda")._replace(units=100),
+        second.with_runtime(source="matcha_oanda")._replace(units=150),
+        other,
+    ]
+
+    result = service.execute_strategy_commands(
+        (StrategyCommand(StrategyCommandAction.REDUCE_EXPOSURE, "matcha_oanda", "reduce", 200),)
+    )
+
+    assert result.allows_intents
+    assert [(item.action, item.reference_id, item.data["units"]) for item in result.executed] == [
+        ("reduce_trade", "trade-first", 100),
+        ("reduce_trade", "trade-second", 100),
+    ]
+    assert broker.commands == [
+        ("close_trade", ("trade-first", 100)),
+        ("close_trade", ("trade-second", 100)),
+    ]
+    assert service.slots[2] == other
+
+
+@pytest.mark.contract
+def test_strategy_command_dry_run_is_observational():
+    service, broker = _service()
+    position = (
+        ManagedPosition.registered("dry", "USD_JPY")
+        .with_order_plan(_plan("dry", 1), datetime(2026, 1, 2, 0, 0, 0))
+        .pending("order-dry")
+        .with_runtime(source="matcha_oanda")
+    )
+    service.slots[0] = position
+    before_slots = tuple(service.slots)
+    before_pending = service.pending_mutations
+
+    result = service.execute_strategy_commands(
+        (StrategyCommand(StrategyCommandAction.CANCEL_PENDING, "matcha_oanda", "cancel"),),
+        dry_run=True,
+    )
+
+    assert result.allows_intents
+    assert [item.reference_id for item in result.executed] == ["order-dry"]
+    assert tuple(service.slots) == before_slots
+    assert service.pending_mutations == before_pending
+    assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_strategy_commands_cancel_pending_and_close_all_in_stable_slot_order():
+    service, broker = _service()
+    service.slots[:6] = [
+        (
+            ManagedPosition.registered("pending-1", "USD_JPY")
+            .with_order_plan(_plan("pending-1", 1), datetime(2026, 1, 2, 0, 0, 0))
+            .pending("order-1")
+            .with_runtime(source="matcha_oanda")
+        ),
+        (
+            ManagedPosition.registered("open-1", "USD_JPY")
+            .with_order_plan(_plan("open-1", 1), datetime(2026, 1, 2, 0, 0, 0))
+            .filled("trade-1", datetime(2026, 1, 2, 0, 1, 0))
+            .with_runtime(source="matcha_oanda")
+        ),
+        (
+            ManagedPosition.registered("pending-other", "USD_JPY")
+            .with_order_plan(
+                _plan("pending-other", 1, source="other"),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .pending("order-other")
+            .with_runtime(source="other")
+        ),
+        (
+            ManagedPosition.registered("open-2", "USD_JPY")
+            .with_order_plan(_plan("open-2", 1), datetime(2026, 1, 2, 0, 0, 0))
+            .filled("trade-2", datetime(2026, 1, 2, 0, 2, 0))
+            .with_runtime(source="matcha_oanda")
+        ),
+        (
+            ManagedPosition.registered("pending-2", "USD_JPY")
+            .with_order_plan(
+                _plan("pending-2", 1),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .pending("order-2")
+            .with_runtime(source="matcha_oanda")
+        ),
+        (
+            ManagedPosition.registered("open-other", "USD_JPY")
+            .with_order_plan(
+                _plan("open-other", 1, source="other"),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .filled("trade-other", datetime(2026, 1, 2, 0, 0, 0))
+            .with_runtime(source="other")
+        ),
+    ]
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.CANCEL_PENDING,
+                "matcha_oanda",
+                "cancel",
+            ),
+            StrategyCommand(
+                StrategyCommandAction.CLOSE_ALL,
+                "matcha_oanda",
+                "close",
+            ),
+        )
+    )
+
+    assert result.allows_intents
+    assert [
+        (item.action, item.reference_id, item.reason)
+        for item in result.executed
+    ] == [
+        ("cancel_order", "order-1", "cancel"),
+        ("cancel_order", "order-2", "cancel"),
+        ("close_trade", "trade-1", "close"),
+        ("close_trade", "trade-2", "close"),
+    ]
+    assert broker.commands == [
+        ("cancel_order", ("order-1",)),
+        ("cancel_order", ("order-2",)),
+        ("close_trade", ("trade-1", None)),
+        ("close_trade", ("trade-2", None)),
+    ]
+    assert service.slots[0].snapshot.order_state is OrderState.CANCELLED
+    assert service.slots[1].snapshot.trade_state is TradeState.CLOSED
+    assert service.slots[2].snapshot.order_state is OrderState.PENDING
+    assert service.slots[3].snapshot.trade_state is TradeState.CLOSED
+    assert service.slots[4].snapshot.order_state is OrderState.CANCELLED
+    assert service.slots[5].snapshot.trade_state is TradeState.OPEN
+
+
+@pytest.mark.contract
+def test_strategy_reduce_exposure_tiebreaks_equal_fill_times_by_slot_and_updates_remaining_units():
+    service, broker = _service()
+    filled_at = datetime(2026, 1, 2, 0, 1, 0)
+    later_slot = (
+        ManagedPosition.registered("later-slot", "USD_JPY")
+        .with_order_plan(_plan("later-slot", 1), datetime(2026, 1, 2, 0, 0, 0))
+        .filled("trade-later", filled_at)
+        .with_runtime(source="matcha_oanda")
+        ._replace(units=120)
+    )
+    earlier_slot = (
+        ManagedPosition.registered("earlier-slot", "USD_JPY")
+        .with_order_plan(_plan("earlier-slot", 1), datetime(2026, 1, 2, 0, 0, 0))
+        .filled("trade-earlier", filled_at)
+        .with_runtime(source="matcha_oanda")
+        ._replace(units=120)
+    )
+    service.slots[1] = later_slot
+    service.slots[0] = earlier_slot
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.REDUCE_EXPOSURE,
+                "matcha_oanda",
+                "reduce",
+                150,
+            ),
+        )
+    )
+
+    assert result.allows_intents
+    assert [
+        (item.reference_id, item.data["units"])
+        for item in result.executed
+    ] == [
+        ("trade-earlier", 120),
+        ("trade-later", 30),
+    ]
+    assert broker.commands == [
+        ("close_trade", ("trade-earlier", 120)),
+        ("close_trade", ("trade-later", 30)),
+    ]
+    assert service.slots[0].snapshot.trade_state is TradeState.CLOSED
+    assert service.slots[1].snapshot.units == 90
+
+
+@pytest.mark.contract
+def test_strategy_command_rejection_stops_remaining_commands_and_forbids_intents():
+    class _RejectingBroker(FakeBroker):
+        def cancel_order(self, order_id):
+            self.commands.append(("cancel_order", (order_id,)))
+            return ExecutionResult(False, reference_id=order_id, message="rejected")
+
+    service, broker = _service(broker=_RejectingBroker())
+    service.slots[:2] = [
+        (
+            ManagedPosition.registered("pending", "USD_JPY")
+            .with_order_plan(_plan("pending", 1), datetime(2026, 1, 2, 0, 0, 0))
+            .pending("order-1")
+            .with_runtime(source="matcha_oanda")
+        ),
+        (
+            ManagedPosition.registered("open", "USD_JPY")
+            .with_order_plan(_plan("open", 1), datetime(2026, 1, 2, 0, 0, 0))
+            .filled("trade-1", datetime(2026, 1, 2, 0, 1, 0))
+            .with_runtime(source="matcha_oanda")
+        ),
+    ]
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.CANCEL_PENDING,
+                "matcha_oanda",
+                "cancel",
+            ),
+            StrategyCommand(
+                StrategyCommandAction.CLOSE_ALL,
+                "matcha_oanda",
+                "close",
+            ),
+        )
+    )
+
+    assert result.allows_intents is False
+    assert result.rejected == ("rejected",)
+    assert [item.reference_id for item in result.executed] == ["order-1"]
+    assert broker.commands == [("cancel_order", ("order-1",))]
+    assert service.slots[0].snapshot.order_state is OrderState.PENDING
+    assert service.slots[1].snapshot.trade_state is TradeState.OPEN
+
+
+@pytest.mark.contract
+def test_strategy_command_unknown_reduction_stops_batch_and_journals_exact_units():
+    trace = []
+    state_repository = _StateRepository(trace=trace)
+    broker = _TracingBroker(trace, unknown_action="close_trade")
+    service, _ = _service(state_repository=state_repository, broker=broker)
+    service.slots[:2] = [
+        (
+            ManagedPosition.registered("reduce-me", "USD_JPY")
+            .with_order_plan(
+                _plan("reduce-me", 1),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .filled("trade-reduce", datetime(2026, 1, 2, 0, 1, 0))
+            .with_runtime(source="matcha_oanda", direction=1)
+            ._replace(units=120)
+        ),
+        (
+            ManagedPosition.registered("later", "USD_JPY")
+            .with_order_plan(_plan("later", 1), datetime(2026, 1, 2, 0, 0, 0))
+            .filled("trade-later", datetime(2026, 1, 2, 0, 2, 0))
+            .with_runtime(source="matcha_oanda")
+            ._replace(units=50)
+        ),
+    ]
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.REDUCE_EXPOSURE,
+                "matcha_oanda",
+                "reduce",
+                70,
+            ),
+            StrategyCommand(
+                StrategyCommandAction.CLOSE_ALL,
+                "matcha_oanda",
+                "close",
+            ),
+        )
+    )
+
+    assert result.allows_intents is False
+    assert result.unresolved is True
+    assert [item.reference_id for item in result.executed] == ["trade-reduce"]
+    assert broker.commands == [("close_trade", ("trade-reduce", 70))]
+    assert service.pending_mutations[0].action == "reduce_trade"
+    assert service.pending_mutations[0].requested_units == 70
+    assert service.pending_mutations[0].original_units == 120
+    assert service.pending_mutations[0].direction == 1
+    assert state_repository.saved[-1].pending_mutations[0].requested_units == 70
+    assert state_repository.saved[-1].pending_mutations[0].original_units == 120
+    broker_index = trace.index(("broker", "close_trade"))
+    assert (
+        "save",
+        ("reduce_trade",),
+    ) in trace[:broker_index]
+    assert service.slots[0].snapshot.units == 120
+    assert service.slots[1].snapshot.trade_state is TradeState.OPEN
+
+
+@pytest.mark.contract
+def test_strategy_command_dry_run_does_not_save_repository():
+    state_repository = _StateRepository()
+    service, broker = _service(state_repository=state_repository)
+    service.slots[0] = (
+        ManagedPosition.registered("dry-repo", "USD_JPY")
+        .with_order_plan(_plan("dry-repo", 1), datetime(2026, 1, 2, 0, 0, 0))
+        .pending("order-dry")
+        .with_runtime(source="matcha_oanda")
+    )
+    saved_before = len(state_repository.saved)
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.CANCEL_PENDING,
+                "matcha_oanda",
+                "cancel",
+            ),
+        ),
+        dry_run=True,
+    )
+
+    assert result.allows_intents
+    assert len(state_repository.saved) == saved_before
+    assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_strategy_reduce_dry_run_reports_full_then_partial_without_mutation():
+    state_repository = _StateRepository()
+    service, broker = _service(state_repository=state_repository)
+    service.slots[:2] = [
+        (
+            ManagedPosition.registered("dry-first", "USD_JPY")
+            .with_order_plan(
+                _plan("dry-first", 1),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .filled("trade-dry-first", datetime(2026, 1, 2, 0, 1, 0))
+            .with_runtime(source="matcha_oanda")
+            ._replace(units=100)
+        ),
+        (
+            ManagedPosition.registered("dry-second", "USD_JPY")
+            .with_order_plan(
+                _plan("dry-second", 1),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .filled("trade-dry-second", datetime(2026, 1, 2, 0, 2, 0))
+            .with_runtime(source="matcha_oanda")
+            ._replace(units=100)
+        ),
+    ]
+    before_slots = tuple(service.slots)
+    saved_before = len(state_repository.saved)
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.REDUCE_EXPOSURE,
+                "matcha_oanda",
+                "dry-reduce",
+                150,
+            ),
+        ),
+        dry_run=True,
+    )
+
+    assert [
+        (item.reference_id, item.data["units"])
+        for item in result.executed
+    ] == [
+        ("trade-dry-first", 100),
+        ("trade-dry-second", 50),
+    ]
+    assert tuple(service.slots) == before_slots
+    assert service.pending_mutations == ()
+    assert len(state_repository.saved) == saved_before
+    assert broker.commands == []
+
+
+@pytest.mark.contract
+def test_strategy_command_later_rejection_keeps_prior_confirmation_and_stops():
+    class _RejectSecondCloseBroker(FakeBroker):
+        def close_trade(self, trade_id, units=None):
+            self.commands.append(("close_trade", (trade_id, units)))
+            if len(self.commands) == 2:
+                return ExecutionResult(
+                    False,
+                    reference_id=trade_id,
+                    message="second rejected",
+                )
+            return ExecutionResult(True, reference_id=trade_id)
+
+    state_repository = _StateRepository()
+    broker = _RejectSecondCloseBroker()
+    service, _ = _service(
+        state_repository=state_repository,
+        broker=broker,
+    )
+    for index in range(3):
+        service.slots[index] = (
+            ManagedPosition.registered(f"close-{index}", "USD_JPY")
+            .with_order_plan(
+                _plan(f"close-{index}", 1),
+                datetime(2026, 1, 2, 0, 0, 0),
+            )
+            .filled(
+                f"trade-close-{index}",
+                datetime(2026, 1, 2, 0, index + 1, 0),
+            )
+            .with_runtime(source="matcha_oanda")
+            ._replace(units=100)
+        )
+
+    result = service.execute_strategy_commands(
+        (
+            StrategyCommand(
+                StrategyCommandAction.CLOSE_ALL,
+                "matcha_oanda",
+                "close",
+            ),
+        )
+    )
+
+    assert result.allows_intents is False
+    assert result.rejected == ("second rejected",)
+    assert [item.reference_id for item in result.executed] == [
+        "trade-close-0",
+        "trade-close-1",
+    ]
+    assert broker.commands == [
+        ("close_trade", ("trade-close-0", None)),
+        ("close_trade", ("trade-close-1", None)),
+    ]
+    assert service.slots[0].snapshot.trade_state is TradeState.CLOSED
+    assert service.slots[0].snapshot.units == 0
+    assert service.slots[1].snapshot.trade_state is TradeState.OPEN
+    assert service.slots[2].snapshot.trade_state is TradeState.OPEN
+    assert service.pending_mutations == ()
+    assert state_repository.saved[-1].pending_mutations == ()

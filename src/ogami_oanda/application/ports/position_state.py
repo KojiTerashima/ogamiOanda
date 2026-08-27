@@ -35,6 +35,21 @@ class PendingBrokerMutation:
     applied_lc_change_index: int | None = None
     candle_stop_loss_done: bool | None = None
     prepared_at: datetime | None = None
+    # For unit-aware reductions, ``units`` is the requested absolute amount
+    # and the remaining fields prove what was present before the call.
+    units: int | None = None
+    pre_mutation_units: int | None = None
+    direction: int | None = None
+
+    @property
+    def requested_units(self) -> int | None:
+        """Compatibility alias for callers that use the journal vocabulary."""
+
+        return self.units
+
+    @property
+    def original_units(self) -> int | None:
+        return self.pre_mutation_units
 
 
 @dataclass(frozen=True)

@@ -192,6 +192,148 @@ def test_startup_reconciliation_restores_full_open_runtime_and_reporting_state()
 
 
 @pytest.mark.contract
+def test_unknown_reduction_recovers_only_exact_remaining_open_units_and_direction():
+    position = (
+        ManagedPosition.registered("partial", "USD_JPY")
+        .with_order_plan(_plan("partial"), datetime(2026, 1, 2, 10, 0, 0))
+        .filled("trade-partial", datetime(2026, 1, 2, 10, 1, 0))
+        ._replace(units=100)
+    )
+    mutation = PendingBrokerMutation(
+        "reduce_trade",
+        "partial",
+        broker_reference_id="trade-partial",
+        units=40,
+        pre_mutation_units=100,
+        direction=1,
+    )
+    repository = _StateRepository(
+        CheckpointLoadResult(CheckpointLoadStatus.LOADED, _checkpoint(position, mutation=(mutation,)))
+    )
+    broker = FakeBroker()
+    broker.positions["trade-partial"] = PositionSnapshot(
+        "partial", "USD_JPY", OrderState.FILLED, TradeState.OPEN,
+        trade_id="trade-partial", life=True, direction=1, units=60,
+    )
+
+    service = _service(repository, broker)
+    result = service.restore_and_reconcile()
+
+    assert result.state is PortfolioStartupState.READY
+    assert service.pending_mutations == ()
+    assert service.slots[0].snapshot.units == 60
+
+
+@pytest.mark.contract
+def test_unknown_full_reduction_requires_closed_trade_proof():
+    position = (
+        ManagedPosition.registered("full", "USD_JPY")
+        .with_order_plan(_plan("full"), datetime(2026, 1, 2, 10, 0, 0))
+        .filled("trade-full", datetime(2026, 1, 2, 10, 1, 0))
+        ._replace(units=100)
+    )
+    mutation = PendingBrokerMutation(
+        "reduce_trade", "full", broker_reference_id="trade-full",
+        units=100, pre_mutation_units=100, direction=1,
+    )
+    repository = _StateRepository(
+        CheckpointLoadResult(CheckpointLoadStatus.LOADED, _checkpoint(position, mutation=(mutation,)))
+    )
+    broker = FakeBroker()
+    broker.positions["trade-full"] = PositionSnapshot(
+        "full", "USD_JPY", OrderState.FILLED, TradeState.CLOSED,
+        trade_id="trade-full", life=False, direction=1, units=0,
+    )
+
+    service = _service(repository, broker)
+    result = service.restore_and_reconcile()
+
+    assert result.state is PortfolioStartupState.READY
+    assert service.pending_mutations == ()
+    assert service.slots[0].snapshot.trade_state is TradeState.CLOSED
+    assert service.slots[0].snapshot.units == 0
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    "units,state,direction",
+    [
+        (100, TradeState.OPEN, 1),
+        (60, TradeState.OPEN, None),
+        (40, TradeState.OPEN, -1),
+        (40, TradeState.CLOSED, 1),
+    ],
+)
+def test_unknown_reduction_keeps_journal_for_non_proven_broker_state(units, state, direction):
+    position = (
+        ManagedPosition.registered("partial", "USD_JPY")
+        .with_order_plan(_plan("partial"), datetime(2026, 1, 2, 10, 0, 0))
+        .filled("trade-partial", datetime(2026, 1, 2, 10, 1, 0))
+        ._replace(units=100)
+    )
+    mutation = PendingBrokerMutation(
+        "reduce_trade", "partial", broker_reference_id="trade-partial",
+        units=40, pre_mutation_units=100, direction=1,
+    )
+    repository = _StateRepository(
+        CheckpointLoadResult(CheckpointLoadStatus.LOADED, _checkpoint(position, mutation=(mutation,)))
+    )
+    broker = FakeBroker()
+    broker.positions["trade-partial"] = PositionSnapshot(
+        "partial", "USD_JPY", OrderState.FILLED, state,
+        trade_id="trade-partial", life=state is TradeState.OPEN,
+        direction=direction, units=units,
+    )
+    service = _service(repository, broker)
+
+    result = service.restore_and_reconcile()
+
+    assert result.state is PortfolioStartupState.RECONCILING
+    assert service.pending_mutations == (mutation,)
+
+
+@pytest.mark.contract
+def test_unknown_reduction_requires_local_pre_mutation_units_to_match_journal():
+    position = (
+        ManagedPosition.registered("partial", "USD_JPY")
+        .with_order_plan(_plan("partial"), datetime(2026, 1, 2, 10, 0, 0))
+        .filled("trade-partial", datetime(2026, 1, 2, 10, 1, 0))
+        ._replace(units=90)
+    )
+    mutation = PendingBrokerMutation(
+        "reduce_trade",
+        "partial",
+        broker_reference_id="trade-partial",
+        units=40,
+        pre_mutation_units=100,
+        direction=1,
+    )
+    repository = _StateRepository(
+        CheckpointLoadResult(
+            CheckpointLoadStatus.LOADED,
+            _checkpoint(position, mutation=(mutation,)),
+        )
+    )
+    broker = FakeBroker()
+    broker.positions["trade-partial"] = PositionSnapshot(
+        "partial",
+        "USD_JPY",
+        OrderState.FILLED,
+        TradeState.OPEN,
+        trade_id="trade-partial",
+        life=True,
+        direction=1,
+        units=60,
+    )
+
+    service = _service(repository, broker)
+    result = service.restore_and_reconcile()
+
+    assert result.state is PortfolioStartupState.RECONCILING
+    assert service.pending_mutations == (mutation,)
+
+
+@pytest.mark.contract
 def test_startup_reconciliation_resolves_uncertain_market_fill_from_transactions():
     plan = _plan("uncertain", order_type=OrderType.MARKET)
     persisted = (
