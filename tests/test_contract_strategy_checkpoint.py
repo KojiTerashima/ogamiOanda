@@ -245,8 +245,28 @@ def test_closed_terminal_checkpoint_identity_mismatch_adopts_without_quarantine(
     result = service.restore_and_reconcile()
 
     assert result.state is PortfolioStartupState.READY
-    assert service.slots[0] == historical
+    assert service.slots[0] is None
     assert repository.saved[-1].strategy_id == "strategy-plugin"
+
+
+@pytest.mark.contract
+def test_adopted_closed_terminal_history_remains_ready_after_restart(tmp_path):
+    historical = (
+        ManagedPosition.registered("historical", "USD_JPY")
+        .with_runtime(submission_phase=SubmissionPhase.TERMINAL)
+        .closed()
+    )
+    repository = JsonPositionStateRepository(tmp_path / "state.json")
+    repository.save(_checkpoint(slots=(historical,) + (None,) * 14))
+
+    first = _service(repository, FakeBroker(), strategy_id="strategy-plugin")
+    first_result = first.restore_and_reconcile()
+
+    second = _service(repository, FakeBroker(), strategy_id="strategy-plugin")
+    second_result = second.restore_and_reconcile()
+
+    assert first_result.state is PortfolioStartupState.READY
+    assert second_result.state is PortfolioStartupState.READY
 
 
 @pytest.mark.contract

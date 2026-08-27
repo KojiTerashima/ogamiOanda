@@ -333,7 +333,14 @@ class PositionPortfolioService:
             return self._quarantine(
                 "checkpoint strategy does not match selected strategy"
             )
-        self.slots = list(checkpoint.slots)
+        self.slots = (
+            [
+                position if _checkpoint_position_is_active(position) else None
+                for position in checkpoint.slots
+            ]
+            if identity_mismatch
+            else list(checkpoint.slots)
+        )
         self.transaction_cursor = checkpoint.transaction_cursor
         self.pending_mutations = checkpoint.pending_mutations
         self._strategy_state = (
