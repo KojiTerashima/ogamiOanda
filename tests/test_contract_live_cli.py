@@ -290,6 +290,7 @@ def test_strategy_operator_documentation_covers_boundary_invocation_and_safety()
     for phrase in (
         "--strategy-py",
         "--strategy-yaml",
+        "strategy plugin practice acceptance",
         "trusted",
         "USD_JPY",
         "quarant",

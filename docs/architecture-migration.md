@@ -183,12 +183,14 @@ webhook URLs, or notification secrets; rotate any credentials through the
 normal ignored settings/environment configuration when they are exposed.
 
 Plugin checkpoints include the deterministic Python/YAML strategy identity.
-An active checkpoint identity mismatch is quarantined until it is explicitly
-resolved; an empty checkpoint may adopt the selected identity. A plugin
-`--dry-run` may report commands and plans, but performs no broker mutation,
-checkpoint write, slot/journal mutation, or live startup cancellation. The
-`--offline-smoke` mode remains the dependency-free built-in line smoke and
-cannot be combined with strategy options.
+An identity mismatch with active local positions, pending mutations, or broker
+pending/open work is quarantined until it is explicitly resolved. During a
+safe strategy adoption, resolved inactive history is cleared from the new
+checkpoint and the plugin state is reset. A plugin `--dry-run` may report
+commands and plans, but performs no broker mutation, checkpoint write,
+slot/journal mutation, or live startup cancellation. The `--offline-smoke`
+mode remains the dependency-free built-in line smoke and cannot be combined
+with strategy options.
 
 New CLI startup cancellation is opt-in with
 `--cancel-pending-on-start`. The historical `main_exe.py` facade opts in for
@@ -284,3 +286,28 @@ then closes a minimum-size MARKET trade for USD/JPY, EUR/USD, and AUD/USD. It
 returns success only when every owned order/trade is cleaned up and the ending
 pending/open sets match the baseline. Real Discord delivery remains outside the
 acceptance gate.
+
+### Strategy plugin practice acceptance
+
+Strategy plugin practice acceptance uses the same destructive, practice-only
+gates. It evaluates one trusted Python/YAML pair for its configured pair and
+then submits at most two cloned minimum-unit intents; a decision with portfolio
+commands, zero intents, or more than two intents is rejected before any order
+is sent. For the packaged Matcha strategy, invoke it only for the practice
+account and provide both plugin paths:
+
+```sh
+OGAMI_OANDA_ENABLE_PRACTICE_ORDERS=1 \
+.venv/bin/ogami-oanda-practice-acceptance \
+  --config config/settings.yaml \
+  --account practice \
+  --execute-practice-orders \
+  --confirm-account-id '<practice-account-id>' \
+  --accept-small-loss \
+  --strategy-py src/ogami_oanda/strategy/matcha_oanda.py \
+  --strategy-yaml src/ogami_oanda/strategy/matcha_param2019_oanda.yaml \
+  --report practice-strategy-acceptance-report.json
+```
+
+Do not use this command with a live account. It is an external acceptance gate,
+not part of the dependency-free test suite.
