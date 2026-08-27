@@ -528,6 +528,8 @@ class StrategyLiveApplication:
         source_time = quote.source_time
         if source_time is None:
             return False
+        if not isinstance(source_time, datetime):
+            return False
         if now.tzinfo is None or source_time.tzinfo is None:
             return False
         age = now - source_time
@@ -539,10 +541,8 @@ class StrategyLiveApplication:
             configured_ms = getattr(config, "max_latency_ms", None)
             if isinstance(configured_ms, (int, float)) and configured_ms > 0:
                 age_limit = timedelta(milliseconds=configured_ms)
-            else:
-                # Keep a conservative default for third-party strategies that
-                # do not expose their own quote-latency policy.
-                age_limit = timedelta(seconds=2)
+        if age_limit is None:
+            return True
         return age <= age_limit
 
     @staticmethod

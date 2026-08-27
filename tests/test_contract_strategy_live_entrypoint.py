@@ -368,6 +368,7 @@ def test_strategy_risk_commands_run_while_unsafe_quotes_suppress_new_intents(
         planner,
         portfolio,
         FixedClock(NOW),
+        max_quote_age=timedelta(seconds=2),
     )
 
     result = application.run_once(now=NOW)
@@ -413,6 +414,74 @@ def test_strategy_quote_age_uses_strategy_configured_latency_when_available():
     assert result.plans == ()
     assert "stale_quote" in result.skipped
     assert portfolio.registration_calls == []
+
+
+@pytest.mark.contract
+def test_strategy_without_explicit_latency_policy_has_no_runner_default_age_limit():
+    strategy = _Strategy(StrategyDecision(intents=(_intent(),)))
+    portfolio = _Portfolio()
+    application = _strategy_application(
+        "USD_JPY",
+        strategy,
+        "plugin-id",
+        _Market(
+            live.MarketQuote(
+                "USD_JPY",
+                149.99,
+                150.0,
+                149.995,
+                True,
+                NOW - timedelta(seconds=3),
+            )
+        ),
+        OrderPlanner(),
+        portfolio,
+        FixedClock(NOW),
+    )
+
+    result = application.run_once(now=NOW)
+
+    assert result.plans
+    assert result.skipped == ()
+    assert portfolio.registration_calls
+
+
+@pytest.mark.contract
+def test_strategy_invalid_quote_source_time_still_decides_and_runs_risk_commands():
+    command = StrategyCommand(
+        StrategyCommandAction.CLOSE_ALL,
+        "matcha-oanda",
+        "invalid_source_time",
+    )
+    strategy = _Strategy(
+        StrategyDecision(commands=(command,), intents=(_intent(),))
+    )
+    portfolio = _Portfolio()
+    application = _strategy_application(
+        "USD_JPY",
+        strategy,
+        "plugin-id",
+        _Market(
+            live.MarketQuote(
+                "USD_JPY",
+                149.99,
+                150.0,
+                149.995,
+                True,
+                "not-a-datetime",
+            )
+        ),
+        OrderPlanner(),
+        portfolio,
+        FixedClock(NOW),
+    )
+
+    result = application.run_once(now=NOW)
+
+    assert result.strategy_decision is strategy.decision
+    assert portfolio.command_calls == [((command,), False)]
+    assert result.plans == ()
+    assert "stale_quote" in result.skipped
 
 
 @pytest.mark.contract
