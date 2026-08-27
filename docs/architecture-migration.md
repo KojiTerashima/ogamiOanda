@@ -151,6 +151,45 @@ an OANDA/Discord/CSV adapter:
 installed console entrypoint and one scheduling tick. A regular dry-run still
 uses read-only market and account queries so it can produce real decisions.
 
+### Trusted Python + YAML strategy plugins
+
+The live entrypoint can select a trusted strategy as a Python/YAML pair:
+
+```sh
+.venv/bin/ogami-oanda-live \
+  --config config/settings.yaml \
+  --account primary \
+  --pair USD_JPY \
+  --strategy-py src/ogami_oanda/strategy/matcha_oanda.py \
+  --strategy-yaml src/ogami_oanda/strategy/matcha_param2019_oanda.yaml \
+  --dry-run \
+  --once
+```
+
+`--strategy-py` and `--strategy-yaml` must be supplied together. The loader
+resolves both paths from the current working directory and is the sole path
+authority: both resolved files must remain inside the installed
+`ogami_oanda/strategy` package directory. Plugins are trusted local code, not
+an untrusted upload mechanism; they must expose API version 1 and a
+`create_strategy(config)` factory. BFScalping is not imported at runtime.
+
+The initial packaged Matcha pair is
+`ogami_oanda/strategy/matcha_param2019_oanda.yaml` plus
+`matcha_oanda.py`. It supports only `USD_JPY`, `AutoLot: false`, `Cancel:
+false`, `MaxPos: 1`, amount-based TP/SL, suppressed TP/SL close intents,
+`close_position: false`, and `timescale: 60`. Unsupported values are rejected
+at startup. The YAML is package data and must contain no credentials,
+webhook URLs, or notification secrets; rotate any credentials through the
+normal ignored settings/environment configuration when they are exposed.
+
+Plugin checkpoints include the deterministic Python/YAML strategy identity.
+An active checkpoint identity mismatch is quarantined until it is explicitly
+resolved; an empty checkpoint may adopt the selected identity. A plugin
+`--dry-run` may report commands and plans, but performs no broker mutation,
+checkpoint write, slot/journal mutation, or live startup cancellation. The
+`--offline-smoke` mode remains the dependency-free built-in line smoke and
+cannot be combined with strategy options.
+
 New CLI startup cancellation is opt-in with
 `--cancel-pending-on-start`. The historical `main_exe.py` facade opts in for
 compatibility, except during dry-run. EUR/USD and AUD/USD root launchers pass a

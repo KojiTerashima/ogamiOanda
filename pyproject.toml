@@ -20,6 +20,9 @@ dependencies = [
 ogami-oanda-live = "ogami_oanda.entrypoints.live:main"
 ogami-oanda-practice-acceptance = "ogami_oanda.entrypoints.practice_acceptance:main"
 
+[tool.setuptools.package-data]
+"ogami_oanda.strategy" = ["*.yaml"]
+
 [project.optional-dependencies]
 dev = [
     "pytest",

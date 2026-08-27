@@ -55,6 +55,7 @@ from ogami_oanda.strategy.contracts import (
     StrategyQuote,
     TradingStrategy,
 )
+from ogami_oanda.strategy.loader import StrategyPluginError, load_strategy
 from ogami_oanda.strategy.position_management import (
     EntryConfirmationPolicy,
     ExitPolicy,
@@ -911,23 +912,55 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="run one dependency-free packaging smoke tick (requires --dry-run --once)",
     )
+    parser.add_argument(
+        "--strategy-py",
+        metavar="PATH",
+        help="trusted package-local strategy Python module",
+    )
+    parser.add_argument(
+        "--strategy-yaml",
+        metavar="PATH",
+        help="trusted package-local strategy YAML configuration",
+    )
     arguments = parser.parse_args(argv)
+    has_strategy_py = arguments.strategy_py is not None
+    has_strategy_yaml = arguments.strategy_yaml is not None
+    if has_strategy_py != has_strategy_yaml:
+        parser.error("--strategy-py and --strategy-yaml must be supplied together")
     if arguments.offline_smoke:
         if not arguments.dry_run or not arguments.once:
             parser.error("--offline-smoke requires --dry-run and --once")
+        if has_strategy_py:
+            parser.error("--offline-smoke cannot be combined with strategy options")
         application = build_offline_smoke_application(
             arguments.pair or "USD_JPY",
         )
     else:
         if not arguments.config:
             parser.error("--config is required unless --offline-smoke is used")
-        application = build_live_application(
-            load_settings(arguments.config),
-            account_name=arguments.account,
-            pair=arguments.pair,
-            cancel_pending_on_start=arguments.cancel_pending_on_start,
-            dry_run=arguments.dry_run,
-        )
+        settings = load_settings(arguments.config)
+        if has_strategy_py:
+            try:
+                loaded = load_strategy(arguments.strategy_py, arguments.strategy_yaml)
+            except StrategyPluginError as exc:
+                parser.error(str(exc))
+            application = build_strategy_live_application(
+                settings,
+                loaded.strategy,
+                loaded.strategy_id,
+                account_name=arguments.account,
+                pair=arguments.pair,
+                cancel_pending_on_start=arguments.cancel_pending_on_start,
+                dry_run=arguments.dry_run,
+            )
+        else:
+            application = build_live_application(
+                settings,
+                account_name=arguments.account,
+                pair=arguments.pair,
+                cancel_pending_on_start=arguments.cancel_pending_on_start,
+                dry_run=arguments.dry_run,
+            )
     if arguments.once:
         result = application.run_resilient_once(dry_run=arguments.dry_run)
         accepted_names = ",".join(result.registration.accepted) or "-"
