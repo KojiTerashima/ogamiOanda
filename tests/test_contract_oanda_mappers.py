@@ -40,7 +40,7 @@ def test_oanda_candle_response_maps_to_canonical_jst_ohlc_newest_first():
         }
     )
 
-    assert list(frame.columns) == ["time_jp", "time_jp_dt", "open", "close", "high", "low", "volume", "time"]
+    assert list(frame.columns) == ["time_jp", "time_jp_dt", "open", "close", "high", "low", "volume", "time", "complete"]
     assert frame.iloc[0].to_dict() == {
         "time_jp": "2026/01/02 09:05:00",
         "time_jp_dt": pd.Timestamp("2026-01-02 09:05:00"),
@@ -50,7 +50,21 @@ def test_oanda_candle_response_maps_to_canonical_jst_ohlc_newest_first():
         "low": 150.1,
         "volume": 3,
         "time": "2026-01-02T00:05:00.000000000Z",
+        "complete": False,
     }
+
+
+@pytest.mark.contract
+def test_oanda_candle_without_completion_flag_is_marked_incomplete():
+    frame = map_candle_response(
+        {
+            "candles": [
+                {"time": "2026-01-02T00:00:00.000000000Z", "mid": {"o": "150.1", "c": "150.2", "h": "150.3", "l": "150.0"}},
+            ]
+        }
+    )
+
+    assert not bool(frame.iloc[0]["complete"])
 
 
 @pytest.mark.contract

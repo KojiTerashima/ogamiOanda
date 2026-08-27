@@ -69,9 +69,10 @@ def map_candle_response(response: Mapping[str, object]) -> pd.DataFrame:
                 "low": float(price["l"]),
                 "volume": int(candle.get("volume", 0)),
                 "time": str(candle["time"]),
+                "complete": candle.get("complete") is True,
             }
         )
-    columns = ("time_jp", "time_jp_dt", "open", "close", "high", "low", "volume", "time")
+    columns = ("time_jp", "time_jp_dt", "open", "close", "high", "low", "volume", "time", "complete")
     return pd.DataFrame(rows, columns=columns).sort_values("time_jp_dt", ascending=False).reset_index(drop=True)
 
 

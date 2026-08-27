@@ -91,6 +91,20 @@ class PortfolioStartupState(str, Enum):
     QUARANTINED = "QUARANTINED"
 
 
+def _checkpoint_position_is_active(position: ManagedPosition | None) -> bool:
+    if position is None:
+        return False
+    if position.snapshot.life:
+        return True
+    if position.snapshot.trade_state is TradeState.CLOSED:
+        return False
+    return position.runtime.submission_phase not in {
+        SubmissionPhase.CANCELLED,
+        SubmissionPhase.REJECTED,
+        SubmissionPhase.TERMINAL,
+    }
+
+
 @dataclass(frozen=True)
 class PortfolioStartupResult:
     state: PortfolioStartupState
@@ -311,7 +325,7 @@ class PositionPortfolioService:
         checkpoint = loaded.checkpoint
         identity_mismatch = checkpoint.strategy_id != self.strategy_id
         if identity_mismatch and (
-            any(position is not None for position in checkpoint.slots)
+            any(_checkpoint_position_is_active(position) for position in checkpoint.slots)
             or checkpoint.pending_mutations
             or pending
             or opened
@@ -333,7 +347,7 @@ class PositionPortfolioService:
         reporting._reported_event_ids.update(checkpoint.reported_event_ids)
         if not history_reported_ids:
             self._restore_analytics(checkpoint.analytics)
-        if any(
+        if not identity_mismatch and any(
             position is not None
             and position.runtime.submission_phase is SubmissionPhase.TERMINAL
             for position in self.slots

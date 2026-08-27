@@ -25,6 +25,7 @@ from ogami_oanda.domain.positions.managed_position import ManagedPosition
 from ogami_oanda.domain.positions.models import (
     OrderState,
     PositionSnapshot,
+    SubmissionPhase,
     TradeState,
 )
 from tests.fakes import (
@@ -224,6 +225,48 @@ def test_active_checkpoint_identity_mismatch_quarantines_without_adoption_or_sav
     assert repository.saved == []
     assert service.slots == [None] * 15
     assert service.strategy_id == "strategy-plugin"
+
+
+@pytest.mark.contract
+def test_closed_terminal_checkpoint_identity_mismatch_adopts_without_quarantine():
+    historical = (
+        ManagedPosition.registered("historical", "USD_JPY")
+        .with_runtime(submission_phase=SubmissionPhase.TERMINAL)
+        .closed()
+    )
+    checkpoint = _checkpoint(
+        slots=(historical,) + (None,) * 14,
+    )
+    repository = _Repository(
+        CheckpointLoadResult(CheckpointLoadStatus.LOADED, checkpoint)
+    )
+    service = _service(repository, FakeBroker(), strategy_id="strategy-plugin")
+
+    result = service.restore_and_reconcile()
+
+    assert result.state is PortfolioStartupState.READY
+    assert service.slots[0] == historical
+    assert repository.saved[-1].strategy_id == "strategy-plugin"
+
+
+@pytest.mark.contract
+def test_same_strategy_terminal_checkpoint_still_quarantines():
+    terminal = ManagedPosition.registered("terminal", "USD_JPY").with_runtime(
+        submission_phase=SubmissionPhase.TERMINAL
+    )
+    checkpoint = _checkpoint(
+        strategy_id="strategy-plugin",
+        slots=(terminal,) + (None,) * 14,
+    )
+    repository = _Repository(
+        CheckpointLoadResult(CheckpointLoadStatus.LOADED, checkpoint)
+    )
+    service = _service(repository, FakeBroker(), strategy_id="strategy-plugin")
+
+    result = service.restore_and_reconcile()
+
+    assert result.state is PortfolioStartupState.QUARANTINED
+    assert result.reason == "terminal_broker_effect"
 
 
 @pytest.mark.contract

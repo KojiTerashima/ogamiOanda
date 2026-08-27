@@ -559,7 +559,15 @@ def _candle_records(candles: object | None) -> list[Mapping[str, object]]:
         records = list(candles)
     else:
         return []
-    return [record for record in records if isinstance(record, Mapping)]
+    return [
+        record
+        for record in records
+        if isinstance(record, Mapping)
+        and (
+            "complete" not in record
+            or (type(record["complete"]) is bool and record["complete"])
+        )
+    ]
 
 
 def _newest_candle_id(candles: object | None) -> str | None:

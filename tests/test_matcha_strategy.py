@@ -500,6 +500,28 @@ def test_normal_entry_runs_once_per_new_completed_m1_candle():
     assert len(next_candle.intents) == 2
 
 
+def test_incomplete_newest_candle_does_not_advance_entry_identity_or_emit_entry():
+    strategy = _normal_strategy()
+    first_input = _normal_input()
+
+    first = strategy.decide(first_input)
+    incomplete = dict(first_input.candles[0])
+    incomplete["time"] = (NOW + timedelta(minutes=1)).isoformat()
+    incomplete["complete"] = False
+    second = strategy.decide(
+        StrategyInput(
+            first_input.quote,
+            candles=[incomplete, *first_input.candles],
+            evaluation_time=NOW,
+        )
+    )
+
+    assert len(first.intents) == 2
+    assert second.intents == ()
+    assert second.diagnostics["candle_id"] == first.diagnostics["candle_id"]
+    assert second.diagnostics["entry_suppressed"] == "duplicate_completed_candle"
+
+
 def test_equivalent_utc_candle_spelling_after_restore_does_not_duplicate_normal_entry():
     strategy = _normal_strategy()
     strategy.decide(_normal_input())

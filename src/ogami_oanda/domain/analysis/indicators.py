@@ -10,6 +10,8 @@ def add_basic_data(data_frame: pd.DataFrame, pair=None) -> pd.DataFrame:
     """Add derived candle values to canonical OHLC market data."""
     pair = pair or currency_pair("USD_JPY")
     data_frame = data_frame.copy()
+    if "complete" in data_frame.columns:
+        data_frame = data_frame.drop(columns=["complete"])
     missing = {"open", "close", "high", "low"} - set(data_frame.columns)
     if missing:
         raise ValueError(f"Canonical OHLC columns required: {', '.join(sorted(missing))}")
