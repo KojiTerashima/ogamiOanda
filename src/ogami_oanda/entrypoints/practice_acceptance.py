@@ -17,7 +17,9 @@ from ogami_oanda.application.services.practice_order_acceptance_service import (
 )
 from ogami_oanda.infrastructure.config.loader import load_settings
 from ogami_oanda.infrastructure.config.models import AppSettings
-from ogami_oanda.infrastructure.runtime import system_sleep
+from ogami_oanda.infrastructure.runtime import SystemClock, system_sleep
+from ogami_oanda.strategy.loader import StrategyPluginError, load_strategy
+from ogami_oanda.domain.market.currency_pair import currency_pair
 
 
 PAIRS = ("USD_JPY", "EUR_USD", "AUD_USD")
@@ -34,6 +36,7 @@ def build_service(
         OandaExecutionAdapter(client, include_client_extensions=True),
         OandaQueryAdapter(client),
         sleeper=system_sleep,
+        clock=SystemClock().now,
         expected_account_id=client.account_id,
         require_hedging=account.require_hedging,
     )
@@ -49,7 +52,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--confirm-account-id")
     parser.add_argument("--accept-small-loss", action="store_true")
     parser.add_argument("--report", default="practice-acceptance-report.json")
+    parser.add_argument("--strategy-py", metavar="PATH")
+    parser.add_argument("--strategy-yaml", metavar="PATH")
     arguments = parser.parse_args(argv)
+
+    has_strategy_py = arguments.strategy_py is not None
+    has_strategy_yaml = arguments.strategy_yaml is not None
+    if has_strategy_py != has_strategy_yaml:
+        parser.error("--strategy-py and --strategy-yaml must be supplied together")
 
     if not arguments.execute_practice_orders:
         parser.error("--execute-practice-orders is required")
@@ -69,10 +79,34 @@ def main(argv: list[str] | None = None) -> int:
     if not account.account_id or not account.access_token:
         parser.error("practice account credentials are incomplete")
 
+    loaded = None
+    selected_pair = None
+    if has_strategy_py:
+        try:
+            loaded = load_strategy(arguments.strategy_py, arguments.strategy_yaml)
+        except StrategyPluginError as error:
+            parser.error(str(error))
+        try:
+            selected_pair = _strategy_pair(loaded.strategy, loaded.config)
+        except ValueError as error:
+            parser.error(str(error))
+        try:
+            currency_pair(selected_pair)
+        except Exception:
+            parser.error(f"strategy pair is invalid: {selected_pair}")
+
     path = Path(arguments.report)
     account_hash = account_identity_hash(account.account_id)
     try:
-        report = build_service(settings, arguments.account).run(PAIRS)
+        service = build_service(settings, arguments.account)
+        if loaded is None:
+            report = service.run(PAIRS)
+        else:
+            report = service.run_strategy(
+                loaded.strategy,
+                config=loaded.config,
+                pair=selected_pair,
+            )
     except Exception as error:
         operations = getattr(error, "operations", ())
         error_message = str(error)
@@ -100,6 +134,15 @@ def main(argv: list[str] | None = None) -> int:
         },
     )
     return 0
+
+
+def _strategy_pair(strategy, config) -> str:
+    pair = getattr(strategy, "pair", None)
+    if not isinstance(pair, str) or not pair:
+        pair = config.get("pair") if hasattr(config, "get") else None
+    if not isinstance(pair, str) or not pair:
+        raise ValueError("strategy acceptance requires a valid strategy pair")
+    return pair
 
 
 def _serialize_operations(

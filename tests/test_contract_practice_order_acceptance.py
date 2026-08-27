@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from datetime import datetime, timezone
 
 from ogami_oanda.application.ports.broker import (
     ExecutionResult,
@@ -12,6 +13,8 @@ from ogami_oanda.application.services.practice_order_acceptance_service import (
     PracticeAcceptanceError,
     PracticeOrderAcceptanceService,
 )
+from ogami_oanda.domain.orders.models import OrderContext, OrderIntent
+from ogami_oanda.domain.orders.models import Direction
 from ogami_oanda.domain.orders.models import OrderType
 from ogami_oanda.domain.positions.models import (
     OrderState,
@@ -691,3 +694,147 @@ def test_practice_acceptance_polls_until_cleanup_is_observable():
             broker,
             maximum_units=1,
         ).run(("USD_JPY",))
+
+
+def _strategy_intent(*, units: int = 7) -> OrderIntent:
+    return OrderIntent(
+        pair="USD_JPY",
+        direction=Direction.SELL,
+        order_type=OrderType.LIMIT,
+        target=149.5,
+        target_is_price=True,
+        take_profit=149.0,
+        take_profit_is_price=True,
+        stop_loss=150.0,
+        stop_loss_is_price=True,
+        units=units,
+        name="strategy-entry",
+        priority=1,
+        order_timeout_min=7,
+        metadata={"source": "matcha"},
+    )
+
+
+@pytest.mark.contract
+def test_strategy_acceptance_clamps_only_signed_units_and_preserves_request():
+    broker = _AcceptanceBroker()
+    broker.instrument_rules = lambda pair: type(
+        "Rules",
+        (),
+        {"pair": pair, "minimum_trade_size": 3, "maximum_order_units": 100, "trade_units_precision": 0},
+    )()
+    service = PracticeOrderAcceptanceService(
+        _market(),
+        broker,
+        broker,
+        maximum_units=10,
+        run_id_factory=lambda: "strategy-run",
+    )
+
+    report = service.run_strategy_intents(
+        (_strategy_intent(),),
+        {"USD_JPY": OrderContext(150.0, "2026-08-27T00:00:00+00:00")},
+    )
+
+    assert report.success is True
+    assert len(broker.requests) == 1
+    request = broker.requests[0]
+    assert request.units == -3
+    assert request.instrument == "USD_JPY"
+    assert request.order_type is OrderType.LIMIT
+    assert request.price == 149.5
+    assert request.take_profit_price == 149.0
+    assert request.stop_loss_price == 150.0
+
+
+@pytest.mark.contract
+def test_strategy_acceptance_allows_two_intents_and_submits_both():
+    broker = _AcceptanceBroker()
+    service = PracticeOrderAcceptanceService(_market(), broker, broker)
+
+    report = service.run_strategy_intents(
+        (_strategy_intent(units=2), _strategy_intent(units=4)),
+        {"USD_JPY": OrderContext(150.0, "2026-08-27T00:00:00+00:00")},
+    )
+
+    assert report.success is True
+    assert [request.units for request in broker.requests] == [-1, -1]
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize("count", [0, 3])
+def test_strategy_acceptance_rejects_intent_count_before_submit(count):
+    broker = _AcceptanceBroker()
+    service = PracticeOrderAcceptanceService(_market(), broker, broker)
+    intents = tuple(_strategy_intent() for _ in range(count))
+
+    with pytest.raises(PracticeAcceptanceError, match="between 1 and 2"):
+        service.run_strategy_intents(
+            intents,
+            {"USD_JPY": OrderContext(150.0, "2026-08-27T00:00:00+00:00")},
+        )
+
+    assert broker.requests == []
+
+
+@pytest.mark.contract
+def test_strategy_acceptance_rejects_invalid_minimum_before_submit():
+    broker = _AcceptanceBroker()
+    broker.instrument_rules = lambda pair: type(
+        "Rules",
+        (),
+        {"pair": pair, "minimum_trade_size": 11, "maximum_order_units": 100, "trade_units_precision": 0},
+    )()
+    service = PracticeOrderAcceptanceService(_market(), broker, broker, maximum_units=10)
+
+    with pytest.raises(PracticeAcceptanceError, match="safety limit"):
+        service.run_strategy_intents(
+            (_strategy_intent(),),
+            {"USD_JPY": OrderContext(150.0, "2026-08-27T00:00:00+00:00")},
+        )
+
+    assert broker.requests == []
+
+
+@pytest.mark.contract
+def test_strategy_acceptance_evaluates_quote_and_exact_m1_candles_before_workflow():
+    broker = _AcceptanceBroker()
+    market = _market()
+    calls = []
+
+    class _Market:
+        def current_quote(self, pair):
+            calls.append(("quote", pair))
+            quote = market.current_quote(pair)
+            return MarketQuote(
+                quote.pair,
+                quote.bid,
+                quote.ask,
+                quote.mid,
+                quote.tradeable,
+                datetime(2026, 8, 27, 0, 0, tzinfo=timezone.utc),
+            )
+
+        def candles(self, pair, granularity, count):
+            calls.append(("candles", pair, granularity, count))
+            return object()
+
+    class _Strategy:
+        pair = "USD_JPY"
+
+        def decide(self, input):
+            calls.append(("decision", input.quote.source_time, input.evaluation_time, input.positions, input.candles))
+            from ogami_oanda.strategy.contracts import StrategyDecision
+
+            return StrategyDecision(intents=(_strategy_intent(),))
+
+    service = PracticeOrderAcceptanceService(_Market(), broker, broker)
+    report = service.run_strategy(_Strategy())
+
+    assert report.success is True
+    assert calls[0] == ("quote", "USD_JPY")
+    assert calls[1] == ("candles", "USD_JPY", "M1", 1000)
+    assert calls[2][0] == "decision"
+    assert calls[2][1].tzinfo is not None
+    assert calls[2][2].tzinfo is not None
+    assert calls[2][3] == ()

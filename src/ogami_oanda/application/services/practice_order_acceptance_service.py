@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Callable
+from datetime import datetime, timezone
+from typing import Callable, Mapping
 from uuid import uuid4
 
 from ogami_oanda.application.ports.broker import (
@@ -14,9 +15,12 @@ from ogami_oanda.application.ports.market_data import MarketDataPort
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import (
     BrokerOrderRequest,
+    OrderContext,
+    OrderIntent,
     OrderType,
     submission_fingerprint,
 )
+from ogami_oanda.strategy.contracts import StrategyDecision, StrategyInput, StrategyQuote, TradingStrategy
 
 
 class PracticeAcceptanceError(RuntimeError):
@@ -62,6 +66,7 @@ class PracticeOrderAcceptanceService:
         run_id_factory: Callable[[], str] = lambda: uuid4().hex,
         expected_account_id: str | None = None,
         require_hedging: bool = True,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.market_data = market_data
         self.broker_execution = broker_execution
@@ -75,8 +80,15 @@ class PracticeOrderAcceptanceService:
         self.run_id_factory = run_id_factory
         self.expected_account_id = expected_account_id
         self.require_hedging = require_hedging
+        self.clock = clock
 
-    def run(self, pairs: tuple[str, ...]) -> PracticeAcceptanceReport:
+    def run(
+        self,
+        pairs: tuple[str, ...],
+        *,
+        _requests: tuple[BrokerOrderRequest, ...] | None = None,
+        _preflight: tuple[tuple[str, float, int], ...] | None = None,
+    ) -> PracticeAcceptanceReport:
         capabilities = self.broker_query.account_capabilities()
         if (
             self.expected_account_id is not None
@@ -108,39 +120,27 @@ class PracticeOrderAcceptanceService:
         workflow_error: Exception | None = None
         run_id = self.run_id_factory()
         try:
-            preflight: list[tuple[str, float, int]] = []
-            for pair_name in pairs:
-                quote = self.market_data.current_quote(pair_name)
-                if not quote.tradeable:
-                    raise PracticeAcceptanceError(
-                        f"{pair_name} is not tradeable"
-                    )
-                pair = currency_pair(pair_name)
-                if pair.price_to_pips(quote.spread) > pair.spread_limit_pips:
-                    raise PracticeAcceptanceError(
-                        f"{pair_name} spread exceeds configured safety limit"
-                    )
-                rules = self.broker_query.instrument_rules(pair_name)
-                units = int(rules.minimum_trade_size)
-                if units <= 0 or units > self.maximum_units:
-                    raise PracticeAcceptanceError(
-                        f"{pair_name} minimum units exceed configured safety limit"
-                    )
-                if units > rules.maximum_order_units:
-                    raise PracticeAcceptanceError(
-                        f"{pair_name} minimum units exceed broker maximum"
-                    )
-                preflight.append((pair_name, quote.mid, units))
+            preflight: list[tuple[str, float, int]] = list(_preflight or ())
+            if _preflight is None:
+                preflight = self._preflight_pairs(pairs)
 
             for pair_name, current_price, units in preflight:
-                for order_type in (OrderType.LIMIT, OrderType.STOP, OrderType.MARKET):
-                    request = self._request(
-                        pair_name,
-                        current_price,
-                        units,
-                        order_type,
-                        run_id,
+                requests = (
+                    tuple(request for request in (_requests or ()) if request.instrument == pair_name)
+                    if _requests is not None
+                    else tuple(
+                        self._request(
+                            pair_name,
+                            current_price,
+                            units,
+                            order_type,
+                            run_id,
+                        )
+                        for order_type in (OrderType.LIMIT, OrderType.STOP, OrderType.MARKET)
                     )
+                )
+                for request in requests:
+                    order_type = request.order_type
                     operation_index = len(operations)
                     operations.append(
                         PracticeAcceptanceOperation(
@@ -326,6 +326,193 @@ class PracticeOrderAcceptanceService:
                 operations=tuple(operations),
             ) from workflow_error
         return PracticeAcceptanceReport(True, tuple(operations))
+
+    def run_strategy(
+        self,
+        strategy: TradingStrategy,
+        *,
+        config: Mapping[str, object] | None = None,
+        planner=None,
+        pair: str | None = None,
+    ) -> PracticeAcceptanceReport:
+        """Evaluate one strategy read-only, then use the normal acceptance workflow."""
+        selected_pair = pair or getattr(strategy, "pair", None)
+        if not selected_pair and config is not None:
+            selected_pair = config.get("pair")
+        if not isinstance(selected_pair, str) or not selected_pair:
+            raise PracticeAcceptanceError(
+                "strategy acceptance requires a valid strategy pair"
+            )
+        try:
+            currency_pair(selected_pair)
+        except Exception as exc:
+            raise PracticeAcceptanceError(
+                f"strategy acceptance pair is invalid: {selected_pair}"
+            ) from exc
+
+        quote = self.market_data.current_quote(selected_pair)
+        if not quote.tradeable:
+            raise PracticeAcceptanceError(f"{selected_pair} is not tradeable")
+        pair_model = currency_pair(selected_pair)
+        if pair_model.price_to_pips(quote.spread) > pair_model.spread_limit_pips:
+            raise PracticeAcceptanceError(
+                f"{selected_pair} spread exceeds configured safety limit"
+            )
+        candles = self.market_data.candles(selected_pair, "M1", 1000)
+        evaluation_time = (
+            self.clock()
+            if self.clock is not None
+            else quote.source_time or datetime.fromtimestamp(0, timezone.utc)
+        )
+        if evaluation_time.tzinfo is None:
+            evaluation_time = evaluation_time.replace(tzinfo=timezone.utc)
+        strategy_input = StrategyInput(
+            quote=StrategyQuote(
+                quote.pair,
+                quote.bid,
+                quote.ask,
+                quote.mid,
+                quote.tradeable,
+                quote.source_time,
+            ),
+            positions=(),
+            candles=candles,
+            evaluation_time=evaluation_time,
+        )
+        decision = strategy.decide(strategy_input)
+        if not isinstance(decision, StrategyDecision):
+            raise PracticeAcceptanceError("strategy did not return a StrategyDecision")
+        if decision.commands:
+            raise PracticeAcceptanceError(
+                "strategy acceptance rejects portfolio commands"
+            )
+        if len(decision.intents) == 0 or len(decision.intents) > 2:
+            raise PracticeAcceptanceError(
+                "strategy acceptance requires between 1 and 2 intents"
+            )
+        contexts = {
+            selected_pair: OrderContext(
+                current_price=quote.mid,
+                decision_time=evaluation_time.isoformat(),
+            )
+        }
+        return self.run_strategy_intents(
+            decision.intents,
+            contexts,
+            planner=planner,
+            pair=selected_pair,
+            preflight_quote=quote,
+        )
+
+    def run_strategy_intents(
+        self,
+        intents: tuple[OrderIntent, ...],
+        contexts: Mapping[str, OrderContext],
+        *,
+        planner=None,
+        pair: str | None = None,
+        preflight_quote=None,
+    ) -> PracticeAcceptanceReport:
+        """Accept at most two planned strategy entries at broker minimum size."""
+        if not 1 <= len(intents) <= 2:
+            raise PracticeAcceptanceError(
+                "strategy acceptance requires between 1 and 2 intents"
+            )
+        if planner is None:
+            from ogami_oanda.application.services.order_planner import OrderPlanner
+
+            planner = OrderPlanner()
+        if pair is None:
+            pair = intents[0].pair
+        if not isinstance(pair, str) or not pair:
+            raise PracticeAcceptanceError("strategy acceptance requires a valid strategy pair")
+
+        requests = []
+        preflight = []
+        run_id = self.run_id_factory()
+        quote = preflight_quote
+        for index, intent in enumerate(intents):
+            if intent.pair != pair:
+                raise PracticeAcceptanceError(
+                    "strategy acceptance intents must use the selected strategy pair"
+                )
+            context = contexts.get(intent.pair)
+            if context is None:
+                raise PracticeAcceptanceError(
+                    f"strategy acceptance is missing order context for {intent.pair}"
+                )
+            plan = planner.plan(intent, context)
+            original_units = plan.broker_request.units
+            if type(original_units) is not int or original_units == 0:
+                raise PracticeAcceptanceError("strategy acceptance intent units must be nonzero")
+            if quote is None:
+                quote = self.market_data.current_quote(pair)
+                if not quote.tradeable:
+                    raise PracticeAcceptanceError(f"{pair} is not tradeable")
+                pair_model = currency_pair(pair)
+                if pair_model.price_to_pips(quote.spread) > pair_model.spread_limit_pips:
+                    raise PracticeAcceptanceError(
+                        f"{pair} spread exceeds configured safety limit"
+                    )
+            rules = self.broker_query.instrument_rules(plan.broker_request.instrument)
+            minimum = rules.minimum_trade_size
+            if type(minimum) is not int or minimum <= 0 or minimum > self.maximum_units:
+                raise PracticeAcceptanceError(
+                    f"{pair} minimum units exceed configured safety limit"
+                )
+            if minimum > rules.maximum_order_units:
+                raise PracticeAcceptanceError(
+                    f"{pair} minimum units exceed broker maximum"
+                )
+            reference = submission_fingerprint(
+                pair=plan.broker_request.instrument,
+                name=f"strategy-practice-{run_id}-{index}",
+                decision_time=context.decision_time,
+                direction=1 if original_units > 0 else -1,
+                order_type=plan.broker_request.order_type,
+                target_price=plan.broker_request.price,
+                units=minimum,
+            )
+            requests.append(
+                replace(
+                    plan.broker_request,
+                    units=(1 if original_units > 0 else -1) * minimum,
+                    client_reference=reference,
+                )
+            )
+        preflight.append((pair, quote.mid, abs(requests[0].units)))
+        return self.run(
+            (pair,),
+            _requests=tuple(requests),
+            _preflight=tuple(preflight),
+        )
+
+    def _preflight_pairs(
+        self,
+        pairs: tuple[str, ...],
+    ) -> list[tuple[str, float, int]]:
+        preflight: list[tuple[str, float, int]] = []
+        for pair_name in pairs:
+            quote = self.market_data.current_quote(pair_name)
+            if not quote.tradeable:
+                raise PracticeAcceptanceError(f"{pair_name} is not tradeable")
+            pair = currency_pair(pair_name)
+            if pair.price_to_pips(quote.spread) > pair.spread_limit_pips:
+                raise PracticeAcceptanceError(
+                    f"{pair_name} spread exceeds configured safety limit"
+                )
+            rules = self.broker_query.instrument_rules(pair_name)
+            units = int(rules.minimum_trade_size)
+            if units <= 0 or units > self.maximum_units:
+                raise PracticeAcceptanceError(
+                    f"{pair_name} minimum units exceed configured safety limit"
+                )
+            if units > rules.maximum_order_units:
+                raise PracticeAcceptanceError(
+                    f"{pair_name} minimum units exceed broker maximum"
+                )
+            preflight.append((pair_name, quote.mid, units))
+        return preflight
 
     def _request(
         self,

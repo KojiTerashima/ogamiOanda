@@ -250,3 +250,130 @@ def test_practice_acceptance_console_script_is_declared():
         'ogami-oanda-practice-acceptance = '
         '"ogami_oanda.entrypoints.practice_acceptance:main"'
     ) in pyproject
+
+
+@pytest.mark.contract
+def test_strategy_options_still_require_all_destructive_gates(monkeypatch):
+    monkeypatch.delenv("OGAMI_OANDA_ENABLE_PRACTICE_ORDERS", raising=False)
+    monkeypatch.setattr(
+        cli,
+        "build_service",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("unsafe strategy arguments must not build adapters")
+        ),
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(
+            [
+                "--config",
+                "settings.yaml",
+                "--strategy-py",
+                "strategy.py",
+                "--strategy-yaml",
+                "strategy.yaml",
+            ]
+        )
+
+    assert exit_info.value.code == 2
+
+
+@pytest.mark.contract
+def test_strategy_cli_loads_after_gates_and_dispatches_service(monkeypatch, tmp_path):
+    settings = AppSettings(
+        {"practice": RuntimeAccountConfig("practice-id", "secret-token", "practice")}
+    )
+    loaded = type("Loaded", (), {"strategy": object(), "config": {"pair": "USD_JPY"}})()
+    calls = []
+
+    class _Service:
+        def run_strategy(self, strategy, *, config=None, pair=None):
+            calls.append((strategy, config, pair))
+            return report
+
+    report = PracticeAcceptanceReport(
+        True,
+        (PracticeAcceptanceOperation("USD_JPY", OrderType.LIMIT, "o", None, True),),
+    )
+    monkeypatch.setenv("OGAMI_OANDA_ENABLE_PRACTICE_ORDERS", "1")
+    monkeypatch.setattr(cli, "load_settings", lambda _path: settings)
+    monkeypatch.setattr(cli, "load_strategy", lambda py, yaml: loaded)
+    monkeypatch.setattr(cli, "build_service", lambda *_args, **_kwargs: _Service())
+    report_path = tmp_path / "strategy-report.json"
+
+    exit_code = cli.main(
+        [
+            "--config", "settings.yaml", "--account", "practice",
+            "--execute-practice-orders", "--confirm-account-id", "practice-id",
+            "--accept-small-loss", "--strategy-py", "strategy.py",
+            "--strategy-yaml", "strategy.yaml", "--report", str(report_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls == [(loaded.strategy, loaded.config, "USD_JPY")]
+
+
+@pytest.mark.contract
+def test_strategy_loader_error_is_reported_as_argparse_error_before_adapters(monkeypatch):
+    from ogami_oanda.strategy.loader import StrategyPluginError
+
+    settings = AppSettings(
+        {"practice": RuntimeAccountConfig("practice-id", "secret-token", "practice")}
+    )
+    monkeypatch.setenv("OGAMI_OANDA_ENABLE_PRACTICE_ORDERS", "1")
+    monkeypatch.setattr(cli, "load_settings", lambda _path: settings)
+    monkeypatch.setattr(
+        cli,
+        "load_strategy",
+        lambda *_args: (_ for _ in ()).throw(StrategyPluginError("bad plugin")),
+    )
+    monkeypatch.setattr(
+        cli,
+        "build_service",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("loader errors must precede adapter construction")
+        ),
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(
+            [
+                "--config", "settings.yaml", "--account", "practice",
+                "--execute-practice-orders", "--confirm-account-id", "practice-id",
+                "--accept-small-loss", "--strategy-py", "strategy.py",
+                "--strategy-yaml", "strategy.yaml",
+            ]
+        )
+
+    assert exit_info.value.code == 2
+
+
+@pytest.mark.contract
+def test_strategy_pair_error_is_reported_before_adapter_construction(monkeypatch):
+    settings = AppSettings(
+        {"practice": RuntimeAccountConfig("practice-id", "secret-token", "practice")}
+    )
+    loaded = type("Loaded", (), {"strategy": object(), "config": {"pair": "BAD"}})()
+    monkeypatch.setenv("OGAMI_OANDA_ENABLE_PRACTICE_ORDERS", "1")
+    monkeypatch.setattr(cli, "load_settings", lambda _path: settings)
+    monkeypatch.setattr(cli, "load_strategy", lambda *_args: loaded)
+    monkeypatch.setattr(
+        cli,
+        "build_service",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("invalid strategy pair must precede adapter construction")
+        ),
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(
+            [
+                "--config", "settings.yaml", "--account", "practice",
+                "--execute-practice-orders", "--confirm-account-id", "practice-id",
+                "--accept-small-loss", "--strategy-py", "strategy.py",
+                "--strategy-yaml", "strategy.yaml",
+            ]
+        )
+
+    assert exit_info.value.code == 2
