@@ -131,7 +131,9 @@ def _market():
 @pytest.mark.contract
 def test_practice_acceptance_runs_three_pair_order_matrix_and_cleans_up():
     broker = _AcceptanceBroker()
-    service = PracticeOrderAcceptanceService(_market(), broker, broker)
+    market = _market()
+    market.candles = lambda *_args: object()
+    service = PracticeOrderAcceptanceService(market, broker, broker)
 
     report = service.run(("USD_JPY", "EUR_USD", "AUD_USD"))
 
@@ -838,3 +840,74 @@ def test_strategy_acceptance_evaluates_quote_and_exact_m1_candles_before_workflo
     assert calls[2][1].tzinfo is not None
     assert calls[2][2].tzinfo is not None
     assert calls[2][3] == ()
+
+
+@pytest.mark.contract
+def test_strategy_acceptance_checks_account_and_clean_baseline_before_decision_or_rules():
+    broker = _AcceptanceBroker()
+    broker.orders["existing-order"] = PositionSnapshot(
+        "existing-order",
+        "USD_JPY",
+        OrderState.PENDING,
+        TradeState.NONE,
+        order_id="existing-order",
+        life=True,
+    )
+    calls = []
+
+    class _Strategy:
+        pair = "USD_JPY"
+
+        def decide(self, _input):
+            calls.append("decision")
+            from ogami_oanda.strategy.contracts import StrategyDecision
+
+            return StrategyDecision(intents=(_strategy_intent(),))
+
+    original_rules = broker.instrument_rules
+
+    def rules(pair):
+        calls.append("rules")
+        return original_rules(pair)
+
+    broker.instrument_rules = rules
+    market = _market()
+    market.candles = lambda *_args: object()
+    service = PracticeOrderAcceptanceService(market, broker, broker)
+
+    with pytest.raises(PracticeAcceptanceError, match="existing pending or open"):
+        service.run_strategy(_Strategy())
+
+    assert calls == []
+
+
+@pytest.mark.contract
+def test_strategy_acceptance_rejected_account_precedes_decision_and_rules():
+    broker = _AcceptanceBroker()
+    broker.hedging_enabled = False
+    calls = []
+
+    class _Strategy:
+        pair = "USD_JPY"
+
+        def decide(self, _input):
+            calls.append("decision")
+            from ogami_oanda.strategy.contracts import StrategyDecision
+
+            return StrategyDecision(intents=(_strategy_intent(),))
+
+    original_rules = broker.instrument_rules
+
+    def rules(pair):
+        calls.append("rules")
+        return original_rules(pair)
+
+    broker.instrument_rules = rules
+    market = _market()
+    market.candles = lambda *_args: object()
+    service = PracticeOrderAcceptanceService(market, broker, broker)
+
+    with pytest.raises(PracticeAcceptanceError, match="hedging-enabled"):
+        service.run_strategy(_Strategy())
+
+    assert calls == []

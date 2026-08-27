@@ -377,3 +377,19 @@ def test_strategy_pair_error_is_reported_before_adapter_construction(monkeypatch
         )
 
     assert exit_info.value.code == 2
+
+
+@pytest.mark.contract
+def test_strategy_option_shape_is_checked_after_existing_destructive_gates(monkeypatch, capsys):
+    monkeypatch.delenv("OGAMI_OANDA_ENABLE_PRACTICE_ORDERS", raising=False)
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(
+            [
+                "--config", "settings.yaml",
+                "--strategy-py", "strategy.py",
+            ]
+        )
+
+    assert exit_info.value.code == 2
+    assert "--execute-practice-orders is required" in capsys.readouterr().err

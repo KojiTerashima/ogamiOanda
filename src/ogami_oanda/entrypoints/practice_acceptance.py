@@ -56,11 +56,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--strategy-yaml", metavar="PATH")
     arguments = parser.parse_args(argv)
 
-    has_strategy_py = arguments.strategy_py is not None
-    has_strategy_yaml = arguments.strategy_yaml is not None
-    if has_strategy_py != has_strategy_yaml:
-        parser.error("--strategy-py and --strategy-yaml must be supplied together")
-
     if not arguments.execute_practice_orders:
         parser.error("--execute-practice-orders is required")
     if not arguments.confirm_account_id:
@@ -78,6 +73,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("confirmed account ID does not match configuration")
     if not account.account_id or not account.access_token:
         parser.error("practice account credentials are incomplete")
+
+    has_strategy_py = arguments.strategy_py is not None
+    has_strategy_yaml = arguments.strategy_yaml is not None
+    if has_strategy_py != has_strategy_yaml:
+        parser.error("--strategy-py and --strategy-yaml must be supplied together")
 
     loaded = None
     selected_pair = None

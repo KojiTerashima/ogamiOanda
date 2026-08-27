@@ -89,24 +89,7 @@ class PracticeOrderAcceptanceService:
         _requests: tuple[BrokerOrderRequest, ...] | None = None,
         _preflight: tuple[tuple[str, float, int], ...] | None = None,
     ) -> PracticeAcceptanceReport:
-        capabilities = self.broker_query.account_capabilities()
-        if (
-            self.expected_account_id is not None
-            and capabilities.account_id != self.expected_account_id
-        ):
-            raise PracticeAcceptanceError(
-                "broker account does not match confirmed practice account"
-            )
-        if self.require_hedging and not capabilities.hedging_enabled:
-            raise PracticeAcceptanceError(
-                "practice acceptance requires hedging-enabled account"
-            )
-        baseline_orders = self._pending_ids()
-        baseline_trades = self._open_trade_ids()
-        if baseline_orders or baseline_trades:
-            raise PracticeAcceptanceError(
-                "practice acceptance requires no existing pending or open positions"
-            )
+        baseline_orders, baseline_trades = self._validate_account_and_clean_baseline()
 
         operations: list[PracticeAcceptanceOperation] = []
         owned_orders: set[str] = set()
@@ -343,6 +326,7 @@ class PracticeOrderAcceptanceService:
             raise PracticeAcceptanceError(
                 "strategy acceptance requires a valid strategy pair"
             )
+        self._validate_account_and_clean_baseline()
         try:
             currency_pair(selected_pair)
         except Exception as exc:
@@ -418,6 +402,7 @@ class PracticeOrderAcceptanceService:
             raise PracticeAcceptanceError(
                 "strategy acceptance requires between 1 and 2 intents"
             )
+        self._validate_account_and_clean_baseline()
         if planner is None:
             from ogami_oanda.application.services.order_planner import OrderPlanner
 
@@ -486,6 +471,30 @@ class PracticeOrderAcceptanceService:
             _requests=tuple(requests),
             _preflight=tuple(preflight),
         )
+
+    def _validate_account_and_clean_baseline(
+        self,
+    ) -> tuple[set[str], set[str]]:
+        """Apply the account gate and establish the empty acceptance baseline."""
+        capabilities = self.broker_query.account_capabilities()
+        if (
+            self.expected_account_id is not None
+            and capabilities.account_id != self.expected_account_id
+        ):
+            raise PracticeAcceptanceError(
+                "broker account does not match confirmed practice account"
+            )
+        if self.require_hedging and not capabilities.hedging_enabled:
+            raise PracticeAcceptanceError(
+                "practice acceptance requires hedging-enabled account"
+            )
+        baseline_orders = self._pending_ids()
+        baseline_trades = self._open_trade_ids()
+        if baseline_orders or baseline_trades:
+            raise PracticeAcceptanceError(
+                "practice acceptance requires no existing pending or open positions"
+            )
+        return baseline_orders, baseline_trades
 
     def _preflight_pairs(
         self,
