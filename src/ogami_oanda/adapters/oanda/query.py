@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
+from collections.abc import Mapping
 
 from oandapyV20.endpoints.accounts import AccountInstruments, AccountSummary
 from oandapyV20.endpoints.orders import OrderDetails, OrdersPending
 from oandapyV20.endpoints.trades import OpenTrades, TradeDetails
-from oandapyV20.endpoints.transactions import TransactionsSinceID
+from oandapyV20.endpoints.transactions import TransactionDetails, TransactionsSinceID
 
 from ogami_oanda.adapters.oanda.client import OandaClient
 from ogami_oanda.adapters.oanda.mappers import map_order_snapshot, map_trade_snapshot
@@ -90,7 +92,39 @@ class OandaQueryAdapter:
 
     def trade(self, trade_id: str) -> PositionSnapshot | None:
         response = self.client.request(TradeDetails(accountID=self.client.account_id, tradeID=trade_id))
-        return map_trade_snapshot(response)
+        snapshot = map_trade_snapshot(response)
+        if snapshot is None or snapshot.trade_state.value != "CLOSED":
+            return snapshot
+        trade = response.get("trade")
+        closing_ids = (
+            trade.get("closingTransactionIDs", [])
+            if isinstance(trade, Mapping)
+            else []
+        )
+        if not isinstance(closing_ids, (list, tuple)) or not closing_ids:
+            return snapshot
+        # OANDA stores the authoritative OrderFillReason on the final closing
+        # transaction, not on the Trade representation. Query this only for a
+        # CLOSED trade so normal open-trade polling stays at one API call.
+        closing_transaction = self.client.request(
+            TransactionDetails(
+                accountID=self.client.account_id,
+                transactionID=str(closing_ids[-1]),
+            )
+        )
+        transaction = (
+            closing_transaction.get("transaction", {})
+            if isinstance(closing_transaction, Mapping)
+            else {}
+        )
+        reason = (
+            transaction.get("reason") or transaction.get("orderFillReason")
+            if isinstance(transaction, Mapping)
+            else None
+        )
+        if reason is None:
+            return snapshot
+        return replace(snapshot, close_reason=str(reason))
 
     def pending_orders(self) -> list[PositionSnapshot]:
         response = self.client.request(OrdersPending(accountID=self.client.account_id))

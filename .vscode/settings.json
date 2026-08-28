@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^\\.venv/bin/ogami-oanda-live --offline-smoke --dry-run --once && \\.venv/bin/ogami-oanda-practice-acceptance --help >/dev/null$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

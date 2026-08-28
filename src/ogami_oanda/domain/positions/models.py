@@ -63,6 +63,9 @@ class PositionSnapshot:
     elapsed_seconds: float = 0.0
     average_close_price: float | None = None
     client_reference: str = ""
+    # Raw OANDA OrderFillReason for a closed trade.  This is deliberately
+    # optional so snapshots from other broker implementations remain valid.
+    close_reason: str = ""
 
 
 @dataclass(frozen=True)

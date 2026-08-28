@@ -80,6 +80,17 @@ scheduler:
 - `run_forever`: infrastructure-owned one-second fixed-deadline polling; finite
   runs are injectable for tests and unbounded runs do not accumulate results.
 
+Each production `run_forever` path accepts the same optional live observer. The
+CLI and the historical `main_exe.py` facade create
+`entrypoints.live_console.ConsoleLiveReporter`, which prints one flushed
+`[TICK]` line after every completed polling tick and separate `[ORDER]`,
+`[FILL]`, `[TP]`, `[LC]`, `[LC_UPDATE]`, `[CANCEL]`, and `[REJECT]` lines for
+deduplicated runtime events. Recoverable broker failures are reported to
+stderr as `[ERROR]` with their retry delay; unknown exceptions are reported as
+`[FATAL]` and remain fail-fast. Dry-run output is marked `DRY_RUN`/`PLAN`.
+Portfolio summaries expose cumulative realized P/L and pips restored from
+history/checkpoints separately from current open-position unrealized P/L.
+
 The quote is requested once per tick and reused for spread, lifecycle, and
 analysis decisions.
 

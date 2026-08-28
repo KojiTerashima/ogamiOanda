@@ -7,6 +7,8 @@ import pytest
 import ogami_oanda.entrypoints.live as live
 from ogami_oanda.application.services.position_portfolio_service import RegistrationResult
 from ogami_oanda.entrypoints.live import LiveRunResult
+from ogami_oanda.entrypoints.live_console import ConsoleLiveReporter
+from ogami_oanda.strategy.line import CandidateDiagnostics
 
 
 @pytest.mark.contract
@@ -27,6 +29,7 @@ def test_console_script_is_declared_and_help_is_available(capsys):
         "--dry-run",
         "--cancel-pending-on-start",
         "--once",
+        "--trace-candidates",
         "--offline-smoke",
     ):
         assert option in help_text
@@ -106,6 +109,73 @@ def test_console_once_dry_run_is_offline_testable_and_prints_plan_and_reject_rea
         "accepted=1 rejected=1 skipped=- plans=line-plan "
         "accepted_names=accepted-plan rejected_reasons=rejected-plan:duplicate"
     )
+
+
+@pytest.mark.contract
+def test_console_once_prints_candidate_diagnostics_only_when_tracing(
+    monkeypatch,
+    capsys,
+):
+    diagnostics = CandidateDiagnostics(
+        raw_counts={"immediate": 8, "future_resist": 8, "future_break": 8},
+        selected_counts={"immediate": 0, "future_resist": 1, "future_break": 0},
+        rejected_reasons={
+            "immediate": {"immediate_conditions_not_met": 8},
+            "future_resist": {"top7_conditions_not_met": 7},
+            "future_break": {"top7_conditions_not_met": 8},
+        },
+    )
+    result = LiveRunResult(
+        analysis=SimpleNamespace(candidate_diagnostics=diagnostics),
+        registration=RegistrationResult((), ()),
+    )
+
+    class _Application:
+        def run_resilient_once(self, *, dry_run=False):
+            return result
+
+    monkeypatch.setattr(live, "load_settings", lambda _path: object())
+    monkeypatch.setattr(
+        live,
+        "build_live_application",
+        lambda *_args, **_kwargs: _Application(),
+    )
+
+    assert live.main(
+        [
+            "--config",
+            "settings.yaml",
+            "--dry-run",
+            "--once",
+            "--trace-candidates",
+        ]
+    ) == 0
+
+    assert capsys.readouterr().out.splitlines() == [
+        "accepted=0 rejected=0 skipped=- plans=- accepted_names=- rejected_reasons=-",
+        "candidates raw=immediate:8,future_resist:8,future_break:8 "
+        "selected=immediate:0,future_resist:1,future_break:0 "
+        "rejected=immediate/immediate_conditions_not_met:8,"
+        "future_resist/top7_conditions_not_met:7,"
+        "future_break/top7_conditions_not_met:8",
+    ]
+
+
+@pytest.mark.contract
+def test_console_live_loop_uses_shared_console_reporter(monkeypatch):
+    captured = {}
+
+    class _Application:
+        def run_forever(self, **kwargs):
+            captured.update(kwargs)
+            return ()
+
+    monkeypatch.setattr(live, "load_settings", lambda _path: object())
+    monkeypatch.setattr(live, "build_live_application", lambda *_args, **_kwargs: _Application())
+
+    assert live.main(["--config", "settings.yaml", "--dry-run"]) == 0
+    assert isinstance(captured["observer"], ConsoleLiveReporter)
+    assert captured["dry_run"] is True
 
 
 @pytest.mark.contract

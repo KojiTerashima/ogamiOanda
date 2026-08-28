@@ -5,11 +5,16 @@ This module intentionally retains ``main`` and ``run`` so existing launchers do
 not need to change at the same time as the migration.
 """
 
+import inspect
 import time
 
 import tokens as tk
 
-from ogami_oanda.entrypoints.live import LiveApplication, build_live_application
+from ogami_oanda.entrypoints.live import (
+    LiveApplication,
+    build_live_application,
+)
+from ogami_oanda.entrypoints.live_console import ConsoleLiveReporter
 from ogami_oanda.infrastructure.config.legacy_tokens import settings_from_tokens
 
 
@@ -29,9 +34,44 @@ class main:
     def exe_manage(self, *, dry_run: bool = False):
         return self.application.run_once(dry_run=dry_run)
 
-    def exe_loop(self, interval=1, wait=True, *, dry_run: bool = False, max_ticks: int | None = None):
+    def exe_loop(
+        self,
+        interval=1,
+        wait=True,
+        *,
+        dry_run: bool = False,
+        max_ticks: int | None = None,
+        trace_candidates: bool = False,
+    ):
         del interval, wait
-        return self.application.run_forever(dry_run=dry_run, sleeper=time.sleep, max_ticks=max_ticks)
+        reporter = ConsoleLiveReporter(
+            self.application,
+            dry_run=dry_run,
+            trace_candidates=trace_candidates,
+        )
+        # Keep custom legacy application doubles compatible while the
+        # production LiveApplication receives the shared observer.
+        run_forever = getattr(self.application, "run_forever")
+        try:
+            parameters = inspect.signature(run_forever).parameters
+        except (TypeError, ValueError):
+            return run_forever(
+                dry_run=dry_run,
+                sleeper=time.sleep,
+                max_ticks=max_ticks,
+                observer=reporter,
+            )
+        kwargs = {
+            "dry_run": dry_run,
+            "sleeper": time.sleep,
+            "max_ticks": max_ticks,
+        }
+        if "observer" in parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        ):
+            kwargs["observer"] = reporter
+        return run_forever(**kwargs)
 
 
 def run(
@@ -40,13 +80,19 @@ def run(
     dry_run: bool = False,
     application: LiveApplication | None = None,
     max_ticks: int | None = None,
+    trace_candidates: bool = False,
 ):
     runner = (
         main(application=application, dry_run=dry_run)
         if pair is None
         else main(type("Pair", (), {"name": pair})(), application=application, dry_run=dry_run)
     )
-    return runner.exe_loop(1, dry_run=dry_run, max_ticks=max_ticks)
+    return runner.exe_loop(
+        1,
+        dry_run=dry_run,
+        max_ticks=max_ticks,
+        trace_candidates=trace_candidates,
+    )
 
 
 if __name__ == "__main__":

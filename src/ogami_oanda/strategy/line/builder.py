@@ -18,6 +18,37 @@ from .usd_jpy import (
 
 _TIMEOUT_BY_DISTANCE_PIPS = ((3, 15), (7, 30), (12, 45))
 _TIMEOUT_CAP_BY_TIMEFRAME = {"m5": 45, "h1": 60}
+_CANDIDATE_MODES = ("immediate", "future_resist", "future_break")
+
+
+@dataclass(frozen=True)
+class CandidateDiagnostics:
+    raw_counts: Mapping[str, int]
+    selected_counts: Mapping[str, int]
+    rejected_reasons: Mapping[str, Mapping[str, int]]
+
+    def reject_selected(self, mode: str, reason: str) -> "CandidateDiagnostics":
+        selected_counts = dict(self.selected_counts)
+        if selected_counts.get(mode, 0) <= 0:
+            raise ValueError(f"Cannot reject missing selected candidate for {mode}")
+        selected_counts[mode] -= 1
+        rejected_reasons = {
+            candidate_mode: dict(counts)
+            for candidate_mode, counts in self.rejected_reasons.items()
+        }
+        mode_reasons = rejected_reasons.setdefault(mode, {})
+        mode_reasons[reason] = mode_reasons.get(reason, 0) + 1
+        return CandidateDiagnostics(
+            raw_counts=dict(self.raw_counts),
+            selected_counts=selected_counts,
+            rejected_reasons=rejected_reasons,
+        )
+
+
+@dataclass(frozen=True)
+class CandidateBuildResult:
+    candidates: tuple[dict, ...]
+    diagnostics: CandidateDiagnostics
 
 
 @dataclass(frozen=True)
@@ -44,9 +75,60 @@ class LineCandidateBuilder:
         self.position_sizing = PositionSizingPolicy(risk_yen)
 
     def __call__(self, context: Mapping[str, object], current_price: float) -> list[dict]:
+        return list(self.build_with_diagnostics(context, current_price).candidates)
+
+    def build_with_diagnostics(
+        self,
+        context: Mapping[str, object],
+        current_price: float,
+    ) -> CandidateBuildResult:
         raw_candidates = self.build_raw_candidates(context, current_price)
-        selected = self.select_candidates(raw_candidates, context)
-        return self.enrich_candidates(selected, current_price, context=context)
+        recommended = self.select_candidates(raw_candidates, context)
+        candidates = self.enrich_candidates(
+            recommended,
+            current_price,
+            context=context,
+        )
+        raw_counts = {
+            mode: len(raw_candidates.get(mode, ()))
+            for mode in _CANDIDATE_MODES
+        }
+        recommended_counts = self._counts_by_mode(recommended)
+        selected_counts = self._counts_by_mode(candidates)
+        rejected_reasons: dict[str, dict[str, int]] = {}
+        for mode in _CANDIDATE_MODES:
+            rejected: dict[str, int] = {}
+            condition_rejected = raw_counts[mode] - recommended_counts[mode]
+            if condition_rejected:
+                rejected[self._condition_rejection_reason(mode)] = condition_rejected
+            session_rejected = recommended_counts[mode] - selected_counts[mode]
+            if session_rejected:
+                rejected["session_order_permission_false"] = session_rejected
+            rejected_reasons[mode] = rejected
+        return CandidateBuildResult(
+            tuple(candidates),
+            CandidateDiagnostics(
+                raw_counts=raw_counts,
+                selected_counts=selected_counts,
+                rejected_reasons=rejected_reasons,
+            ),
+        )
+
+    @staticmethod
+    def _counts_by_mode(candidates: list[dict]) -> dict[str, int]:
+        counts = {mode: 0 for mode in _CANDIDATE_MODES}
+        for candidate in candidates:
+            mode = str(candidate.get("order_mode", "future_break"))
+            if mode in counts:
+                counts[mode] += 1
+        return counts
+
+    def _condition_rejection_reason(self, mode: str) -> str:
+        if mode == "immediate":
+            return "immediate_conditions_not_met"
+        if self.pair == "USD_JPY":
+            return "top7_conditions_not_met"
+        return "recommendation_conditions_not_met"
 
     def build_raw_candidates(self, context: Mapping[str, object], current_price: float) -> dict[str, list[dict]]:
         peaks = context["peaks"]
@@ -60,7 +142,7 @@ class LineCandidateBuilder:
         m5_line_class = context["line_class_m5_main"]
 
         raw_candidates: dict[str, list[dict]] = {}
-        for mode in ("immediate", "future_resist", "future_break"):
+        for mode in _CANDIDATE_MODES:
             raw_candidates[mode] = coordinator.build_line_candidates(
                 self._strategy_lines_for_mode(mode, m5_line_class),
                 current_price,

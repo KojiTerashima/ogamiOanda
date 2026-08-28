@@ -11,6 +11,7 @@ from ogami_oanda.application.services.position_portfolio_service import (
     PositionPortfolioService,
 )
 from ogami_oanda.application.services.position_service import PositionService
+from ogami_oanda.application.services.runtime_event_buffer import RuntimeEventBuffer
 from ogami_oanda.application.errors import TransientExternalServiceError
 from ogami_oanda.domain.orders.models import (
     Direction,
@@ -125,6 +126,43 @@ def test_live_run_once_dry_run_registers_watching_position_without_submission():
     assert result.registration.accepted == ("line",)
     assert broker.requests == []
     assert portfolio.summary().watching == 1
+
+
+@pytest.mark.contract
+def test_registration_rejection_is_exposed_as_runtime_event():
+    clock = FixedClock(datetime(2026, 1, 2, 3, 4, 5))
+    broker = FakeBroker()
+    position_service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+    runtime_events = RuntimeEventBuffer()
+    position_service.set_event_sink(runtime_events.publish)
+    portfolio = PositionPortfolioService("USD_JPY", position_service, broker, broker)
+    intent = OrderIntent(
+        "EUR_USD",
+        Direction.BUY,
+        OrderType.LIMIT,
+        1.0,
+        True,
+        10,
+        False,
+        10,
+        False,
+        1000,
+        "wrong-pair",
+        1,
+        0,
+    )
+    plan = OrderPlanner().plan(intent, OrderContext(1.0, "2026/01/02 03:04:05"))
+
+    registration = portfolio.register_plans([plan], submit=True)
+
+    assert registration.rejected == (("wrong-pair", "pair_mismatch"),)
+    assert [event.kind for event in runtime_events.drain()] == ["order_rejected"]
 
 
 @pytest.mark.contract

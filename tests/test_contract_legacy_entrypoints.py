@@ -50,6 +50,32 @@ def test_legacy_run_forwards_pair_independent_dry_run_to_finite_loop():
 
 
 @pytest.mark.contract
+def test_legacy_run_forwards_candidate_tracing_to_console_reporter(monkeypatch):
+    captured = {}
+    application = _Application()
+
+    class _Reporter:
+        def __init__(self, received_application, **kwargs):
+            captured["application"] = received_application
+            captured.update(kwargs)
+
+    monkeypatch.setattr(main_exe, "ConsoleLiveReporter", _Reporter)
+
+    assert main_exe.run(
+        "USD_JPY",
+        dry_run=True,
+        application=application,
+        max_ticks=1,
+        trace_candidates=True,
+    ) == ()
+    assert captured == {
+        "application": application,
+        "dry_run": True,
+        "trace_candidates": True,
+    }
+
+
+@pytest.mark.contract
 def test_pair_specific_legacy_launchers_delegate_by_pair_argument(monkeypatch):
     calls = []
 

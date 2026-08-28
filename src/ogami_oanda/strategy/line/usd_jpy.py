@@ -329,13 +329,6 @@ class LineStrategyProfileUsdJpy:
             return []
         if latest_peak_dir == -1 and line_side != "lower":
             return []
-        if not self._reversal_peak_rsi_matches_direction(candidate):
-            return []
-
-        top10_reasons = self._configured_top10_reasons(candidate, rsi_info)
-        if top10_reasons:
-            return top10_reasons
-        return []
 
         line = candidate["line"]
         h1_context = candidate.get("h1_context", {})
@@ -1042,7 +1035,7 @@ class LineStrategyProfileUsdJpy:
             return []
         if not self._future_break_direction_is_valid(candidate, latest_peak_info):
             return []
-        return self._configured_top10_reasons(candidate, rsi_info)
+        return self.recommended_reasons(candidate, rsi_info, latest_peak_info)
 
     @staticmethod
     def _future_break_direction_is_valid(candidate, latest_peak_info):

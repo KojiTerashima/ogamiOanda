@@ -8,6 +8,7 @@ import classCandleAnalysis
 from classOrderCreate import Order
 import fAnalysis_order_Main
 import fLineAnalysis
+import fLineStrategyUsdJpy
 from ogami_oanda.adapters.oanda.mappers import broker_request_to_oanda
 from ogami_oanda.adapters.legacy.order_dict import order_plan_to_legacy_dict
 from ogami_oanda.application.services.line_candidate_context_builder import (
@@ -106,6 +107,142 @@ class _LegacyCandle:
     candle_meta_class = _LegacyCandleMeta()
 
 
+def _usd_top7_candidate(
+    *,
+    side,
+    entry_type,
+    count,
+    strength,
+    h1_distance,
+    current_rsi,
+    peak_rsi,
+    session_hour=12,
+):
+    peak_direction = 1 if side == "upper" else -1
+    direction = (
+        peak_direction
+        if entry_type == "breakout"
+        else -peak_direction
+    )
+    return {
+        "timeframe": "m5",
+        "line_side": side,
+        "direction": direction,
+        "line_strategy": f"m5_{entry_type}_peakdir_allcount",
+        "strategy": SimpleNamespace(entry_type=entry_type),
+        "latest_peak_dir": peak_direction,
+        "latest_peak_rsi": peak_rsi,
+        "previous_peak_rsi": peak_rsi,
+        "session_hour": session_hour,
+        "line": {
+            "count": count,
+            "total_strength": strength,
+            "core_count": 1,
+            "core_total_strength": min(strength, 5),
+        },
+        "h1_context": {
+            "h1_nearest_distance_pips": h1_distance,
+            "h1_nearest_side": side,
+            "h1_blocks_trade_direction": True,
+            "h1_path_ahead_1_distance_pips": h1_distance,
+            "h1_path_ahead_1_total_strength": 8,
+        },
+        "rsi_info": {"rsi_1": current_rsi},
+        "latest_peak_info": {"direction": peak_direction},
+    }
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    "profile_factory",
+    (LineStrategyProfileUsdJpy, fLineStrategyUsdJpy.LineStrategyProfileUsdJpy),
+)
+@pytest.mark.parametrize("side", ("upper", "lower"))
+def test_usd_jpy_future_reversal_uses_top7_for_both_sides(
+    profile_factory,
+    side,
+):
+    profile = profile_factory()
+    candidate = _usd_top7_candidate(
+        side=side,
+        entry_type="reversal",
+        count=1,
+        strength=5,
+        h1_distance=8,
+        current_rsi=55,
+        peak_rsi=55,
+    )
+
+    reasons = profile.future_resist_recommended_reasons(
+        candidate,
+        candidate["rsi_info"],
+        candidate["latest_peak_info"],
+    )
+
+    assert reasons == [
+        f"Top2 {side} reversal c1 str0-5 H1same6-10 RSI50-60"
+    ]
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    "profile_factory",
+    (LineStrategyProfileUsdJpy, fLineStrategyUsdJpy.LineStrategyProfileUsdJpy),
+)
+@pytest.mark.parametrize("side", ("upper", "lower"))
+def test_usd_jpy_future_breakout_uses_top7_for_both_sides(
+    profile_factory,
+    side,
+):
+    profile = profile_factory()
+    candidate = _usd_top7_candidate(
+        side=side,
+        entry_type="breakout",
+        count=1,
+        strength=5,
+        h1_distance=4,
+        current_rsi=45,
+        peak_rsi=45,
+    )
+
+    reasons = profile.future_break_recommended_reasons(
+        candidate,
+        candidate["rsi_info"],
+        candidate["latest_peak_info"],
+    )
+
+    assert reasons == [
+        f"Top6 {side} breakout c1 str0-5 H1same3-6 RSI40-50"
+    ]
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    "profile_factory",
+    (LineStrategyProfileUsdJpy, fLineStrategyUsdJpy.LineStrategyProfileUsdJpy),
+)
+def test_usd_jpy_future_rejects_top10_only_candidate(profile_factory):
+    profile = profile_factory()
+    candidate = _usd_top7_candidate(
+        side="upper",
+        entry_type="reversal",
+        count=3,
+        strength=6,
+        h1_distance=8,
+        current_rsi=65,
+        peak_rsi=70,
+        session_hour=7,
+    )
+
+    reasons = profile.future_resist_recommended_reasons(
+        candidate,
+        candidate["rsi_info"],
+        candidate["latest_peak_info"],
+    )
+
+    assert reasons == []
+
+
 def _accepted_pair_candidates(pair_name, current_price):
     pair = currency_pair(pair_name)
     builder = LineCandidateBuilder(pair_name)
@@ -172,11 +309,11 @@ def _accepted_pair_candidates(pair_name, current_price):
             1,
             "upper",
             5,
-            8,
-            8,
-            1.5,
-            61,
-            "USD 1Y Top1 path0-3 buy latestPeakRSI60-67.5",
+            5,
+            5,
+            4,
+            50,
+            "Top6 upper breakout c1 str0-5 H1same3-6 RSI40-50",
         ),
         (
             "EUR_USD",
@@ -249,6 +386,9 @@ def test_three_pair_real_strategy_selects_positive_candidate(
         },
         "h1_context": {
             "h1_path_ahead_1_distance_pips": path_distance,
+            "h1_nearest_distance_pips": path_distance,
+            "h1_nearest_side": line_side,
+            "h1_blocks_trade_direction": True,
         },
     }
     peaks = SimpleNamespace(

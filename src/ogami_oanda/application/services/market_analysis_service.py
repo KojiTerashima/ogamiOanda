@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Mapping
+from typing import TYPE_CHECKING, Callable, Mapping
 
 import pandas as pd
 
@@ -18,6 +18,9 @@ from ogami_oanda.domain.orders.models import (
     OrderType,
 )
 
+if TYPE_CHECKING:
+    from ogami_oanda.strategy.line.builder import CandidateDiagnostics
+
 CandidateBuilder = Callable[[Mapping[str, object], float], list[dict]]
 CandidateContextBuilder = Callable[[str, Mapping[str, pd.DataFrame], Mapping[str, PeaksClass], float, str], Mapping[str, object]]
 
@@ -29,6 +32,7 @@ class MarketAnalysisResult:
     peaks: Mapping[str, PeaksClass]
     order_context: OrderContext | None = None
     candidate_context: Mapping[str, object] = field(default_factory=dict)
+    candidate_diagnostics: CandidateDiagnostics | None = None
 
 
 class MarketAnalysisService:
@@ -67,18 +71,48 @@ class MarketAnalysisService:
             if self.candidate_context_builder is not None
             else {"frames": frames, "peaks": peaks, "decision_time": decision_time}
         )
-        candidates = self.candidate_builder(context, current_price)
+        diagnostics = None
+        build_with_diagnostics = getattr(
+            self.candidate_builder,
+            "build_with_diagnostics",
+            None,
+        )
+        if callable(build_with_diagnostics):
+            build_result = build_with_diagnostics(context, current_price)
+            candidates = list(build_result.candidates)
+            diagnostics = build_result.diagnostics
+        else:
+            candidates = self.candidate_builder(context, current_price)
         order_context = OrderContext(
             current_price,
             str(context.get("order_decision_time", frames["M5"].iloc[0]["time_jp"])),
             float(context.get("move_ave", 0)),
         )
-        intents = tuple(
-            intent
-            for candidate in candidates
-            if (intent := self._candidate_to_intent(pair, candidate, current_price, context, order_context)) is not None
+        intents = []
+        for candidate in candidates:
+            intent = self._candidate_to_intent(
+                pair,
+                candidate,
+                current_price,
+                context,
+                order_context,
+            )
+            if intent is None:
+                if diagnostics is not None:
+                    diagnostics = diagnostics.reject_selected(
+                        str(candidate.get("order_mode", "future_break")),
+                        "similar_active_order",
+                    )
+                continue
+            intents.append(intent)
+        return MarketAnalysisResult(
+            tuple(intents),
+            frames,
+            peaks,
+            order_context,
+            context,
+            diagnostics,
         )
-        return MarketAnalysisResult(intents, frames, peaks, order_context, context)
 
     def _prepared_frame(self, pair: str, granularity: str) -> pd.DataFrame:
         frame = self.market_data.candles(pair, granularity, self.candle_count).copy()

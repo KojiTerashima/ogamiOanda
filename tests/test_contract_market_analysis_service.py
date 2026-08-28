@@ -15,6 +15,10 @@ from ogami_oanda.domain.analysis.peaks import PeaksClass
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import Direction
 from ogami_oanda.strategy.line import LineCandidateBuilder
+from ogami_oanda.strategy.line.builder import (
+    CandidateBuildResult,
+    CandidateDiagnostics,
+)
 from tests.fakes import FakeMarketData
 from tests.test_characterization_analysis_oracle import _candidate_summary
 
@@ -91,6 +95,85 @@ def test_market_analysis_excludes_matching_active_line_orders():
     service = MarketAnalysisService(market_data, lambda context, price: [{"direction": 1, "target_price": 150.3, "line_strategy": "test"}], portfolio)
 
     assert service.analyze("USD_JPY", "2026/01/02 01:00:00").intents == ()
+
+
+@pytest.mark.contract
+def test_market_analysis_reports_similar_active_order_candidate_rejection():
+    frame = _frame()
+    market_data = FakeMarketData(
+        {
+            ("USD_JPY", granularity): frame
+            for granularity in ("M5", "H1", "M30", "S5")
+        },
+        {"USD_JPY": 150.4},
+    )
+    portfolio = Portfolio(
+        currency_pair("USD_JPY"),
+        (ActiveOrder("existing", 1, 150.3, "line", "test"),),
+    )
+
+    class DiagnosedBuilder:
+        def __call__(self, _context, _price):
+            raise AssertionError("diagnostic-aware build path was not used")
+
+        def build_with_diagnostics(self, _context, _price):
+            return CandidateBuildResult(
+                candidates=(
+                    {
+                        "direction": 1,
+                        "target_price": 150.3,
+                        "line_strategy": "test",
+                        "source": "line",
+                        "order_mode": "future_resist",
+                    },
+                ),
+                diagnostics=CandidateDiagnostics(
+                    raw_counts={
+                        "immediate": 0,
+                        "future_resist": 1,
+                        "future_break": 0,
+                    },
+                    selected_counts={
+                        "immediate": 0,
+                        "future_resist": 1,
+                        "future_break": 0,
+                    },
+                    rejected_reasons={
+                        "immediate": {},
+                        "future_resist": {},
+                        "future_break": {},
+                    },
+                ),
+            )
+
+    result = MarketAnalysisService(
+        market_data,
+        DiagnosedBuilder(),
+        portfolio,
+    ).analyze("USD_JPY", "2026/01/02 01:00:00")
+
+    assert result.intents == ()
+    assert result.candidate_diagnostics.selected_counts["future_resist"] == 0
+    assert result.candidate_diagnostics.rejected_reasons["future_resist"] == {
+        "similar_active_order": 1,
+    }
+
+
+@pytest.mark.contract
+def test_market_analysis_keeps_diagnostics_optional_for_callable_builders():
+    frame = _frame()
+    market_data = FakeMarketData(
+        {
+            ("USD_JPY", granularity): frame
+            for granularity in ("M5", "H1", "M30", "S5")
+        },
+        {"USD_JPY": 150.4},
+    )
+    service = MarketAnalysisService(market_data, lambda _context, _price: [])
+
+    result = service.analyze("USD_JPY", "2026/01/02 01:00:00")
+
+    assert result.candidate_diagnostics is None
 
 
 def _candidate_builder_context(pair_name, frames, current_price, decision_time):
@@ -216,3 +299,75 @@ def test_line_candidate_builder_matches_characterized_selected_candidates(pair_n
         + expected["selected_future_resist_candidates"]
         + expected["selected_future_break_candidates"]
     )
+
+
+@pytest.mark.contract
+def test_line_candidate_builder_reports_mode_counts_and_rejection_reasons(
+    analysis_frame_store,
+):
+    snapshot_path = Path(__file__).parent / "fixtures" / "analysis_oracle_usd_jpy.json"
+    expected = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    current_price = float(expected["current_price"])
+    builder = LineCandidateBuilder("USD_JPY")
+    context = _candidate_builder_context(
+        "USD_JPY",
+        analysis_frame_store["USD_JPY"],
+        current_price,
+        expected["decision_time"],
+    )
+
+    result = builder.build_with_diagnostics(context, current_price)
+
+    assert result.diagnostics.raw_counts == {
+        "immediate": 8,
+        "future_resist": 8,
+        "future_break": 8,
+    }
+    assert result.diagnostics.selected_counts == {
+        "immediate": 0,
+        "future_resist": 0,
+        "future_break": 0,
+    }
+    assert result.diagnostics.rejected_reasons == {
+        "immediate": {"immediate_conditions_not_met": 8},
+        "future_resist": {"top7_conditions_not_met": 8},
+        "future_break": {"top7_conditions_not_met": 8},
+    }
+    assert list(result.candidates) == builder(context, current_price)
+    for mode in ("immediate", "future_resist", "future_break"):
+        assert result.diagnostics.raw_counts[mode] == (
+            result.diagnostics.selected_counts[mode]
+            + sum(result.diagnostics.rejected_reasons[mode].values())
+        )
+
+
+@pytest.mark.contract
+def test_line_candidate_builder_reports_session_policy_rejection(
+    analysis_frame_store,
+):
+    snapshot_path = Path(__file__).parent / "fixtures" / "analysis_oracle_eur_usd.json"
+    expected = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    current_price = float(expected["current_price"])
+    builder = LineCandidateBuilder("EUR_USD")
+    builder.profile.session_policies = {
+        **builder.profile.session_policies,
+        "day": {
+            **builder.profile.session_policies["day"],
+            "order_permission": False,
+        },
+    }
+    context = _candidate_builder_context(
+        "EUR_USD",
+        analysis_frame_store["EUR_USD"],
+        current_price,
+        expected["decision_time"],
+    )
+
+    result = builder.build_with_diagnostics(context, current_price)
+
+    assert result.diagnostics.selected_counts["future_break"] == 0
+    assert result.diagnostics.rejected_reasons["future_break"] == {
+        "recommendation_conditions_not_met": 8,
+        "session_order_permission_false": 1,
+    }
+    assert result.diagnostics.raw_counts["future_break"] == 9

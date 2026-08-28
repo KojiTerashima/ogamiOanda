@@ -366,6 +366,7 @@ def _decode_position(raw: object) -> ManagedPosition:
         elapsed_seconds=float(snapshot_raw.get("elapsed_seconds", 0)),
         average_close_price=_optional_float(snapshot_raw.get("average_close_price")),
         client_reference=str(snapshot_raw.get("client_reference", "")),
+        close_reason=str(snapshot_raw.get("close_reason") or ""),
     )
     runtime = PositionRuntimeState(
         order_plan=_decode_order_plan(runtime_raw.get("order_plan")),

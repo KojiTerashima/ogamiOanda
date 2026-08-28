@@ -6,7 +6,7 @@ from oandapyV20.endpoints.instruments import InstrumentsCandles
 from oandapyV20.endpoints.orders import OrderCancel, OrderCreate, OrderDetails, OrdersPending
 from oandapyV20.endpoints.pricing import PricingInfo
 from oandapyV20.endpoints.trades import OpenTrades, TradeCRCDO, TradeClose, TradeDetails
-from oandapyV20.endpoints.transactions import TransactionsSinceID
+from oandapyV20.endpoints.transactions import TransactionDetails, TransactionsSinceID
 from oandapyV20.exceptions import V20Error
 
 from ogami_oanda.adapters.oanda.client import OandaClient
@@ -508,6 +508,40 @@ def test_query_adapter_maps_pending_and_open_runtime_state_behind_query_port():
     assert opened[0].direction == -1
     assert opened[0].target_price == 1.105
     assert opened[0].current_stop_loss == 1.11
+
+
+@pytest.mark.contract
+def test_query_adapter_fetches_final_close_reason_only_for_closed_trade():
+    class _ClosedClient(_Client):
+        def request(self, endpoint):
+            if isinstance(endpoint, TradeDetails):
+                self.endpoints.append(endpoint)
+                return {
+                    "trade": {
+                        "id": "trade-closed",
+                        "instrument": "USD_JPY",
+                        "state": "CLOSED",
+                        "currentUnits": "1000",
+                        "realizedPL": "-10",
+                        "averageClosePrice": "150.2",
+                        "closingTransactionIDs": ["200", "201"],
+                    }
+                }
+            if isinstance(endpoint, TransactionDetails):
+                self.endpoints.append(endpoint)
+                assert endpoint._endpoint.endswith("/transactions/201")
+                return {"transaction": {"reason": "TAKE_PROFIT_ORDER"}}
+            return super().request(endpoint)
+
+    client = _ClosedClient()
+    snapshot = OandaQueryAdapter(client).trade("trade-closed")
+
+    assert snapshot is not None
+    assert snapshot.close_reason == "TAKE_PROFIT_ORDER"
+    assert [type(endpoint) for endpoint in client.endpoints] == [
+        TradeDetails,
+        TransactionDetails,
+    ]
 
 
 @pytest.mark.contract

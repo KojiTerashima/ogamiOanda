@@ -78,6 +78,23 @@ class PortfolioSummary:
     commands: tuple[PositionCommand, ...] = ()
     events: tuple[PositionEvent, ...] = ()
     close_events: tuple[PositionEvent, ...] = ()
+    cumulative_realized_pl: float = 0.0
+    cumulative_pips: float = 0.0
+    unrealized_pl: float = 0.0
+
+    @property
+    def realized_total(self) -> float:
+        """Heartbeat-compatible alias for cumulative realized P/L."""
+
+        return self.cumulative_realized_pl
+
+    @property
+    def pips_total(self) -> float:
+        return self.cumulative_pips
+
+    @property
+    def current_unrealized_pl(self) -> float:
+        return self.unrealized_pl
 
 
 class PositionStatePersistenceError(RuntimeError):
@@ -94,7 +111,7 @@ class PortfolioStartupState(str, Enum):
 def _checkpoint_position_is_active(position: ManagedPosition | None) -> bool:
     if position is None:
         return False
-    if position.snapshot.life:
+    if position.snapshot.life or position.runtime.close_requested:
         return True
     if position.snapshot.trade_state is TradeState.CLOSED:
         return False
@@ -176,14 +193,18 @@ class PositionPortfolioService:
         if self.startup_state is PortfolioStartupState.NOT_STARTED:
             self.restore_and_reconcile()
         if self.startup_state is PortfolioStartupState.QUARANTINED:
-            return RegistrationResult(
+            return self._registration_result(
+                plans,
                 (),
                 tuple((plan.intent.name, "portfolio_quarantined") for plan in plans),
+                dry_run=not submit,
             )
         if self.pending_mutations:
-            return RegistrationResult(
+            return self._registration_result(
+                plans,
                 (),
                 tuple((plan.intent.name, "broker_reconciliation") for plan in plans),
+                dry_run=not submit,
             )
         accepted: list[str] = []
         rejected: list[tuple[str, str]] = []
@@ -286,7 +307,47 @@ class PositionPortfolioService:
                 rejected.append((intent.name, "terminal_broker_effect"))
             else:
                 rejected.append((intent.name, "broker_rejected"))
-        return RegistrationResult(tuple(accepted), tuple(rejected))
+        return self._registration_result(
+            plans,
+            tuple(accepted),
+            tuple(rejected),
+            dry_run=not submit,
+        )
+
+    def _registration_result(
+        self,
+        plans: list[OrderPlan],
+        accepted: tuple[str, ...],
+        rejected: tuple[tuple[str, str], ...],
+        *,
+        dry_run: bool,
+    ) -> RegistrationResult:
+        plans_by_name = {plan.intent.name: plan for plan in plans}
+        for name, reason in rejected:
+            # PositionService already publishes the authoritative broker
+            # outcome for these statuses; avoid manufacturing a second event.
+            if reason in {"broker_rejected", "terminal_broker_effect"}:
+                continue
+            plan = plans_by_name.get(name)
+            if plan is None:
+                continue
+            position = (
+                ManagedPosition.registered(name, self.pair)
+                .with_order_plan(plan, self.position_service.clock.now())
+                .rejected(reason)
+            )
+            self.position_service._events_once(
+                self.position_service._event(
+                    "order_rejected",
+                    position,
+                    position.snapshot,
+                    reason=reason,
+                ),
+                dry_run,
+            )
+        if rejected and not dry_run:
+            self._persist_state()
+        return RegistrationResult(accepted, rejected)
 
     def restore_and_reconcile(self) -> PortfolioStartupResult:
         if self.state_repository is None:
@@ -455,7 +516,26 @@ class PositionPortfolioService:
             if mutation.action == "reduce_trade"
         }
         for index, position in enumerate(self.slots):
-            if position is None or not position.snapshot.life:
+            if position is None or (
+                not position.snapshot.life and not position.runtime.close_requested
+            ):
+                continue
+            if (
+                not position.snapshot.life
+                and position.runtime.close_requested
+                and position.snapshot.trade_id is not None
+            ):
+                broker_snapshot = self.broker_query.trade(
+                    position.snapshot.trade_id
+                )
+                if (
+                    broker_snapshot is not None
+                    and broker_snapshot.trade_state.value == "CLOSED"
+                ):
+                    self._apply_closed_snapshot(index, position, broker_snapshot)
+                # A close request is already a known local terminal intent. If
+                # the broker still reports OPEN (or temporarily has no
+                # snapshot), keep the marker for the next completed tick.
                 continue
             if position.snapshot.name in (
                 submitted_prepared_names | pending_submit_names
@@ -519,7 +599,27 @@ class PositionPortfolioService:
                 broker_snapshot is not None
                 and broker_snapshot.order_state.value in {"CANCELLED", "REJECTED"}
             ):
-                self.slots[index] = position.cancelled()
+                is_rejected = broker_snapshot.order_state.value == "REJECTED"
+                cancelled = (
+                    position.rejected("broker_rejected")
+                    if is_rejected
+                    else position.cancelled()
+                )
+                self.slots[index] = cancelled
+                event_kind = (
+                    "order_rejected"
+                    if is_rejected
+                    else "order_cancelled"
+                )
+                self.position_service._events_once(
+                    self.position_service._event(
+                        event_kind,
+                        cancelled,
+                        broker_snapshot,
+                        reason="broker_rejected" if is_rejected else None,
+                    ),
+                    False,
+                )
                 return True
         return False
 
@@ -528,11 +628,11 @@ class PositionPortfolioService:
         index: int,
         position: ManagedPosition,
         broker_snapshot: PositionSnapshot,
-    ) -> None:
+    ) -> PositionEvent | None:
         closed = self.position_service._with_broker_runtime(
             position,
             broker_snapshot,
-        ).closed()
+        ).closed().with_runtime(close_requested=False)
         self.slots[index] = closed
         reference_id = broker_snapshot.trade_id or position.snapshot.trade_id
         event = PositionEvent(
@@ -546,9 +646,15 @@ class PositionPortfolioService:
                 "broker_snapshot": broker_snapshot,
             },
         )
+        # History/checkpoint restoration already marks this close as reported;
+        # startup reconciliation must not replay it to the live console.
+        if event.event_id in self.position_service.closure_reporting._reported_event_ids:
+            return None
         events = self.position_service._events_once(event, False)
         if events:
             self.position_service.closure_reporting.report(event)
+            return event
+        return None
 
     def reconcile_pending_mutations(self) -> bool:
         if not self.pending_mutations:
@@ -618,6 +724,12 @@ class PositionPortfolioService:
                 opened_position,
                 opened_by_id[fill.trade_id],
             )
+            event = self.position_service._event(
+                "trade_opened",
+                self.slots[index],
+                opened_by_id[fill.trade_id],
+            )
+            self.position_service._events_once(event, False)
 
     def _resolve_pending_mutations(self, transactions, pending, opened) -> None:
         if not self.pending_mutations:
@@ -693,8 +805,17 @@ class PositionPortfolioService:
                 ]
             if len(rejected) == 1 and not created:
                 rejection = rejected[0]
-                self.slots[index] = position.rejected(
+                rejected_position = position.rejected(
                     rejection.reason or rejection.kind,
+                )._replace(order_id=rejection.order_id or position.snapshot.order_id)
+                self.slots[index] = rejected_position
+                self.position_service._events_once(
+                    self.position_service._event(
+                        "order_rejected",
+                        rejected_position,
+                        rejected_position.snapshot,
+                    ),
+                    False,
                 )
                 continue
             if rejected or len(created) != 1:
@@ -716,9 +837,18 @@ class PositionPortfolioService:
                 ]
                 if len(pending_matches) == 1:
                     pending_snapshot = pending_matches[0]
-                    self.slots[index] = self.position_service._with_broker_runtime(
+                    pending_position = self.position_service._with_broker_runtime(
                         position.pending(str(pending_snapshot.order_id)),
                         pending_snapshot,
+                    )
+                    self.slots[index] = pending_position
+                    self.position_service._events_once(
+                        self.position_service._event(
+                            "order_submitted",
+                            pending_position,
+                            pending_snapshot,
+                        ),
+                        False,
                     )
                     continue
                 cancellations = [
@@ -735,8 +865,20 @@ class PositionPortfolioService:
                 ]
                 if len(cancellations) == 1:
                     cancellation = cancellations[0]
-                    self.slots[index] = position.cancelled().with_runtime(
+                    cancelled_position = position.cancelled()._replace(
+                        order_id=cancellation.order_id
+                        or next(iter(order_ids), None),
+                    ).with_runtime(
                         submission_reason=cancellation.reason or cancellation.kind,
+                    )
+                    self.slots[index] = cancelled_position
+                    self.position_service._events_once(
+                        self.position_service._event(
+                            "order_cancelled",
+                            cancelled_position,
+                            cancelled_position.snapshot,
+                        ),
+                        False,
                     )
                     continue
                 remaining.append(mutation)
@@ -754,9 +896,18 @@ class PositionPortfolioService:
                 order_id=fill.order_id,
                 fill_price=fill.price,
             )
-            self.slots[index] = self.position_service._with_broker_runtime(
+            opened_position = self.position_service._with_broker_runtime(
                 resolved,
                 opened_by_id[fill.trade_id],
+            )
+            self.slots[index] = opened_position
+            self.position_service._events_once(
+                self.position_service._event(
+                    "trade_opened",
+                    opened_position,
+                    opened_by_id[fill.trade_id],
+                ),
+                False,
             )
         self.pending_mutations = tuple(remaining)
 
@@ -864,6 +1015,14 @@ class PositionPortfolioService:
                     opened_position,
                     opened_by_id[trade_id],
                 )
+                self.position_service._events_once(
+                    self.position_service._event(
+                        "trade_opened",
+                        self.slots[index],
+                        opened_by_id[trade_id],
+                    ),
+                    False,
+                )
                 return True
             if broker_snapshot is None or broker_snapshot.order_state.value not in {
                 "CANCELLED",
@@ -874,7 +1033,27 @@ class PositionPortfolioService:
                 return False
             if matches:
                 index, position = matches[0]
-                self.slots[index] = position.cancelled()
+                is_rejected = broker_snapshot.order_state.value == "REJECTED"
+                cancelled = (
+                    position.rejected("broker_rejected")
+                    if is_rejected
+                    else position.cancelled()
+                )
+                self.slots[index] = cancelled
+                event_kind = (
+                    "order_rejected"
+                    if is_rejected
+                    else "order_cancelled"
+                )
+                self.position_service._events_once(
+                    self.position_service._event(
+                        event_kind,
+                        cancelled,
+                        broker_snapshot,
+                        reason="broker_rejected" if is_rejected else None,
+                    ),
+                    False,
+                )
             return True
         matches = [
             (index, position)
@@ -917,6 +1096,15 @@ class PositionPortfolioService:
             self.slots[index] = self.position_service._with_broker_runtime(
                 position.with_runtime(**changes),
                 broker_snapshot,
+            )
+            self.position_service._events_once(
+                self.position_service._event(
+                    "stop_loss_amended",
+                    self.slots[index],
+                    broker_snapshot,
+                    reason=mutation.reason,
+                ),
+                False,
             )
             return True
         return False
@@ -1214,13 +1402,50 @@ class PositionPortfolioService:
                 )
             if action == "cancel_order":
                 working_slots[index] = position.cancelled()
+                self.position_service._events_once(
+                    self.position_service._event(
+                        "order_cancelled",
+                        working_slots[index],
+                        working_slots[index].snapshot,
+                        reason=command.reason,
+                    ),
+                    False,
+                )
             elif requested_units is None or requested_units == abs(
                 position.snapshot.units
             ):
-                working_slots[index] = position._replace(units=0).closed()
+                # Keep a close-request marker so the next completed tick can
+                # query the authoritative CLOSED trade snapshot and report its
+                # actual fill price, raw close reason, and realized P/L.  The
+                # legacy local CLOSED state is retained for slot compatibility.
+                working_slots[index] = position._replace(units=0).closed().with_runtime(
+                    close_requested=True,
+                )
+                self.position_service._events_once(
+                    self.position_service._event(
+                        "trade_close_requested",
+                        working_slots[index],
+                        working_slots[index].snapshot,
+                        reason=command.reason,
+                    ),
+                    False,
+                )
             else:
                 working_slots[index] = position._replace(
                     units=abs(position.snapshot.units) - requested_units
+                )
+                self.position_service._events_once(
+                    self.position_service._event(
+                        "trade_reduced",
+                        working_slots[index],
+                        working_slots[index].snapshot,
+                        reason=command.reason,
+                        event_reference=(
+                            f"{reference_id}:{requested_units}:"
+                            f"{abs(position.snapshot.units) - requested_units}"
+                        ),
+                    ),
+                    False,
                 )
             self._persist_state()
         return None
@@ -1319,7 +1544,31 @@ class PositionPortfolioService:
         events: list[PositionEvent] = []
         try:
             for index, position in enumerate(self.slots):
-                if position is not None and position.snapshot.life:
+                if position is not None and (
+                    position.snapshot.life or position.runtime.close_requested
+                ):
+                    if (
+                        not position.snapshot.life
+                        and position.runtime.close_requested
+                        and position.snapshot.trade_id is not None
+                    ):
+                        broker_snapshot = self.broker_query.trade(
+                            position.snapshot.trade_id
+                        )
+                        if (
+                            broker_snapshot is None
+                            or broker_snapshot.trade_state.value != "CLOSED"
+                        ):
+                            continue
+                        event = self._apply_closed_snapshot(
+                            index,
+                            position,
+                            broker_snapshot,
+                        )
+                        working_slots[index] = self.slots[index]
+                        if event is not None:
+                            events.append(event)
+                        continue
                     result = self.position_service.sync_result(
                         position,
                         current_price=current_price,
@@ -1394,17 +1643,67 @@ class PositionPortfolioService:
                 )
                 if result.accepted:
                     cancelled.append(snapshot.order_id)
+                    self.position_service._events_once(
+                        self.position_service._event(
+                            "order_cancelled",
+                            ManagedPosition.restored(snapshot).cancelled(),
+                            snapshot,
+                        ),
+                        False,
+                    )
+                    self._persist_state()
+                else:
+                    rejected = ManagedPosition.restored(snapshot).rejected(
+                        result.message or "startup_cancel_rejected",
+                    )
+                    self.position_service._events_once(
+                        self.position_service._event(
+                            "order_rejected",
+                            rejected,
+                            snapshot,
+                            reason=result.message or "startup_cancel_rejected",
+                        ),
+                        False,
+                    )
                 if self.pending_mutations:
                     break
         return tuple(cancelled)
 
     def summary(self) -> PortfolioSummary:
+        active = [
+            slot
+            for slot in self.slots
+            if slot is not None
+            and (
+                slot.snapshot.life
+                or slot.runtime.close_requested
+            )
+            and (
+                slot.snapshot.trade_state is TradeState.OPEN
+                or slot.runtime.close_requested
+            )
+        ]
         positions = [slot.snapshot for slot in self.slots if slot is not None]
+        active_slots = [slot for slot in self.slots if slot is not None]
+        analytics = self.position_service.closure_reporting.analytics
         return PortfolioSummary(
             watching=sum(snapshot.waiting_order for snapshot in positions),
             pending=sum(snapshot.order_state.value == "PENDING" for snapshot in positions),
-            open=sum(snapshot.trade_state.value == "OPEN" for snapshot in positions),
-            closed=sum(not snapshot.life for snapshot in positions),
+            open=sum(
+                slot.snapshot.trade_state is TradeState.OPEN
+                or slot.runtime.close_requested
+                for slot in active_slots
+            ),
+            closed=sum(
+                not slot.snapshot.life and not slot.runtime.close_requested
+                for slot in active_slots
+            ),
+            cumulative_realized_pl=float(analytics.total_yen),
+            cumulative_pips=float(analytics.total_pips),
+            unrealized_pl=sum(
+                float(slot.snapshot.unrealized_pl or slot.runtime.unrealized_pl)
+                for slot in active
+            ),
         )
 
     def _active_orders(self) -> list[ActiveOrder]:
@@ -1417,7 +1716,9 @@ class PositionPortfolioService:
                 slot.runtime.line_strategy,
             )
             for slot in self.slots
-            if slot is not None and slot.snapshot.life and slot.runtime.direction in {-1, 1}
+            if slot is not None
+            and (slot.snapshot.life or slot.runtime.close_requested)
+            and slot.runtime.direction in {-1, 1}
         ]
 
     def _is_duplicate(self, plan: OrderPlan, orders: list[ActiveOrder]) -> bool:
@@ -1433,11 +1734,30 @@ class PositionPortfolioService:
 
     def _first_empty_slot(self, priority: int) -> int | None:
         slot_range = self._slot_range(self._priority_tier(priority))
-        return next((index for index in slot_range if self.slots[index] is None or not self.slots[index].snapshot.life), None)
+        return next(
+            (
+                index
+                for index in slot_range
+                if self.slots[index] is None
+                or (
+                    not self.slots[index].snapshot.life
+                    and not self.slots[index].runtime.close_requested
+                )
+            ),
+            None,
+        )
 
     def _first_empty_global_slot(self) -> int | None:
         return next(
-            (index for index, slot in enumerate(self.slots) if slot is None or not slot.snapshot.life),
+            (
+                index
+                for index, slot in enumerate(self.slots)
+                if slot is None
+                or (
+                    not slot.snapshot.life
+                    and not slot.runtime.close_requested
+                )
+            ),
             None,
         )
 
@@ -1457,7 +1777,11 @@ class PositionPortfolioService:
 
     def _available_slot_count(self, tier: str) -> int:
         return sum(
-            self.slots[index] is None or not self.slots[index].snapshot.life
+            self.slots[index] is None
+            or (
+                not self.slots[index].snapshot.life
+                and not self.slots[index].runtime.close_requested
+            )
             for index in self._slot_range(tier)
         )
 
@@ -1505,7 +1829,9 @@ class PositionPortfolioService:
                 if command is not None:
                     commands.append(command)
                 if command_event is not None:
-                    events.append(command_event)
+                    events.extend(
+                        self.position_service._events_once(command_event, dry_run)
+                    )
                 if self.pending_mutations:
                     return tuple(commands), tuple(events)
         return tuple(commands), tuple(events)
@@ -1534,7 +1860,7 @@ class PositionPortfolioService:
                     float(position.runtime.current_stop_loss or 0),
                     position.snapshot.order_state,
                     position.snapshot.trade_state,
-                    position.snapshot.life,
+                    position.snapshot.life or position.runtime.close_requested,
                     position.runtime.linkage_done,
                 )
             )
@@ -1582,13 +1908,11 @@ class PositionPortfolioService:
                 return command, None
             updated = position.cancelled()
             working_slots[index] = updated
-            event = PositionEvent(
-                f"order_cancelled:{reference_id}",
+            event = self.position_service._event(
                 "order_cancelled",
-                updated.snapshot.name,
-                updated.snapshot.pair,
-                self.position_service.clock.now(),
-                {"position": updated, "broker_snapshot": updated.snapshot},
+                updated,
+                updated.snapshot,
+                reason=command.reason,
             )
             return command, event
         if action == "amend_stop_loss" and stop_loss_price is not None:
@@ -1607,10 +1931,22 @@ class PositionPortfolioService:
                 persist_confirmed=False,
             )
             if result.accepted:
-                working_slots[index] = position.with_runtime(
+                amended = position.with_runtime(
                     current_stop_loss=stop_loss_price,
                     linkage_done=True,
                 )
+                working_slots[index] = amended
+                event = self.position_service._event(
+                    "stop_loss_amended",
+                    amended,
+                    replace(
+                        amended.snapshot,
+                        trade_id=reference_id,
+                        current_stop_loss=stop_loss_price,
+                    ),
+                    reason=command.reason,
+                )
+                return command, event
             return command, None
         return None, None
 

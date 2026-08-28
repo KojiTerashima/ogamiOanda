@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import inspect
+from functools import wraps
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Protocol
 
 from ogami_oanda.adapters.notifications.discord import DiscordNotifier, create_http_session
 from ogami_oanda.adapters.oanda.client import OandaClient
@@ -43,8 +45,10 @@ from ogami_oanda.application.services.position_service import (
     CandleStopLossInput,
     PositionService,
 )
+from ogami_oanda.application.services.runtime_event_buffer import RuntimeEventBuffer
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import OrderContext, OrderPlan
+from ogami_oanda.domain.positions.models import PositionEvent, TradeState
 from ogami_oanda.infrastructure.config.loader import load_settings
 from ogami_oanda.infrastructure.config.models import AppSettings
 from ogami_oanda.infrastructure.runtime import PollingLoop, Sleeper, SystemClock
@@ -66,6 +70,13 @@ from ogami_oanda.strategy.position_management import (
 
 
 @dataclass(frozen=True)
+class LiveFailure:
+    service: str
+    message: str
+    retry_after_seconds: float | None = None
+
+
+@dataclass(frozen=True)
 class LiveRunResult:
     analysis: MarketAnalysisResult | None
     registration: RegistrationResult
@@ -75,6 +86,75 @@ class LiveRunResult:
     plans: tuple[OrderPlan, ...] = ()
     strategy_decision: StrategyDecision | None = None
     strategy_command_result: StrategyCommandResult | None = None
+    runtime_events: tuple[PositionEvent, ...] = ()
+    failure: LiveFailure | None = None
+
+
+class LiveRunObserver(Protocol):
+    def on_result(self, result: LiveRunResult) -> None: ...
+
+    def on_error(self, error: BaseException) -> None: ...
+
+
+def _notify_observer_result(
+    observer: LiveRunObserver | None,
+    result: LiveRunResult,
+) -> None:
+    if observer is None:
+        return
+    callback = (
+        getattr(observer, "on_result", None)
+        or getattr(observer, "on_tick", None)
+        or getattr(observer, "report", None)
+        or (observer if callable(observer) else None)
+    )
+    if callback is not None:
+        callback(result)
+
+
+def _notify_observer_error(
+    observer: LiveRunObserver | None,
+    error: BaseException,
+) -> None:
+    if observer is None:
+        return
+    callback = getattr(observer, "on_error", None)
+    if callback is not None:
+        callback(error)
+
+
+def _run_forever_with_observer(
+    application: object,
+    *,
+    dry_run: bool,
+    observer: LiveRunObserver,
+) -> object:
+    run_forever = getattr(application, "run_forever")
+    try:
+        parameters = inspect.signature(run_forever).parameters
+    except (TypeError, ValueError):
+        # C-extension callables and a few test doubles do not expose a
+        # signature. Production applications accept the observer, so prefer
+        # passing it when introspection cannot decide.
+        return run_forever(dry_run=dry_run, observer=observer)
+    kwargs: dict[str, object] = {"dry_run": dry_run}
+    if "observer" in parameters or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    ):
+        kwargs["observer"] = observer
+    return run_forever(**kwargs)
+
+
+def _collect_runtime_events(method):
+    """Attach and clear the current tick's transient events on a result."""
+
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        result = method(self, *args, **kwargs)
+        return replace(result, runtime_events=self.runtime_events.drain())
+
+    return wrapped
 
 
 class LiveApplication:
@@ -88,6 +168,7 @@ class LiveApplication:
         clock,
         schedule: TradingSchedule | None = None,
         startup: Callable[[], None] | None = None,
+        runtime_events: RuntimeEventBuffer | None = None,
     ) -> None:
         self.pair = pair
         self.market_data = market_data
@@ -97,12 +178,18 @@ class LiveApplication:
         self.clock = clock
         self.schedule = schedule or TradingSchedule()
         self._startup = startup or (lambda: None)
+        self.runtime_events = runtime_events or RuntimeEventBuffer()
+        position_service = getattr(self.portfolio, "position_service", None)
+        set_event_sink = getattr(position_service, "set_event_sink", None)
+        if set_event_sink is not None:
+            set_event_sink(self.runtime_events.publish)
         self._last_analysis_at: datetime | None = None
         self._candle_stop_loss: CandleStopLossInput | None = None
         self._broker_retry_not_before: datetime | None = None
         self._broker_backoff_seconds = 1.0
         self._broker_backoff_cap_seconds = 60.0
 
+    @_collect_runtime_events
     def run_once(
         self,
         *,
@@ -195,16 +282,23 @@ class LiveApplication:
         dry_run: bool = False,
         sleeper: Sleeper | None = None,
         max_ticks: int | None = None,
+        observer: LiveRunObserver | None = None,
     ) -> tuple[LiveRunResult, ...]:
         """Run legacy-compatible one-second ticks; finite ticks make this testable."""
         loop = PollingLoop[LiveRunResult](
             interval_seconds=1,
             **({"sleeper": sleeper} if sleeper is not None else {}),
         )
-        return loop.run(
-            lambda: self.run_resilient_once(dry_run=dry_run),
-            max_ticks=max_ticks,
-        )
+        def tick() -> LiveRunResult:
+            try:
+                result = self.run_resilient_once(dry_run=dry_run)
+            except BaseException as error:
+                _notify_observer_error(observer, error)
+                raise
+            _notify_observer_result(observer, result)
+            return result
+
+        return loop.run(tick, max_ticks=max_ticks)
 
     def run_resilient_once(self, *, dry_run: bool = False) -> LiveRunResult:
         now = self.clock.now()
@@ -216,6 +310,7 @@ class LiveApplication:
                 None,
                 RegistrationResult((), ()),
                 skipped=("broker_backoff",),
+                runtime_events=self.runtime_events.drain(),
             )
         try:
             result = self.run_once(now=now, dry_run=dry_run)
@@ -230,6 +325,12 @@ class LiveApplication:
                 None,
                 RegistrationResult((), ()),
                 skipped=("broker_unavailable",),
+                runtime_events=self.runtime_events.drain(),
+                failure=LiveFailure(
+                    getattr(error, "service", "oanda"),
+                    str(error),
+                    retry_after_seconds=delay,
+                ),
             )
         self._broker_retry_not_before = None
         self._broker_backoff_seconds = 1.0
@@ -288,6 +389,7 @@ class StrategyLiveApplication:
         startup: Callable[[], None] | None = None,
         *,
         max_quote_age: timedelta | None = None,
+        runtime_events: RuntimeEventBuffer | None = None,
     ) -> None:
         if not strategy_id:
             raise ValueError("strategy_id must not be empty")
@@ -303,11 +405,17 @@ class StrategyLiveApplication:
         self.schedule = schedule or TradingSchedule()
         self.max_quote_age = max_quote_age
         self._startup = startup or (lambda: None)
+        self.runtime_events = runtime_events or RuntimeEventBuffer()
+        position_service = getattr(self.portfolio, "position_service", None)
+        set_event_sink = getattr(position_service, "set_event_sink", None)
+        if set_event_sink is not None:
+            set_event_sink(self.runtime_events.publish)
         self._strategy_loaded = False
         self._broker_retry_not_before: datetime | None = None
         self._broker_backoff_seconds = 1.0
         self._broker_backoff_cap_seconds = 60.0
 
+    @_collect_runtime_events
     def run_once(
         self,
         *,
@@ -455,15 +563,22 @@ class StrategyLiveApplication:
         dry_run: bool = False,
         sleeper: Sleeper | None = None,
         max_ticks: int | None = None,
+        observer: LiveRunObserver | None = None,
     ) -> tuple[LiveRunResult, ...]:
         loop = PollingLoop[LiveRunResult](
             interval_seconds=1,
             **({"sleeper": sleeper} if sleeper is not None else {}),
         )
-        return loop.run(
-            lambda: self.run_resilient_once(dry_run=dry_run),
-            max_ticks=max_ticks,
-        )
+        def tick() -> LiveRunResult:
+            try:
+                result = self.run_resilient_once(dry_run=dry_run)
+            except BaseException as error:
+                _notify_observer_error(observer, error)
+                raise
+            _notify_observer_result(observer, result)
+            return result
+
+        return loop.run(tick, max_ticks=max_ticks)
 
     def run_resilient_once(self, *, dry_run: bool = False) -> LiveRunResult:
         now = self.clock.now()
@@ -471,7 +586,10 @@ class StrategyLiveApplication:
             self._broker_retry_not_before is not None
             and now < self._broker_retry_not_before
         ):
-            return self._skipped("broker_backoff")
+            return replace(
+                self._skipped("broker_backoff"),
+                runtime_events=self.runtime_events.drain(),
+            )
         try:
             result = self.run_once(now=now, dry_run=dry_run)
         except TransientExternalServiceError as error:
@@ -481,7 +599,15 @@ class StrategyLiveApplication:
                 self._broker_backoff_seconds * 2,
                 self._broker_backoff_cap_seconds,
             )
-            return self._skipped("broker_unavailable")
+            return replace(
+                self._skipped("broker_unavailable"),
+                runtime_events=self.runtime_events.drain(),
+                failure=LiveFailure(
+                    getattr(error, "service", "oanda"),
+                    str(error),
+                    retry_after_seconds=delay,
+                ),
+            )
         self._broker_retry_not_before = None
         self._broker_backoff_seconds = 1.0
         return result
@@ -495,10 +621,18 @@ class StrategyLiveApplication:
     def _strategy_positions(self) -> tuple:
         snapshots = []
         for position in getattr(self.portfolio, "slots", ()):
-            if position is None or not position.snapshot.life:
+            if position is None or not (
+                position.snapshot.life or position.runtime.close_requested
+            ):
                 continue
             source = position.runtime.source or position.snapshot.source
             snapshot = position.snapshot
+            if position.runtime.close_requested and not snapshot.life:
+                snapshot = replace(
+                    snapshot,
+                    life=True,
+                    trade_state=TradeState.OPEN,
+                )
             if source != snapshot.source:
                 snapshot = replace(snapshot, source=source)
             snapshots.append(snapshot)
@@ -694,6 +828,7 @@ def build_live_application(
         raise ValueError(
             "Non-dry trading requires a position state repository"
         )
+    runtime_events = RuntimeEventBuffer()
     position_service = PositionService(
         broker_execution,
         broker_query,
@@ -703,6 +838,7 @@ def build_live_application(
         entry_confirmation=EntryConfirmationPolicy(),
         stop_loss=StopLossPolicy(),
         exit_policy_factory=ExitPolicy,
+        event_sink=runtime_events.publish,
     )
     portfolio = PositionPortfolioService(
         pair,
@@ -757,6 +893,7 @@ def build_live_application(
         clock,
         schedule,
         startup=start,
+        runtime_events=runtime_events,
     )
 
 
@@ -836,6 +973,7 @@ def build_strategy_live_application(
         )
     if state_repository is None and not dry_run:
         raise ValueError("Non-dry trading requires a position state repository")
+    runtime_events = RuntimeEventBuffer()
     position_service = PositionService(
         broker_execution,
         broker_query,
@@ -845,6 +983,7 @@ def build_strategy_live_application(
         entry_confirmation=EntryConfirmationPolicy(),
         stop_loss=StopLossPolicy(),
         exit_policy_factory=ExitPolicy,
+        event_sink=runtime_events.publish,
     )
     portfolio = PositionPortfolioService(
         pair,
@@ -896,6 +1035,7 @@ def build_strategy_live_application(
         schedule,
         startup=start,
         max_quote_age=max_quote_age,
+        runtime_events=runtime_events,
     )
 
 
@@ -907,6 +1047,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--cancel-pending-on-start", action="store_true")
     parser.add_argument("--once", action="store_true", help="run one deterministic scheduling tick")
+    parser.add_argument(
+        "--trace-candidates",
+        action="store_true",
+        help="print built-in line candidate counts and rejection reasons",
+    )
     parser.add_argument(
         "--offline-smoke",
         action="store_true",
@@ -975,8 +1120,26 @@ def main(argv: list[str] | None = None) -> int:
             f"plans={plans} accepted_names={accepted_names} "
             f"rejected_reasons={rejected_reasons}"
         )
+        diagnostics = getattr(result.analysis, "candidate_diagnostics", None)
+        if arguments.trace_candidates and diagnostics is not None:
+            from ogami_oanda.entrypoints.live_console import (
+                format_candidate_diagnostics,
+            )
+
+            print("candidates " + format_candidate_diagnostics(diagnostics))
     else:
-        application.run_forever(dry_run=arguments.dry_run)
+        from ogami_oanda.entrypoints.live_console import ConsoleLiveReporter
+
+        reporter = ConsoleLiveReporter(
+            application,
+            dry_run=arguments.dry_run,
+            trace_candidates=arguments.trace_candidates,
+        )
+        _run_forever_with_observer(
+            application,
+            dry_run=arguments.dry_run,
+            observer=reporter,
+        )
     return 0
 
 

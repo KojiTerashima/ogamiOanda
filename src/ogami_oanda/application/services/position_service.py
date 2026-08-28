@@ -62,6 +62,7 @@ class PositionService:
         entry_confirmation: EntryConfirmationPolicy | None = None,
         stop_loss: StopLossPolicy | None = None,
         exit_policy_factory: Callable[[int, int, bool], ExitPolicy] = ExitPolicy,
+        event_sink: Callable[[PositionEvent], None] | None = None,
     ) -> None:
         self.broker_execution = broker_execution
         self.broker_query = broker_query
@@ -75,6 +76,7 @@ class PositionService:
         self._emitted_event_ids: set[str] = set()
         self._before_mutation: Callable[[PendingBrokerMutation], None] = lambda _mutation: None
         self._complete_mutation: Callable[[bool], None] = lambda _unknown: None
+        self._event_sink = event_sink
 
     def set_mutation_hooks(
         self,
@@ -83,6 +85,11 @@ class PositionService:
     ) -> None:
         self._before_mutation = before_mutation
         self._complete_mutation = complete_mutation
+
+    def set_event_sink(self, event_sink: Callable[[PositionEvent], None] | None) -> None:
+        """Attach or replace the transient live-runtime event sink."""
+
+        self._event_sink = event_sink
 
     def register(self, position: ManagedPosition, order_plan: OrderPlan, submit: bool = True) -> ManagedPosition:
         position = self.prepare(position, order_plan)
@@ -111,7 +118,26 @@ class PositionService:
         result = self.broker_execution.submit(order_plan.broker_request)
         if journal:
             self._complete_mutation(result.state is OrderSubmissionState.UNKNOWN)
-        return self._apply_submission_result(position, result)
+        submitted = self._apply_submission_result(position, result)
+        if result.state is OrderSubmissionState.PENDING:
+            event_kind = "order_submitted"
+        elif result.state is OrderSubmissionState.FILLED:
+            event_kind = "trade_opened"
+        elif result.state is OrderSubmissionState.CANCELLED:
+            event_kind = "order_cancelled"
+        elif result.state in {
+            OrderSubmissionState.REJECTED,
+            OrderSubmissionState.TERMINAL,
+        }:
+            event_kind = "order_rejected"
+        else:
+            event_kind = ""
+        if event_kind:
+            self._events_once(
+                self._event(event_kind, submitted, submitted.snapshot),
+                False,
+            )
+        return submitted
 
     def sync(self, position: ManagedPosition) -> ManagedPosition:
         return self.sync_result(position).position
@@ -137,12 +163,31 @@ class PositionService:
         if broker_snapshot is None:
             return PositionSyncResult(position, reason="broker_snapshot_missing")
         if broker_snapshot.order_state.value in {"CANCELLED", "REJECTED"}:
-            cancelled = position.cancelled()
-            event = self._event("order_cancelled", cancelled, broker_snapshot)
+            is_rejected = broker_snapshot.order_state.value == "REJECTED"
+            cancelled = (
+                position.rejected("broker_rejected")
+                if is_rejected
+                else position.cancelled()
+            )
+            event_kind = (
+                "order_rejected"
+                if is_rejected
+                else "order_cancelled"
+            )
+            event = self._event(
+                event_kind,
+                cancelled,
+                broker_snapshot,
+                reason="broker_rejected" if is_rejected else None,
+            )
             return PositionSyncResult(
                 cancelled,
                 events=self._events_once(event, dry_run),
-                reason="broker_cancelled",
+                reason=(
+                    "broker_rejected"
+                    if event_kind == "order_rejected"
+                    else "broker_cancelled"
+                ),
             )
         if broker_snapshot.trade_state.value == "CLOSED":
             closed = self._with_broker_runtime(position, broker_snapshot).closed()
@@ -174,6 +219,7 @@ class PositionService:
                 return PositionSyncResult(timeout.position, timeout.commands, events, timeout.reason)
             amendment = self._stop_loss_amendment(
                 opened,
+                broker_snapshot,
                 current_price,
                 candle_stop_loss,
                 dry_run,
@@ -259,7 +305,21 @@ class PositionService:
         if submitted.snapshot.order_state is OrderState.SUBMISSION_UNCERTAIN:
             return PositionSyncResult(submitted, commands=(command,), reason="submission_uncertain")
         if not result.accepted:
-            return PositionSyncResult(submitted, commands=(command,), reason=result.reason or "broker_rejected")
+            event_kind = (
+                "order_cancelled"
+                if result.state is OrderSubmissionState.CANCELLED
+                else "order_rejected"
+            )
+            events = self._events_once(
+                self._event(event_kind, submitted, submitted.snapshot),
+                False,
+            )
+            return PositionSyncResult(
+                submitted,
+                commands=(command,),
+                events=events,
+                reason=result.reason or "broker_rejected",
+            )
         event_kind = "trade_opened" if result.state is OrderSubmissionState.FILLED else "order_submitted"
         return PositionSyncResult(
             submitted,
@@ -374,6 +434,7 @@ class PositionService:
     def _stop_loss_amendment(
         self,
         position: ManagedPosition,
+        broker_snapshot: PositionSnapshot,
         current_price: float | None,
         candle_stop_loss: CandleStopLossInput | None,
         dry_run: bool,
@@ -460,7 +521,21 @@ class PositionService:
             changes["applied_lc_change_index"] = rule_index
         amended = position.with_runtime(**changes)
         result_reason = "candle_lc_amended" if rule_index is None else "lc_amended"
-        return PositionSyncResult(amended, commands=(command,), reason=result_reason)
+        events = self._events_once(
+            self._event(
+                "stop_loss_amended",
+                amended,
+                replace(broker_snapshot, current_stop_loss=stop_loss_price),
+                reason=reason,
+            ),
+            False,
+        )
+        return PositionSyncResult(
+            amended,
+            commands=(command,),
+            events=events,
+            reason=result_reason,
+        )
 
     def _start_mutation(
         self,
@@ -496,15 +571,44 @@ class PositionService:
         kind: str,
         position: ManagedPosition,
         broker_snapshot: PositionSnapshot,
+        *,
+        reason: str | None = None,
+        event_reference: str | None = None,
     ) -> PositionEvent:
-        reference = broker_snapshot.trade_id or broker_snapshot.order_id or position.snapshot.name
+        plan = position.runtime.order_plan
+        plan_client_reference = (
+            plan.broker_request.client_reference
+            if plan is not None
+            else ""
+        )
+        reference = event_reference or (
+            broker_snapshot.trade_id
+            or broker_snapshot.order_id
+            or position.snapshot.trade_id
+            or position.snapshot.order_id
+            or broker_snapshot.client_reference
+            or position.snapshot.client_reference
+            or plan_client_reference
+            or position.snapshot.name
+        )
+        if kind == "stop_loss_amended":
+            reference = (
+                f"{reference}:{position.runtime.applied_lc_change_index}:"
+                f"{broker_snapshot.current_stop_loss or position.snapshot.current_stop_loss}"
+            )
+        data: dict[str, object] = {
+            "position": position,
+            "broker_snapshot": broker_snapshot,
+        }
+        if reason:
+            data["reason"] = reason
         return PositionEvent(
             f"{kind}:{reference}",
             kind,
             position.snapshot.name,
             position.snapshot.pair,
             self.clock.now(),
-            {"position": position, "broker_snapshot": broker_snapshot},
+            data,
         )
 
     def _events_once(self, event: PositionEvent, dry_run: bool) -> tuple[PositionEvent, ...]:
@@ -512,6 +616,8 @@ class PositionService:
             return ()
         if not dry_run:
             self._emitted_event_ids.add(event.event_id)
+        if self._event_sink is not None:
+            self._event_sink(event)
         return (event,)
 
     @staticmethod
@@ -553,6 +659,8 @@ class PositionService:
             else position.snapshot.average_close_price,
             client_reference=broker_snapshot.client_reference
             or position.snapshot.client_reference,
+            close_reason=broker_snapshot.close_reason
+            or position.snapshot.close_reason,
         )
         updated = replace(position, snapshot=snapshot)
         return updated.with_runtime(
