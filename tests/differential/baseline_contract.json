@@ -88,9 +88,9 @@
     "relationship": "Pre-differential characterization fixtures; exact eff331c provenance was not recorded and must not be inferred.",
     "disposition": "Retained for focused bootstrap tests; checked-in differential traces supersede them as baseline provenance.",
     "sha256": {
-      "analysis_oracle_aud_usd.json": "cd3354e523573ef7c3770716bdfea36025e93857f6932fa4188679a3caf86769",
-      "analysis_oracle_eur_usd.json": "24bed70408ccc17f68283d1f8bb0e55c35e23d9b74b797517949fc025367b10e",
-      "analysis_oracle_usd_jpy.json": "7e4ebeccb5956d771a5e9952d837fadb99f085a0268ac9cb7b0f1658fae0cdc2"
+      "analysis_oracle_aud_usd.json": "0fab52f0a72d1096a524361ff3315430856b015f5a9cbaf00ab4dc5bfd577b21",
+      "analysis_oracle_eur_usd.json": "b57ab144fd3efcf16ef8a1708f01b2cdd57295b4983e37a53b69d78ef0160dcd",
+      "analysis_oracle_usd_jpy.json": "41438363047e9870589ea5e224cb92f20eb95836f99a28d1ee25986316d909b0"
     }
   }
 }

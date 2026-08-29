@@ -8,7 +8,7 @@
     "numpy": "2.3.2"
   },
   "runner_sha256": {
-    "tests/differential/baseline_contract.json": "27f22cee5e8999da94b18a690993a6ed6225a6198e3a27b45c85f0373d985cff",
+    "tests/differential/baseline_contract.json": "307809a89f883d3177f48a253988e2ca517b494cfaad0f04d4feba2eacc5a355",
     "tests/differential/bootstrap.py": "7cedc24b69b5c639b4825ef0a2f334563f9d20072a01562da384cbbcfe1f80e1",
     "tests/differential/cli.py": "3457e9dadcfaa2650776fb0023e3e524a60f71635b12168cab77538ddf9aa3e3",
     "tests/differential/constants.py": "a12339c9f970fd49fe6060bf8cc38e9d993d4b0f7518aa4f3e795c739ef1d333",

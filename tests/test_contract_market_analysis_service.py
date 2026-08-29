@@ -319,9 +319,9 @@ def test_line_candidate_builder_reports_mode_counts_and_rejection_reasons(
     result = builder.build_with_diagnostics(context, current_price)
 
     assert result.diagnostics.raw_counts == {
-        "immediate": 8,
-        "future_resist": 8,
-        "future_break": 8,
+        "immediate": 9,
+        "future_resist": 9,
+        "future_break": 9,
     }
     assert result.diagnostics.selected_counts == {
         "immediate": 0,
@@ -329,9 +329,9 @@ def test_line_candidate_builder_reports_mode_counts_and_rejection_reasons(
         "future_break": 0,
     }
     assert result.diagnostics.rejected_reasons == {
-        "immediate": {"immediate_conditions_not_met": 8},
-        "future_resist": {"top7_conditions_not_met": 8},
-        "future_break": {"top7_conditions_not_met": 8},
+        "immediate": {"immediate_conditions_not_met": 9},
+        "future_resist": {"top7_conditions_not_met": 9},
+        "future_break": {"top7_conditions_not_met": 9},
     }
     assert list(result.candidates) == builder(context, current_price)
     for mode in ("immediate", "future_resist", "future_break"):

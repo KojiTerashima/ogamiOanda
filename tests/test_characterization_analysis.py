@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from classCandlePeaks import (
@@ -16,7 +17,98 @@ from ogami_oanda.domain.analysis.peaks import (
 from ogami_oanda.strategy.line import (
     LineCandidateCoordinator,
     LineStrategyProfileUsdJpy,
+    UsdJpyM5BreakoutLineOrderStrategy,
+    UsdJpyM5LineOrderStrategy,
 )
+
+
+def _opposite_side_line_result(latest_direction, grouped_peaks):
+    frame = pd.DataFrame(
+        {
+            "time_jp": [
+                "2026/08/28 12:00:00",
+                "2026/08/28 11:55:00",
+                "2026/08/28 11:50:00",
+                "2026/08/28 11:45:00",
+            ],
+            "close": [160.0, 160.0, 160.0, 160.0],
+        }
+    )
+    latest_peak = {
+        "latest_time_jp": "2026/08/28 12:05:00",
+        "latest_body_peak_price": 160.0,
+        "direction": latest_direction,
+        "peak_strength": 2,
+        "rsi": 50,
+    }
+    return LineStrengthCalculator("USD_JPY").calculate(
+        foot="m5",
+        peaks=[latest_peak, *grouped_peaks],
+        frame=frame,
+        current_price=160.0,
+        current_time="2026/08/28 12:05:00",
+        time_before_foot_count=60,
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("latest_direction", "line_side", "line_price"),
+    ((1, "lower", 159.9), (-1, "upper", 160.1)),
+)
+def test_line_strength_marks_non_flipped_opposite_side_before_candidate_build(
+    latest_direction,
+    line_side,
+    line_price,
+):
+    result = _opposite_side_line_result(
+        latest_direction,
+        [
+            {
+                "latest_time_jp": "2026/08/28 11:55:00",
+                "latest_body_peak_price": line_price,
+                "direction": -latest_direction,
+                "peak_strength": 5,
+                "rsi": 50,
+            }
+        ],
+    )
+
+    source_lines = getattr(result, f"{line_side}_lines")
+
+    assert len(source_lines) == 1
+    assert source_lines[0]["is_flipped_line"] is False
+    assert len(UsdJpyM5LineOrderStrategy().build_candidates(result, 160.0)) == 1
+    assert (
+        len(UsdJpyM5BreakoutLineOrderStrategy().build_candidates(result, 160.0))
+        == 1
+    )
+
+
+@pytest.mark.unit
+def test_line_strength_keeps_genuinely_flipped_opposite_side_out_of_candidates():
+    result = _opposite_side_line_result(
+        1,
+        [
+            {
+                "latest_time_jp": time,
+                "latest_body_peak_price": price,
+                "direction": direction,
+                "peak_strength": 5,
+                "rsi": 50,
+            }
+            for time, price, direction in (
+                ("2026/08/28 11:58:00", 159.900, 1),
+                ("2026/08/28 11:57:00", 159.905, -1),
+                ("2026/08/28 11:56:00", 159.910, -1),
+            )
+        ],
+    )
+
+    assert len(result.lower_lines) == 1
+    assert result.lower_lines[0]["is_flipped_line"] is True
+    assert UsdJpyM5LineOrderStrategy().build_candidates(result, 160.0) == []
+    assert UsdJpyM5BreakoutLineOrderStrategy().build_candidates(result, 160.0) == []
 
 
 @pytest.mark.characterization
@@ -152,6 +244,11 @@ def test_domain_line_strength_calculator_matches_legacy_line_class(pair_name, fo
 
     for attribute in ("upper_lines", "lower_lines", "tp_lines", "lc_lines", "all_lines"):
         assert getattr(domain, attribute) == getattr(legacy, attribute)
+        for line_class in (domain, legacy):
+            assert all(
+                isinstance(line.get("is_flipped_line"), bool)
+                for line in getattr(line_class, attribute)
+            )
 
 
 @pytest.mark.characterization

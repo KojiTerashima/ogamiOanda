@@ -153,6 +153,14 @@ All three pairs form the reviewed H1 lines from the same source prices, count,
 median, and strength, but one line per pair retains a different pips-coordinate
 cluster range. The six exact `range_min`/`range_max` leaves remain explicit.
 
+Current line calculation assigns `is_flipped_line` and
+`is_flipped_line_st` to the source upper/lower lines before constructing
+`all_lines`. The immutable baseline assigned them only to copied lines, leaving
+the opposite-side source lines unmarked. Reviewed line and candidate subtree
+hashes capture only the resulting boolean markers and, for USD/JPY and
+AUD/USD, the restored ninth raw candidate in each mode. Selected candidates
+and order payloads remain unchanged in those two scenarios.
+
 The EUR/USD selected order also exercises the H1 path-shortening rule. The
 legacy flat plan and current typed pipeline expose different source object
 shapes, original-price ownership, and metadata placement. Exact subtree hashes

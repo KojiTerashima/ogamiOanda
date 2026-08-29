@@ -2011,23 +2011,20 @@ class _LegacyLineStrengthCal:
     def line_each_analysis(self):
         print("    個別LINE分析")
         all_lines = self.all_lines  # 置き換え
-        # 結果用
-        for i, item in enumerate(all_lines):
+        for item in all_lines:
             self.add_line_role_history(item)
-            # print("    K", item['median_price'])
-            is_flipped_line = False
-            # 各ラインを単品で見ていく
-            dirs = item['dirs_grouped']
-            if item['count'] >= 3 and len(dirs) >= 2:
-                # 3個以上ある場合、向き等を検討していく
-                if dirs[0] * dirs[1] < 0 and item['prices_info'][0]["peak_strength"]>2:
-                    # print("      K", item['median_price'], dirs[0], dirs[1])
-                    # 正負の数が異なっている
-                    if abs(dirs[1]) >= 2:
-                        is_flipped_line = True
-            # 結果付与する
-            item['is_flipped_line'] = is_flipped_line
-            item['is_flipped_line_st'] = 0
+
+    @staticmethod
+    def _add_line_flip_marker(item):
+        dirs = item['dirs_grouped']
+        item['is_flipped_line'] = bool(
+            item['count'] >= 3
+            and len(dirs) >= 2
+            and dirs[0] * dirs[1] < 0
+            and item['prices_info'][0]["peak_strength"] > 2
+            and abs(dirs[1]) >= 2
+        )
+        item['is_flipped_line_st'] = 0
 
     def add_line_role_history(self, line):
         break_threshold_pips = 2
@@ -2285,6 +2282,8 @@ class _LegacyLineStrengthCal:
             self.lc_lines = upper_lines
         self.lower_lines = lower_lines
         self.upper_lines = upper_lines
+        for line in (*self.upper_lines, *self.lower_lines):
+            self._add_line_flip_marker(line)
 
         # ALLのラインを作る
         if self.latest_peak_dir == 1:

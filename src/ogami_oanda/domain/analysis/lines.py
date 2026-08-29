@@ -245,10 +245,11 @@ class LineStrengthCalculator:
             sort_direction=-1,
         )
         tp_lines, lc_lines = (upper_lines, lower_lines) if latest_peak_dir == 1 else (lower_lines, upper_lines)
+        for line in (*upper_lines, *lower_lines):
+            self._add_line_flip_marker(line)
         all_lines = self._combine_all_lines(upper_lines, lower_lines, latest_peak_dir)
         for line in all_lines:
             self._add_line_role_history(line, window, current_time)
-            self._add_line_flip_marker(line)
         return LineStrengthResult(
             self.pair_name,
             foot,

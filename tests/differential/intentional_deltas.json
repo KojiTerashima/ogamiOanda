@@ -1,11 +1,191 @@
 [
   {
+    "delta_id": "analysis-usd-line-flip-raw-candidates",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/candidates/raw",
+    "left": {"$sha256": "bc77558f7f0ba958e1976a885fce23aedadd66bfe1129a2586e833b7e34ac72c"},
+    "right": {"$sha256": "34ebf5e8152301726f4c1aa44fb4c9805da0cd83cb1a4ba8154522024f4bd5be"},
+    "reason": "The current line calculation adds the formerly omitted non-flipped M5 upper candidate to each raw mode and propagates computed boolean H1 flip markers. The exact ordered subtree keeps all candidate fields reviewable; selected candidates and orders remain empty.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-usd-line-flip-m5-upper",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/lines/m5_upper",
+    "left": {"$sha256": "f0fc8a3fd53140d38304c0933ef4739bed80bf1eb662cfeeab488265cf0e8737"},
+    "right": {"$sha256": "1297dfa4dd29c704037b5aa7d17e5c2715dd11d747abfd054be1ad4324ab6e11"},
+    "reason": "The current source line receives is_flipped_line=false and is_flipped_line_st=0 before all_lines copies are created; every other reviewed M5 upper-line field is fixed by the hashes.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-usd-line-flip-h1-lower",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/lines/h1_lower",
+    "left": {"$sha256": "a73c1074aeeca55fb2c212039e0c51a89d03f427476c465af8c78585184ea699"},
+    "right": {"$sha256": "522546bafdee7ffb631c2c075784e870dc79c7fe321b588d69d3d4643f11989e"},
+    "reason": "The current H1 lower source lines now carry their computed boolean flip markers before copying; every other reviewed ordered-line field is fixed by the hashes.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-usd-line-flip-raw-immediate-count",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/raw_candidate_counts/immediate",
+    "left": 8,
+    "right": 9,
+    "reason": "Computing the non-flipped M5 upper marker before candidate construction restores one immediate raw candidate.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-usd-line-flip-raw-future-resist-count",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/raw_candidate_counts/future_resist",
+    "left": 8,
+    "right": 9,
+    "reason": "Computing the non-flipped M5 upper marker before candidate construction restores one future-resist raw candidate.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-usd-line-flip-raw-future-break-count",
+    "scenario_id": "analysis-order-usd-jpy",
+    "pointer": "/events/0/raw_candidate_counts/future_break",
+    "left": 8,
+    "right": 9,
+    "reason": "Computing the non-flipped M5 upper marker before candidate construction restores one future-break raw candidate.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-line-flip-raw-candidates",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/candidates/raw",
+    "left": {"$sha256": "b64c7ba0871c703f048a7d2431952bd7dd5dc7a46a4aa35ee53abc9ad65435e6"},
+    "right": {"$sha256": "14b7b1fc66bd43ed321982702ed05ce75a5d82d8b1a1a198eff37eb53628e0c4"},
+    "reason": "The current line calculation adds the formerly omitted non-flipped M5 upper candidate to each raw mode and propagates computed boolean H1 flip markers. The exact ordered subtree keeps all candidate fields reviewable; selected candidates and orders remain empty.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-line-flip-m5-upper",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/lines/m5_upper",
+    "left": {"$sha256": "83ee1754bb4975bb71ade911ed0b449839261c8b12b5b9f4fe9dbb6f6245cc5b"},
+    "right": {"$sha256": "1c97331635617cc54df2892a08f72b4c775d2ddde28ed4dc4557fffe3e7cb95b"},
+    "reason": "The current source line receives is_flipped_line=false and is_flipped_line_st=0 before all_lines copies are created; every other reviewed M5 upper-line field is fixed by the hashes.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-line-flip-h1-lower",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/lines/h1_lower",
+    "left": {"$sha256": "68eff7b67c0773f4d49dcfa67615f724364477179eba2b6c55b4d9d515b53409"},
+    "right": {"$sha256": "c0b3ed5b5bed85eec32e19c9888151b07675df8db135091cdd1007423e0ec16e"},
+    "reason": "The current H1 lower source lines now carry their computed boolean flip markers before copying; every other reviewed ordered-line field is fixed by the hashes.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-line-flip-raw-immediate-count",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/raw_candidate_counts/immediate",
+    "left": 8,
+    "right": 9,
+    "reason": "Computing the non-flipped M5 upper marker before candidate construction restores one immediate raw candidate.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-line-flip-raw-future-resist-count",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/raw_candidate_counts/future_resist",
+    "left": 8,
+    "right": 9,
+    "reason": "Computing the non-flipped M5 upper marker before candidate construction restores one future-resist raw candidate.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-aud-line-flip-raw-future-break-count",
+    "scenario_id": "analysis-order-aud-usd",
+    "pointer": "/events/0/raw_candidate_counts/future_break",
+    "left": 8,
+    "right": 9,
+    "reason": "Computing the non-flipped M5 upper marker before candidate construction restores one future-break raw candidate.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-line-flip-raw-candidates",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/candidates/raw",
+    "left": {"$sha256": "73f50f14cc9967437e518aa8a78e23f1f633f624747f235b4071d106b1e43f2b"},
+    "right": {"$sha256": "7155ac017f3498a92a80efc92a8d9ce362943a3cfb663a64e8d18d29322186e2"},
+    "reason": "Raw candidate count and order are unchanged; the exact subtree records computed boolean H1 lower flip markers replacing missing context values.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-line-flip-selected-future-break",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/candidates/selected/future_break",
+    "left": {"$sha256": "42cde89250602ed36121d92f2fed3c143f0fa08ab2c6ac0ccbc32642347d02fe"},
+    "right": {"$sha256": "c8aae8615230991784cae076b11f42001af8748e216feb544a283644f549c9b0"},
+    "reason": "The same single future-break candidate remains selected; only its inherited H1 lower flip markers become computed booleans.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-eur-line-flip-h1-lower",
+    "scenario_id": "analysis-order-eur-usd",
+    "pointer": "/events/0/lines/h1_lower",
+    "left": {"$sha256": "f984ae0d485c0642d4362a7bc5cc80554ece871ab9a2e3bae15f956ce9e92fb4"},
+    "right": {"$sha256": "63ef5a2ba9533ae41303ad5b434edde5cd389cc08e49e70175b91e55b9618135"},
+    "reason": "The current H1 lower source lines now carry their computed boolean flip markers before copying; every other reviewed ordered-line field is fixed by the hashes.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-line-flip-raw-candidates",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/candidates/raw",
+    "left": {"$sha256": "37cc1d5b68dbe2d3ab7679788a1e10e5f1eff18768d037407b9394a6649b94ea"},
+    "right": {"$sha256": "5763e73c10ac356667d6d154262ba10ad7fa72e12eb9f720b3db5d37a700b40c"},
+    "reason": "Raw candidate count and order are unchanged; the exact subtree records computed boolean H1 lower flip markers replacing missing context values.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-line-flip-selected-future-break",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/candidates/selected/future_break",
+    "left": {"$sha256": "8955f5576b325ac606bd0a7f851fdef68253701a24c302425840f6a23b24d860"},
+    "right": {"$sha256": "911c3db15ccfbc7805cbdec65c4ad4eacbdcac7ac33b90e7faa5b5ed5f67835d"},
+    "reason": "The same nine future-break candidates remain selected in the same order; only inherited H1 lower flip markers become computed booleans.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
+    "delta_id": "analysis-multi-eur-line-flip-h1-lower",
+    "scenario_id": "analysis-order-multi-eur-usd",
+    "pointer": "/events/0/lines/h1_lower",
+    "left": {"$sha256": "fb3d2dd2127ef1f1fa870240dc908711811dde5b3ec53190758505be8e449896"},
+    "right": {"$sha256": "8bd85318408fd471f5ebcb34bfdc8c5f70a2a79d0189e6a0d782be7bef3761fa"},
+    "reason": "The current H1 lower source lines now carry their computed boolean flip markers before copying; every other reviewed ordered-line field is fixed by the hashes.",
+    "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
+    "expires_on": "2027-02-23"
+  },
+  {
     "delta_id": "analysis-multi-eur-adapter-plans",
     "scenario_id": "analysis-order-multi-eur-usd",
     "pointer": "/events/0/adapter_plans",
     "left": {"$sha256": "6a0864b71f658a6858b45824a74c7d85f5c65adb2bfa67af0cb3338207afc99c"},
-    "right": {"$sha256": "88a6c40414e815fcbf7af54ada02ae33669da63e38fbe5dd11fcc866ab2b6f9d"},
-    "reason": "Legacy finalization removes three near-duplicate selected lines and keeps six flat plans; current analysis preserves all nine adapter plans. Exact ordered arrays keep every field and future shape change observable.",
+    "right": {"$sha256": "920ce285caec2a266326398bcd97e6c2e46b704020ad9975969ec9ed13eb7055"},
+    "reason": "Legacy finalization removes three near-duplicate selected lines and keeps six flat plans; current analysis preserves all nine adapter plans. Exact ordered arrays keep every field, including the newly computed boolean H1 flip markers, and future shape change observable.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
@@ -14,8 +194,8 @@
     "scenario_id": "analysis-order-multi-eur-usd",
     "pointer": "/events/0/candidates/enriched/future_break",
     "left": {"$sha256": "37c408ddfc2072e13a42440573b8b841426d19c07a8b37f25fe5d6e1a098cdf2"},
-    "right": {"$sha256": "0f30fd3f54e61f3b4cd74f7cb4d59c4930a5833f6b17ce315f9a87e90d7b0afc"},
-    "reason": "The exact ordered enrichment arrays expose legacy near-line finalization and current all-selected behavior while preserving candidate, reason, session, sizing, and plan contents.",
+    "right": {"$sha256": "42b81612f57534a69b4554359231210190910b2c4e37a6e027e14ec84b7989d2"},
+    "reason": "The exact ordered enrichment arrays expose legacy near-line finalization and current all-selected behavior while preserving candidate, reason, session, sizing, plan contents, and computed boolean H1 flip markers.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
@@ -34,8 +214,8 @@
     "scenario_id": "analysis-order-multi-eur-usd",
     "pointer": "/events/0/intents",
     "left": {"$sha256": "74c0b2d4b926e30e64b351b2f3f8e24e910624705dee966011fcab99321cb3a9"},
-    "right": {"$sha256": "7472ccf27627cea971fa9b79e9b534f91c5b65f640e7d3e035067c3c92ec5f5b"},
-    "reason": "The ordered legacy flat-intent projection contains six finalized lines; current exposes nine typed intents with lossless strategy metadata.",
+    "right": {"$sha256": "819f2f5df22a64b8575d9828a543f42f9e7b1816a4c83532ba71107bc53e0177"},
+    "reason": "The ordered legacy flat-intent projection contains six finalized lines; current exposes nine typed intents with lossless strategy metadata and computed boolean H1 flip markers.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
@@ -44,8 +224,8 @@
     "scenario_id": "analysis-order-multi-eur-usd",
     "pointer": "/events/0/plans",
     "left": {"$sha256": "6a0864b71f658a6858b45824a74c7d85f5c65adb2bfa67af0cb3338207afc99c"},
-    "right": {"$sha256": "4c9d2bd553cdf7726751689f67127da52d2b2b2771ac69835b1e515a2259627a"},
-    "reason": "Legacy emits six finalized flat plans after near-line filtering; current emits nine semantic plans and retains path and effective sizing metadata.",
+    "right": {"$sha256": "d23c16630acb9d37c5191b29ac42d42cd790fab8876d94c9cadedc9dd9e4b2d0"},
+    "reason": "Legacy emits six finalized flat plans after near-line filtering; current emits nine semantic plans and retains path, effective sizing, and computed boolean H1 flip metadata.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
@@ -134,8 +314,8 @@
     "scenario_id": "analysis-order-eur-usd",
     "pointer": "/events/0/adapter_plans/0",
     "left": {"$sha256": "cbaf68835ab5ef86d99a22d5506b19bcdc4ded96a2c1f38b2213c51eae4c9215"},
-    "right": {"$sha256": "3145df59a165cce2b2e2f822f84af57b3ff04e29f5a30b9fb1d1281092f7d145"},
-    "reason": "The current legacy adapter records effective TP/LC as original prices and omits top-level path-adjustment metadata; the exact adapter outputs remain independently visible.",
+    "right": {"$sha256": "75799b346a275d117e5f9ac9e3b87b9610741729a79273bc31abeac091f9b36d"},
+    "reason": "The current legacy adapter records effective TP/LC as original prices, omits top-level path-adjustment metadata, and carries computed boolean H1 flip markers; the exact adapter outputs remain independently visible.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
@@ -144,8 +324,8 @@
     "scenario_id": "analysis-order-eur-usd",
     "pointer": "/events/0/candidates/enriched/future_break/0",
     "left": {"$sha256": "ef59490c77b0761181057707287ce9526f255509c742f88dc8bbdc2046554772"},
-    "right": {"$sha256": "c5ae45514da125d48f1b261d5e62ce736883af131ca774db161973010255affb"},
-    "reason": "Source-specific enrichment has different object shapes; this exact record fixes every selected candidate, strategy, session, path, sizing, and final-plan field on both sides.",
+    "right": {"$sha256": "d2e928a0e8f8ac7966d9eb69c25331611e52eef837efb0443e3c739ed83fff14"},
+    "reason": "Source-specific enrichment has different object shapes; this exact record fixes every selected candidate, strategy, session, path, sizing, final-plan field, and computed boolean H1 flip marker on both sides.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
@@ -164,8 +344,8 @@
     "scenario_id": "analysis-order-eur-usd",
     "pointer": "/events/0/intents/0",
     "left": {"$sha256": "ed48b1e6e96b31c31f02f5dc859e5e10fbc91ccd028effc2a4a5ff6c949f3a99"},
-    "right": {"$sha256": "a952d1c72378e924a8c165f4aab85a4ec7f62a3af726e315ce210c7eb442a509"},
-    "reason": "The current typed intent preserves explicit effective and base sizing metadata and binary-float pips values; the legacy intent is reconstructed from its flat final plan.",
+    "right": {"$sha256": "0cea169d7cb74e7b8588689dd8e6832fbbaa31f7f95b44b539d61a70dc7fcc7e"},
+    "reason": "The current typed intent preserves explicit effective and base sizing metadata, binary-float pips values, and computed boolean H1 flip markers; the legacy intent is reconstructed from its flat final plan.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
@@ -174,8 +354,8 @@
     "scenario_id": "analysis-order-eur-usd",
     "pointer": "/events/0/plans/0",
     "left": {"$sha256": "cbaf68835ab5ef86d99a22d5506b19bcdc4ded96a2c1f38b2213c51eae4c9215"},
-    "right": {"$sha256": "d61e87e94860c4fc6a6ab362a58382bb406ed496c80529f35f4f60c67fd160e2"},
-    "reason": "The semantic current plan supplements the adapter output with all non-core intent metadata so path and effective sizing fields cannot be pruned.",
+    "right": {"$sha256": "3da4fe1c9ffb029d8aad1448d8c504e9d664e34b7958209a26fb263648465377"},
+    "reason": "The semantic current plan supplements the adapter output with all non-core intent metadata so path, effective sizing, and computed boolean H1 flip fields cannot be pruned.",
     "reference": "docs/differential-verification.md#analysis-pipeline-deltas",
     "expires_on": "2027-02-23"
   },
