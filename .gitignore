@@ -13,3 +13,12 @@ build/differential/
 config/settings.yaml
 runtime/
 practice-acceptance-*.json
+
+# Python packaging artifacts
+*.egg-info/
+build/
+dist/
+
+# Local virtual environments
+.venv/
+
