@@ -89,6 +89,7 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
             cache_dir=str(paths_raw.get("cache_dir", ".")),
             history_file=str(paths_raw.get("history_file", "history.csv")),
             position_state_dir=str(paths_raw.get("position_state_dir", "")),
+            log_dir=str(paths_raw.get("log_dir", "runtime/logs")),
         ),
     )
     _validate_settings(settings)

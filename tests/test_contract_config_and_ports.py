@@ -75,6 +75,7 @@ paths:
     assert settings.notifications.pair_webhooks["EUR_USD"] == ""
     assert settings.paths.cache_dir == "cache"
     assert settings.paths.position_state_dir == "state"
+    assert settings.paths.log_dir == "runtime/logs"
 
 
 @pytest.mark.contract
@@ -183,6 +184,7 @@ def test_tracked_example_config_is_secret_free_and_loadable():
     assert account.client_extensions_enabled is False
     assert account.live_trading_enabled is False
     assert settings.paths.position_state_dir == "runtime/position-state"
+    assert settings.paths.log_dir == "runtime/logs"
     source = path.read_text(encoding="utf-8")
     assert "practice-token" not in source
 
@@ -206,6 +208,7 @@ def test_tokens_compatibility_loader_keeps_secrets_in_memory_only():
     assert settings.account("secondary").access_token == "live-token"
     assert settings.trading.risk_yen == 2
     assert settings.paths.result_dir == "results"
+    assert settings.paths.log_dir == "runtime/logs"
 
 
 @pytest.mark.contract

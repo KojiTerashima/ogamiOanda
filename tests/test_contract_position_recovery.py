@@ -6,6 +6,7 @@ from datetime import datetime
 import pytest
 
 from ogami_oanda.application.ports.broker import (
+    BrokerTradeClosure,
     BrokerTransaction,
     BrokerTransactionBatch,
     ExecutionResult,
@@ -1259,6 +1260,65 @@ def test_startup_reconciliation_reports_trade_closed_while_stopped_once():
     assert service.slots[0].snapshot.trade_state is TradeState.CLOSED
     assert len(service.position_service.history.records) == 1
     assert service.position_service.history.records[0]["tradeID"] == "trade-1"
+
+
+@pytest.mark.contract
+def test_startup_missing_trade_recovers_from_closed_trade_transaction_once():
+    plan = _plan("missing-closed-while-stopped")
+    persisted = (
+        ManagedPosition.registered(plan.intent.name, "USD_JPY")
+        .with_order_plan(plan, datetime(2026, 1, 2, 10, 0, 0))
+        .pending("order-1")
+        .filled("trade-1", datetime(2026, 1, 2, 10, 1, 0))
+        ._replace(direction=1, target_price=150.0, units=100)
+    )
+    repository = _StateRepository(
+        CheckpointLoadResult(
+            CheckpointLoadStatus.LOADED,
+            _checkpoint(persisted, cursor="200"),
+        )
+    )
+    broker = FakeBroker()
+    broker.transactions = BrokerTransactionBatch(
+        (
+            BrokerTransaction(
+                "202",
+                "ORDER_FILL",
+                order_id="close-order",
+                pair="USD_JPY",
+                units=-100,
+                price=149.9,
+                reason="STOP_LOSS_ORDER",
+                occurred_at=datetime(2026, 1, 2, 10, 4, 0),
+                closed_trades=(
+                    BrokerTradeClosure(
+                        "trade-1",
+                        100,
+                        149.9,
+                        -10.0,
+                        "STOP_LOSS_ORDER",
+                        datetime(2026, 1, 2, 10, 4, 0),
+                    ),
+                ),
+            ),
+        ),
+        "202",
+    )
+    service = _service(repository, broker)
+
+    first = service.restore_and_reconcile()
+    second = service.restore_and_reconcile()
+
+    assert first.state is PortfolioStartupState.READY
+    assert second.state is PortfolioStartupState.READY
+    assert service.slots[0] is not None
+    assert service.slots[0].snapshot.trade_state is TradeState.CLOSED
+    assert service.slots[0].snapshot.realized_pl == -10.0
+    assert service.slots[0].snapshot.average_close_price == 149.9
+    assert service.slots[0].snapshot.close_reason == "STOP_LOSS_ORDER"
+    assert service.transaction_cursor == "202"
+    assert len(service.position_service.history.records) == 1
+    assert repository.saved[-1].slots[0].snapshot.trade_state is TradeState.CLOSED
 
 
 @pytest.mark.contract

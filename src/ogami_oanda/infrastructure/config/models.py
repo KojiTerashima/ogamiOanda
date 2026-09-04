@@ -32,6 +32,7 @@ class PathSettings:
     cache_dir: str = "."
     history_file: str = "history.csv"
     position_state_dir: str = ""
+    log_dir: str = "runtime/logs"
 
 
 @dataclass(frozen=True)

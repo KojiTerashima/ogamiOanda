@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import datetime
 from collections.abc import Mapping
 
+from oandapyV20.exceptions import V20Error
 from oandapyV20.endpoints.accounts import AccountInstruments, AccountSummary
 from oandapyV20.endpoints.orders import OrderDetails, OrdersPending
 from oandapyV20.endpoints.trades import OpenTrades, TradeDetails
@@ -15,6 +17,7 @@ from ogami_oanda.application.ports.broker import (
     AccountCapabilities,
     BrokerTransaction,
     BrokerTransactionBatch,
+    BrokerTradeClosure,
     InstrumentTradingRules,
 )
 from ogami_oanda.domain.positions.models import PositionSnapshot
@@ -87,11 +90,25 @@ class OandaQueryAdapter:
         return self.trade(reference_id)
 
     def order(self, order_id: str) -> PositionSnapshot | None:
-        response = self.client.request(OrderDetails(accountID=self.client.account_id, orderID=order_id))
+        try:
+            response = self.client.request(
+                OrderDetails(accountID=self.client.account_id, orderID=order_id)
+            )
+        except V20Error as error:
+            if _is_missing_resource(error, "NO_SUCH_ORDER"):
+                return None
+            raise
         return map_order_snapshot(response)
 
     def trade(self, trade_id: str) -> PositionSnapshot | None:
-        response = self.client.request(TradeDetails(accountID=self.client.account_id, tradeID=trade_id))
+        try:
+            response = self.client.request(
+                TradeDetails(accountID=self.client.account_id, tradeID=trade_id)
+            )
+        except V20Error as error:
+            if _is_missing_resource(error, "NO_SUCH_TRADE"):
+                return None
+            raise
         snapshot = map_trade_snapshot(response)
         if snapshot is None or snapshot.trade_state.value != "CLOSED":
             return snapshot
@@ -145,6 +162,27 @@ class OandaQueryAdapter:
         return None
 
 
+def _is_missing_resource(error: Exception, expected_code: str) -> bool:
+    try:
+        status_code = int(getattr(error, "code", None))
+    except (TypeError, ValueError):
+        return False
+    if status_code != 404:
+        return False
+    raw_payload = getattr(error, "msg", None)
+    if isinstance(raw_payload, Mapping):
+        payload = raw_payload
+    else:
+        try:
+            payload = json.loads(str(raw_payload))
+        except (TypeError, json.JSONDecodeError):
+            return False
+    return (
+        isinstance(payload, Mapping)
+        and payload.get("errorCode") == expected_code
+    )
+
+
 def _map_transaction(transaction: dict[str, object]) -> BrokerTransaction:
     kind = str(transaction.get("type", "UNKNOWN"))
     transaction_id = str(transaction.get("id", ""))
@@ -184,4 +222,35 @@ def _map_transaction(transaction: dict[str, object]) -> BrokerTransaction:
         price=float(price_value) if price_value is not None else None,
         reason=str(transaction.get("rejectReason", transaction.get("reason", ""))),
         occurred_at=occurred_at,
+        closed_trades=_map_closed_trades(transaction, occurred_at),
+    )
+
+
+def _map_closed_trades(
+    transaction: Mapping[str, object],
+    occurred_at: datetime | None,
+) -> tuple[BrokerTradeClosure, ...]:
+    raw_closures = transaction.get("tradesClosed", [])
+    if not isinstance(raw_closures, (list, tuple)):
+        return ()
+    reason = str(transaction.get("reason", ""))
+    return tuple(
+        BrokerTradeClosure(
+            trade_id=str(item["tradeID"]),
+            units=abs(int(float(item.get("units", 0)))),
+            price=(
+                float(item["price"])
+                if item.get("price") is not None
+                else None
+            ),
+            realized_pl=(
+                float(item["realizedPL"])
+                if item.get("realizedPL") is not None
+                else None
+            ),
+            reason=reason,
+            occurred_at=occurred_at,
+        )
+        for item in raw_closures
+        if isinstance(item, Mapping) and item.get("tradeID") is not None
     )

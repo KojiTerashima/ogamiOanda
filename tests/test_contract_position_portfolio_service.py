@@ -2,8 +2,14 @@ from datetime import datetime
 
 import pytest
 
-from ogami_oanda.application.ports.broker import ExecutionResult, MutationState
-from ogami_oanda.application.ports.broker import OrderSubmissionResult
+from ogami_oanda.application.ports.broker import (
+    BrokerTradeClosure,
+    BrokerTransaction,
+    BrokerTransactionBatch,
+    ExecutionResult,
+    MutationState,
+    OrderSubmissionResult,
+)
 from ogami_oanda.application.ports.position_state import account_identity_hash
 from ogami_oanda.application.services.order_planner import OrderPlanner
 from ogami_oanda.application.services.portfolio import ActiveOrder
@@ -165,6 +171,158 @@ def test_position_portfolio_does_not_advance_cursor_when_mutation_begins():
         if checkpoint.pending_mutations
     )
     assert journal.transaction_cursor == "100"
+
+
+@pytest.mark.contract
+def test_runtime_missing_trade_recovers_from_closed_trade_transaction_once():
+    state_repository = _StateRepository()
+    broker = FakeBroker()
+    broker.transactions = BrokerTransactionBatch(
+        (
+            BrokerTransaction(
+                "202",
+                "ORDER_FILL",
+                order_id="close-order",
+                pair="USD_JPY",
+                units=-1000,
+                price=149.9,
+                reason="STOP_LOSS_ORDER",
+                occurred_at=datetime(2026, 1, 2, 0, 4, 0),
+                closed_trades=(
+                    BrokerTradeClosure(
+                        "trade-1",
+                        1000,
+                        149.9,
+                        -100.0,
+                        "STOP_LOSS_ORDER",
+                        datetime(2026, 1, 2, 0, 4, 0),
+                    ),
+                ),
+            ),
+        ),
+        "202",
+    )
+    service, _ = _service(
+        state_repository=state_repository,
+        broker=broker,
+    )
+    service.transaction_cursor = "200"
+    service.slots[0] = (
+        ManagedPosition.registered("missing-trade", "USD_JPY")
+        .with_order_plan(_plan("missing-trade", 1), datetime(2026, 1, 2))
+        .pending("order-1")
+        .filled("trade-1", datetime(2026, 1, 2, 0, 1, 0))
+        ._replace(
+            direction=1,
+            target_price=150.0,
+            units=1000,
+        )
+    )
+
+    first = service.sync_all(current_price=149.9)
+    second = service.sync_all(current_price=149.9)
+
+    assert service.startup_state is PortfolioStartupState.READY
+    assert service.slots[0] is not None
+    assert service.slots[0].snapshot.trade_state is TradeState.CLOSED
+    assert service.slots[0].snapshot.life is False
+    assert service.slots[0].snapshot.realized_pl == -100.0
+    assert service.slots[0].snapshot.average_close_price == 149.9
+    assert service.slots[0].snapshot.close_reason == "STOP_LOSS_ORDER"
+    assert service.transaction_cursor == "202"
+    assert [event.kind for event in first.close_events] == ["trade_closed"]
+    assert second.close_events == ()
+    assert len(service.position_service.history.records) == 1
+    assert state_repository.saved[-1].slots[0].snapshot.trade_state is TradeState.CLOSED
+
+
+@pytest.mark.contract
+def test_runtime_missing_trade_without_close_evidence_quarantines_and_blocks_orders():
+    state_repository = _StateRepository()
+    broker = FakeBroker()
+    broker.transactions = BrokerTransactionBatch((), "202")
+    service, _ = _service(
+        state_repository=state_repository,
+        broker=broker,
+    )
+    service.transaction_cursor = "200"
+    service.slots[0] = (
+        ManagedPosition.registered("missing-trade", "USD_JPY")
+        .with_order_plan(_plan("missing-trade", 1), datetime(2026, 1, 2))
+        .pending("order-1")
+        .filled("trade-1", datetime(2026, 1, 2, 0, 1, 0))
+        ._replace(direction=1, target_price=150.0, units=1000)
+    )
+
+    summary = service.sync_all(current_price=149.9)
+    registration = service.register_plans([_plan("blocked", 1)], submit=True)
+
+    assert service.startup_state is PortfolioStartupState.QUARANTINED
+    assert service.slots[0] is not None
+    assert service.slots[0].snapshot.trade_state is TradeState.OPEN
+    assert service.slots[0].snapshot.life is True
+    assert summary.open == 1
+    assert registration.rejected == (("blocked", "portfolio_quarantined"),)
+    assert broker.requests == []
+    assert broker.commands == []
+    assert state_repository.saved[-1].slots[0].snapshot.trade_state is TradeState.OPEN
+    assert len(service.position_service.notifier.messages) == 1
+    message, category, pair = service.position_service.notifier.messages[0]
+    assert "trade-1" not in message
+    assert (category, pair) == ("live", "USD_JPY")
+
+
+@pytest.mark.contract
+def test_runtime_missing_trade_with_incomplete_close_evidence_quarantines():
+    state_repository = _StateRepository()
+    broker = FakeBroker()
+    broker.transactions = BrokerTransactionBatch(
+        (
+            BrokerTransaction(
+                "202",
+                "ORDER_FILL",
+                order_id="close-order",
+                pair="USD_JPY",
+                units=-1000,
+                price=149.9,
+                reason="STOP_LOSS_ORDER",
+                occurred_at=datetime(2026, 1, 2, 0, 4, 0),
+                closed_trades=(
+                    BrokerTradeClosure(
+                        "trade-1",
+                        1000,
+                        149.9,
+                        None,
+                        "STOP_LOSS_ORDER",
+                        datetime(2026, 1, 2, 0, 4, 0),
+                    ),
+                ),
+            ),
+        ),
+        "202",
+    )
+    service, _ = _service(
+        state_repository=state_repository,
+        broker=broker,
+    )
+    service.transaction_cursor = "200"
+    service.slots[0] = (
+        ManagedPosition.registered("missing-trade", "USD_JPY")
+        .with_order_plan(_plan("missing-trade", 1), datetime(2026, 1, 2))
+        .pending("order-1")
+        .filled("trade-1", datetime(2026, 1, 2, 0, 1, 0))
+        ._replace(direction=1, target_price=150.0, units=1000)
+    )
+
+    try:
+        service.sync_all(current_price=149.9)
+    except TypeError as error:
+        pytest.fail(f"incomplete close evidence escaped quarantine: {error}")
+
+    assert service.startup_state is PortfolioStartupState.QUARANTINED
+    assert service.slots[0] is not None
+    assert service.slots[0].snapshot.trade_state is TradeState.OPEN
+    assert service.position_service.history.records == []
 
 
 class _TracingBroker(FakeBroker):

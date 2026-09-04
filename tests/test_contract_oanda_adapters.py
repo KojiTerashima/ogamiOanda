@@ -511,6 +511,90 @@ def test_query_adapter_maps_pending_and_open_runtime_state_behind_query_port():
 
 
 @pytest.mark.contract
+@pytest.mark.parametrize(
+    ("lookup", "reference_id", "error_code"),
+    [
+        ("order", "missing-order", "NO_SUCH_ORDER"),
+        ("trade", "missing-trade", "NO_SUCH_TRADE"),
+    ],
+)
+def test_query_adapter_maps_exact_missing_resource_to_none(
+    lookup,
+    reference_id,
+    error_code,
+):
+    client = _MutationClient(
+        [
+            V20Error(
+                404,
+                (
+                    '{"errorCode":"'
+                    + error_code
+                    + '","errorMessage":"The resource does not exist"}'
+                ),
+            )
+        ]
+    )
+
+    result = getattr(OandaQueryAdapter(client), lookup)(reference_id)
+
+    assert result is None
+
+
+@pytest.mark.contract
+def test_query_adapter_does_not_hide_a_different_not_found_error():
+    client = _MutationClient(
+        [
+            V20Error(
+                404,
+                '{"errorCode":"NO_SUCH_ACCOUNT","errorMessage":"Missing account"}',
+            )
+        ]
+    )
+
+    with pytest.raises(V20Error):
+        OandaQueryAdapter(client).trade("missing-trade")
+
+
+@pytest.mark.contract
+def test_query_adapter_does_not_hide_non_oanda_errors_that_mimic_not_found():
+    class _LookalikeError(RuntimeError):
+        code = 404
+        msg = '{"errorCode":"NO_SUCH_TRADE"}'
+
+    client = _MutationClient([_LookalikeError("programming defect")])
+
+    with pytest.raises(_LookalikeError, match="programming defect"):
+        OandaQueryAdapter(client).trade("missing-trade")
+
+
+@pytest.mark.contract
+def test_query_adapter_position_falls_through_from_missing_order_to_trade():
+    client = _MutationClient(
+        [
+            V20Error(
+                404,
+                '{"errorCode":"NO_SUCH_ORDER","errorMessage":"Missing order"}',
+            ),
+            {
+                "trade": {
+                    "id": "trade-1",
+                    "instrument": "USD_JPY",
+                    "state": "OPEN",
+                    "currentUnits": "100",
+                    "price": "150.0",
+                }
+            },
+        ]
+    )
+
+    snapshot = OandaQueryAdapter(client).position("trade-1")
+
+    assert snapshot is not None
+    assert snapshot.trade_id == "trade-1"
+
+
+@pytest.mark.contract
 def test_query_adapter_fetches_final_close_reason_only_for_closed_trade():
     class _ClosedClient(_Client):
         def request(self, endpoint):
@@ -573,6 +657,87 @@ def test_query_adapter_maps_transactions_since_cursor_for_reconciliation():
         150.11,
     )
     assert isinstance(client.endpoints[-1], TransactionsSinceID)
+
+
+@pytest.mark.contract
+def test_query_adapter_maps_closed_trade_evidence_from_order_fill():
+    client = _MutationClient(
+        [
+            {
+                "lastTransactionID": "202",
+                "transactions": [
+                    {
+                        "id": "202",
+                        "time": "2026-09-03T09:44:38.000000000Z",
+                        "type": "ORDER_FILL",
+                        "orderID": "201",
+                        "instrument": "EUR_USD",
+                        "units": "-100",
+                        "reason": "STOP_LOSS_ORDER",
+                        "pl": "-25.0",
+                        "tradesClosed": [
+                            {
+                                "tradeID": "trade-1",
+                                "units": "100",
+                                "price": "1.16325",
+                                "realizedPL": "-25.0",
+                                "financing": "0.0",
+                                "baseFinancing": "0.0",
+                                "quoteFinancing": "0.0",
+                                "guaranteedExecutionFee": "0.0",
+                                "quoteGuaranteedExecutionFee": "0.0",
+                                "halfSpreadCost": "0.0",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    )
+
+    transaction = OandaQueryAdapter(client).transactions_since("200").transactions[0]
+
+    assert len(transaction.closed_trades) == 1
+    closure = transaction.closed_trades[0]
+    assert closure.trade_id == "trade-1"
+    assert closure.units == 100
+    assert closure.price == 1.16325
+    assert closure.realized_pl == -25.0
+    assert closure.reason == "STOP_LOSS_ORDER"
+    assert closure.occurred_at.isoformat() == "2026-09-03T09:44:38+00:00"
+
+
+@pytest.mark.contract
+def test_query_adapter_does_not_invent_missing_close_realized_pl():
+    client = _MutationClient(
+        [
+            {
+                "lastTransactionID": "202",
+                "transactions": [
+                    {
+                        "id": "202",
+                        "time": "2026-09-03T09:44:38Z",
+                        "type": "ORDER_FILL",
+                        "orderID": "201",
+                        "instrument": "EUR_USD",
+                        "units": "-100",
+                        "reason": "STOP_LOSS_ORDER",
+                        "tradesClosed": [
+                            {
+                                "tradeID": "trade-1",
+                                "units": "100",
+                                "price": "1.16325",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    )
+
+    transaction = OandaQueryAdapter(client).transactions_since("200").transactions[0]
+
+    assert transaction.closed_trades[0].realized_pl is None
 
 
 @pytest.mark.contract

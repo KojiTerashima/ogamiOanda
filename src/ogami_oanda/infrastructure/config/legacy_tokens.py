@@ -59,5 +59,6 @@ def settings_from_tokens(tokens: ModuleType) -> AppSettings:
                 getattr(tokens, "history_folder_path", "")
                 or getattr(tokens, "folder_path", ".")
             ),
+            log_dir=getattr(tokens, "log_folder_path", "runtime/logs"),
         ),
     )

@@ -7,6 +7,8 @@ from typing import Mapping
 from ogami_oanda.application.ports.broker import (
     BrokerExecutionPort,
     BrokerQueryPort,
+    BrokerTransaction,
+    BrokerTransactionBatch,
     MutationState,
 )
 from ogami_oanda.application.ports.position_state import (
@@ -515,6 +517,9 @@ class PositionPortfolioService:
             for mutation in self.pending_mutations
             if mutation.action == "reduce_trade"
         }
+        transaction_items = (
+            transactions.transactions if transactions is not None else ()
+        )
         for index, position in enumerate(self.slots):
             if position is None or (
                 not position.snapshot.life and not position.runtime.close_requested
@@ -528,14 +533,23 @@ class PositionPortfolioService:
                 broker_snapshot = self.broker_query.trade(
                     position.snapshot.trade_id
                 )
+                if broker_snapshot is None:
+                    broker_snapshot = self._closed_snapshot_from_transactions(
+                        position,
+                        transaction_items,
+                    )
                 if (
                     broker_snapshot is not None
                     and broker_snapshot.trade_state.value == "CLOSED"
                 ):
                     self._apply_closed_snapshot(index, position, broker_snapshot)
-                # A close request is already a known local terminal intent. If
-                # the broker still reports OPEN (or temporarily has no
-                # snapshot), keep the marker for the next completed tick.
+                    continue
+                if broker_snapshot is None:
+                    return self._quarantine(
+                        "persisted trade missing at broker without close evidence"
+                    )
+                # A close request is already a known local terminal intent. Keep
+                # the marker while the broker still reports OPEN.
                 continue
             if position.snapshot.name in (
                 submitted_prepared_names | pending_submit_names
@@ -554,7 +568,11 @@ class PositionPortfolioService:
             if broker_snapshot is None:
                 if position.snapshot.name in pending_mutation_names:
                     continue
-                if self._resolve_stopped_terminal_position(index, position):
+                if self._resolve_stopped_terminal_position(
+                    index,
+                    position,
+                    transaction_items,
+                ):
                     continue
                 return self._quarantine(
                     f"persisted position missing at broker: {position.snapshot.name}"
@@ -583,9 +601,15 @@ class PositionPortfolioService:
         self,
         index: int,
         position: ManagedPosition,
+        transactions: tuple[BrokerTransaction, ...] = (),
     ) -> bool:
         if position.snapshot.trade_id is not None:
             broker_snapshot = self.broker_query.trade(position.snapshot.trade_id)
+            if broker_snapshot is None:
+                broker_snapshot = self._closed_snapshot_from_transactions(
+                    position,
+                    transactions,
+                )
             if (
                 broker_snapshot is not None
                 and broker_snapshot.trade_state.value == "CLOSED"
@@ -655,6 +679,92 @@ class PositionPortfolioService:
             self.position_service.closure_reporting.report(event)
             return event
         return None
+
+    def _closed_snapshot_from_transactions(
+        self,
+        position: ManagedPosition,
+        transactions: tuple[BrokerTransaction, ...],
+    ) -> PositionSnapshot | None:
+        trade_id = position.snapshot.trade_id
+        if trade_id is None:
+            return None
+        matches = [
+            closure
+            for transaction in transactions
+            if transaction.kind == "ORDER_FILL"
+            and transaction.pair == position.snapshot.pair
+            for closure in transaction.closed_trades
+            if closure.trade_id == trade_id
+        ]
+        if len(matches) != 1:
+            return None
+        closure = matches[0]
+        local_units = abs(position.snapshot.units)
+        if (
+            closure.units <= 0
+            or (local_units > 0 and closure.units != local_units)
+            or closure.price is None
+            or closure.realized_pl is None
+            or closure.occurred_at is None
+        ):
+            return None
+        return replace(
+            position.snapshot,
+            trade_state=TradeState.CLOSED,
+            life=False,
+            waiting_order=False,
+            current_price=closure.price,
+            unrealized_pl=0.0,
+            realized_pl=closure.realized_pl,
+            close_time=closure.occurred_at.isoformat(),
+            average_close_price=closure.price,
+            close_reason=closure.reason,
+        )
+
+    def _runtime_quarantine(self, reason: str) -> None:
+        if self.startup_state is PortfolioStartupState.QUARANTINED:
+            return
+        self.startup_state = PortfolioStartupState.QUARANTINED
+        self.position_service.notifier.send(
+            f"Portfolio quarantined: {reason}",
+            category="live",
+            pair=self.pair,
+        )
+
+    def _apply_runtime_closed_snapshot(
+        self,
+        index: int,
+        position: ManagedPosition,
+        broker_snapshot: PositionSnapshot,
+        dry_run: bool,
+    ) -> tuple[ManagedPosition, PositionEvent | None]:
+        if not dry_run:
+            event = self._apply_closed_snapshot(
+                index,
+                position,
+                broker_snapshot,
+            )
+            closed = self.slots[index]
+            if closed is None:
+                raise RuntimeError("closed position disappeared from portfolio slot")
+            return closed, event
+        closed = self.position_service._with_broker_runtime(
+            position,
+            broker_snapshot,
+        ).closed().with_runtime(close_requested=False)
+        event = PositionEvent(
+            f"trade_closed:{broker_snapshot.trade_id or position.snapshot.trade_id}",
+            "trade_closed",
+            closed.snapshot.name,
+            closed.snapshot.pair,
+            self.position_service.clock.now(),
+            {
+                "position": closed,
+                "broker_snapshot": broker_snapshot,
+            },
+        )
+        events = self.position_service._events_once(event, True)
+        return closed, events[0] if events else None
 
     def reconcile_pending_mutations(self) -> bool:
         if not self.pending_mutations:
@@ -1542,6 +1652,7 @@ class PositionPortfolioService:
         self._checkpoint_slots = working_slots
         commands: list[PositionCommand] = []
         events: list[PositionEvent] = []
+        recovery_batch: BrokerTransactionBatch | None = None
         try:
             for index, position in enumerate(self.slots):
                 if position is not None and (
@@ -1555,17 +1666,26 @@ class PositionPortfolioService:
                         broker_snapshot = self.broker_query.trade(
                             position.snapshot.trade_id
                         )
-                        if (
-                            broker_snapshot is None
-                            or broker_snapshot.trade_state.value != "CLOSED"
-                        ):
+                        if broker_snapshot is None and self.transaction_cursor is not None:
+                            if recovery_batch is None:
+                                recovery_batch = self.broker_query.transactions_since(
+                                    self.transaction_cursor
+                                )
+                            broker_snapshot = self._closed_snapshot_from_transactions(
+                                position,
+                                recovery_batch.transactions,
+                            )
+                        if broker_snapshot is None:
+                            self._runtime_quarantine(
+                                "broker snapshot missing for active trade without close evidence"
+                            )
+                            break
+                        if broker_snapshot.trade_state.value != "CLOSED":
                             continue
-                        event = self._apply_closed_snapshot(
-                            index,
-                            position,
-                            broker_snapshot,
+                        closed_position, event = self._apply_runtime_closed_snapshot(
+                            index, position, broker_snapshot, dry_run
                         )
-                        working_slots[index] = self.slots[index]
+                        working_slots[index] = closed_position
                         if event is not None:
                             events.append(event)
                         continue
@@ -1578,6 +1698,32 @@ class PositionPortfolioService:
                     working_slots[index] = result.position
                     commands.extend(result.commands)
                     events.extend(result.events)
+                    if result.reason == "broker_snapshot_missing":
+                        broker_snapshot = None
+                        if (
+                            position.snapshot.trade_id is not None
+                            and self.transaction_cursor is not None
+                        ):
+                            if recovery_batch is None:
+                                recovery_batch = self.broker_query.transactions_since(
+                                    self.transaction_cursor
+                                )
+                            broker_snapshot = self._closed_snapshot_from_transactions(
+                                position,
+                                recovery_batch.transactions,
+                            )
+                        if broker_snapshot is None:
+                            self._runtime_quarantine(
+                                "broker snapshot missing for active position without terminal evidence"
+                            )
+                            break
+                        closed_position, event = self._apply_runtime_closed_snapshot(
+                            index, position, broker_snapshot, dry_run
+                        )
+                        working_slots[index] = closed_position
+                        if event is not None:
+                            events.append(event)
+                        continue
                     if (
                         result.position.runtime.submission_phase
                         is SubmissionPhase.TERMINAL
@@ -1600,6 +1746,13 @@ class PositionPortfolioService:
                 events.extend(linkage_events)
                 if not self.pending_mutations:
                     commands.extend(self._apply_hedge(working_slots, dry_run))
+            if (
+                not dry_run
+                and recovery_batch is not None
+                and self.startup_state is not PortfolioStartupState.QUARANTINED
+                and recovery_batch.last_transaction_id is not None
+            ):
+                self.transaction_cursor = recovery_batch.last_transaction_id
             if not dry_run:
                 self.slots = working_slots
                 self._persist_state()

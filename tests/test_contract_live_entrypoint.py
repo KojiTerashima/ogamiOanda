@@ -8,7 +8,9 @@ from ogami_oanda.application.services.market_analysis_service import (
 from ogami_oanda.application.services.order_planner import OrderPlanner
 from ogami_oanda.application.services.position_portfolio_service import (
     PortfolioStartupState,
+    PortfolioSummary,
     PositionPortfolioService,
+    RegistrationResult,
 )
 from ogami_oanda.application.services.position_service import PositionService
 from ogami_oanda.application.services.runtime_event_buffer import RuntimeEventBuffer
@@ -839,6 +841,51 @@ def test_live_run_once_skips_market_and_analysis_when_portfolio_is_quarantined()
 
     assert result.skipped == ("portfolio_quarantined",)
     assert analysis.calls == 0
+
+
+@pytest.mark.contract
+def test_live_run_once_stops_after_position_sync_quarantines_portfolio():
+    class _QuarantineOnSync:
+        startup_state = PortfolioStartupState.READY
+        pending_mutations = ()
+
+        def __init__(self):
+            self.sync_calls = 0
+            self.registration_calls = 0
+
+        def sync_all(self, *, current_price=None, dry_run=False):
+            del current_price, dry_run
+            self.sync_calls += 1
+            self.startup_state = PortfolioStartupState.QUARANTINED
+            return PortfolioSummary(0, 0, 1, 0)
+
+        def register_plans(self, plans, submit=True):
+            del plans, submit
+            self.registration_calls += 1
+            return RegistrationResult((), ())
+
+    now = datetime(2026, 1, 2, 10, 5, 6)
+    clock = FixedClock(now)
+    analysis = _NoAnalysis()
+    portfolio = _QuarantineOnSync()
+    application = LiveApplication(
+        "USD_JPY",
+        FakeMarketData({}, {"USD_JPY": 150.0}),
+        analysis,
+        OrderPlanner(),
+        portfolio,
+        clock,
+    )
+    application._last_analysis_at = datetime(2026, 1, 2, 10, 0, 0)
+
+    result = application.run_once(now=now)
+
+    assert result.skipped == ("portfolio_quarantined",)
+    assert result.summary is not None
+    assert result.summary.open == 1
+    assert analysis.calls == 0
+    assert portfolio.sync_calls == 1
+    assert portfolio.registration_calls == 0
 
 
 @pytest.mark.contract

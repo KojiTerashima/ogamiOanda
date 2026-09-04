@@ -30,3 +30,4 @@ paths:
   cache_dir: runtime/cache
   history_file: runtime/history.csv
   position_state_dir: runtime/position-state
+  log_dir: runtime/logs

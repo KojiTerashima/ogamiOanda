@@ -139,6 +139,16 @@ class AccountCapabilities:
 
 
 @dataclass(frozen=True)
+class BrokerTradeClosure:
+    trade_id: str
+    units: int
+    price: float | None
+    realized_pl: float | None
+    reason: str = ""
+    occurred_at: datetime | None = None
+
+
+@dataclass(frozen=True)
 class BrokerTransaction:
     transaction_id: str
     kind: str
@@ -150,6 +160,7 @@ class BrokerTransaction:
     price: float | None = None
     reason: str = ""
     occurred_at: datetime | None = None
+    closed_trades: tuple[BrokerTradeClosure, ...] = ()
 
 
 @dataclass(frozen=True)

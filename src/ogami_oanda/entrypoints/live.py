@@ -2,28 +2,33 @@ from __future__ import annotations
 
 import argparse
 import inspect
-from functools import wraps
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
+from functools import wraps
 from pathlib import Path
 from typing import Callable, Protocol
 
-from ogami_oanda.adapters.notifications.discord import DiscordNotifier, create_http_session
+from ogami_oanda.adapters.notifications.discord import (
+    DiscordNotifier,
+    create_http_session,
+)
 from ogami_oanda.adapters.oanda.client import OandaClient
 from ogami_oanda.adapters.oanda.execution import OandaExecutionAdapter
 from ogami_oanda.adapters.oanda.market_data import OandaMarketDataAdapter
 from ogami_oanda.adapters.oanda.query import OandaQueryAdapter
-from ogami_oanda.adapters.repositories.csv_trade_history import CsvTradeHistoryRepository
+from ogami_oanda.adapters.repositories.csv_trade_history import (
+    CsvTradeHistoryRepository,
+)
 from ogami_oanda.adapters.repositories.json_position_state import (
     JsonPositionStateRepository,
 )
+from ogami_oanda.application.errors import TransientExternalServiceError
 from ogami_oanda.application.ports.market_data import MarketDataPort, MarketQuote
 from ogami_oanda.application.ports.position_state import (
     PositionStateRepository,
     account_identity_hash,
     validated_strategy_state,
 )
-from ogami_oanda.application.errors import TransientExternalServiceError
 from ogami_oanda.application.scheduling import TradingSchedule
 from ogami_oanda.application.services.line_candidate_context_builder import (
     build_line_candidate_context,
@@ -51,14 +56,15 @@ from ogami_oanda.domain.orders.models import OrderContext, OrderPlan
 from ogami_oanda.domain.positions.models import PositionEvent, TradeState
 from ogami_oanda.infrastructure.config.loader import load_settings
 from ogami_oanda.infrastructure.config.models import AppSettings
+from ogami_oanda.infrastructure.logging.daily_file import setup_daily_file_logging
 from ogami_oanda.infrastructure.runtime import PollingLoop, Sleeper, SystemClock
-from ogami_oanda.strategy.line import LineCandidateBuilder
 from ogami_oanda.strategy.contracts import (
     StrategyDecision,
     StrategyInput,
     StrategyQuote,
     TradingStrategy,
 )
+from ogami_oanda.strategy.line import LineCandidateBuilder
 from ogami_oanda.strategy.loader import StrategyPluginError, load_strategy
 from ogami_oanda.strategy.position_management import (
     EntryConfirmationPolicy,
@@ -144,6 +150,14 @@ def _run_forever_with_observer(
     ):
         kwargs["observer"] = observer
     return run_forever(**kwargs)
+
+
+def _configured_log_dir(settings: AppSettings) -> str | None:
+    paths = getattr(settings, "paths", None)
+    if paths is None:
+        return None
+    log_dir = getattr(paths, "log_dir", None)
+    return str(log_dir) if log_dir else None
 
 
 def _collect_runtime_events(method):
@@ -250,6 +264,22 @@ class LiveApplication:
             if should_sync_before
             else None
         )
+        if (
+            summary is not None
+            and getattr(
+                self.portfolio,
+                "startup_state",
+                PortfolioStartupState.READY,
+            )
+            is PortfolioStartupState.QUARANTINED
+        ):
+            return LiveRunResult(
+                None,
+                RegistrationResult((), ()),
+                summary,
+                quote,
+                ("portfolio_quarantined",),
+            )
         if not should_analyze:
             if should_sync_after and not should_sync_before:
                 summary = self._sync_positions(quote.mid, dry_run)
@@ -1084,6 +1114,9 @@ def main(argv: list[str] | None = None) -> int:
         if not arguments.config:
             parser.error("--config is required unless --offline-smoke is used")
         settings = load_settings(arguments.config)
+        log_dir = _configured_log_dir(settings)
+        if log_dir is not None:
+            setup_daily_file_logging(log_dir)
         if has_strategy_py:
             try:
                 loaded = load_strategy(arguments.strategy_py, arguments.strategy_yaml)

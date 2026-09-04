@@ -1,13 +1,20 @@
+from importlib import resources
 from pathlib import Path
 from types import SimpleNamespace
-from importlib import resources
 
 import pytest
 
 import ogami_oanda.entrypoints.live as live
-from ogami_oanda.application.services.position_portfolio_service import RegistrationResult
+from ogami_oanda.application.services.position_portfolio_service import (
+    RegistrationResult,
+)
 from ogami_oanda.entrypoints.live import LiveRunResult
 from ogami_oanda.entrypoints.live_console import ConsoleLiveReporter
+from ogami_oanda.infrastructure.config.models import (
+    AppSettings,
+    PathSettings,
+    RuntimeAccountConfig,
+)
 from ogami_oanda.strategy.line import CandidateDiagnostics
 
 
@@ -109,6 +116,40 @@ def test_console_once_dry_run_is_offline_testable_and_prints_plan_and_reject_rea
         "accepted=1 rejected=1 skipped=- plans=line-plan "
         "accepted_names=accepted-plan rejected_reasons=rejected-plan:duplicate"
     )
+
+
+@pytest.mark.contract
+def test_console_configures_daily_file_logging_from_settings(monkeypatch, capsys):
+    captured = {}
+    settings = AppSettings(
+        {"primary": RuntimeAccountConfig("example-account", "DUMMY_TOKEN", "practice")},
+        paths=PathSettings(log_dir="runtime/test-logs"),
+    )
+    result = LiveRunResult(
+        analysis=None,
+        registration=RegistrationResult((), ()),
+    )
+
+    class _Application:
+        def run_resilient_once(self, *, dry_run=False):
+            return result
+
+    monkeypatch.setattr(live, "load_settings", lambda _path: settings)
+    monkeypatch.setattr(
+        live,
+        "setup_daily_file_logging",
+        lambda log_dir: captured.setdefault("log_dir", log_dir),
+    )
+    monkeypatch.setattr(
+        live,
+        "build_live_application",
+        lambda *_args, **_kwargs: _Application(),
+    )
+
+    assert live.main(["--config", "settings.yaml", "--dry-run", "--once"]) == 0
+
+    assert captured == {"log_dir": "runtime/test-logs"}
+    assert "accepted=0 rejected=0" in capsys.readouterr().out
 
 
 @pytest.mark.contract
