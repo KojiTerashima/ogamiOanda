@@ -2,6 +2,9 @@ from datetime import datetime
 
 import pytest
 
+from ogami_oanda.application.errors import (
+    ExternalServiceAuthorizationError,
+)
 from ogami_oanda.application.ports.broker import (
     BrokerTradeClosure,
     BrokerTransaction,
@@ -635,6 +638,41 @@ def test_unknown_submit_stops_batch_and_preserves_journal():
 
 
 @pytest.mark.contract
+@pytest.mark.contract
+def test_authorization_failure_preserves_submit_journal_and_blocks_blind_retry():
+    class _DeniedBroker(FakeBroker):
+        def submit(self, request):
+            self.requests.append(request)
+            raise ExternalServiceAuthorizationError(
+                "oanda",
+                status_code=401,
+                operation="OrderCreate",
+            )
+
+    state_repository = _StateRepository()
+    broker = _DeniedBroker()
+    service, _ = _service(
+        state_repository=state_repository,
+        broker=broker,
+    )
+    plan = _plan("authorization-uncertain", 1)
+
+    with pytest.raises(ExternalServiceAuthorizationError):
+        service.register_plans([plan], submit=True)
+
+    assert len(broker.requests) == 1
+    assert service.pending_mutations
+    assert service.pending_mutations[0].action == "submit_order"
+    assert state_repository.saved[-1].pending_mutations == service.pending_mutations
+
+    blocked = service.register_plans([plan], submit=True)
+
+    assert blocked.rejected == (
+        ("authorization-uncertain", "broker_reconciliation"),
+    )
+    assert len(broker.requests) == 1
+
+
 def test_pending_mutation_blocks_direct_portfolio_sync():
     state_repository = _StateRepository()
     broker = FakeBroker()

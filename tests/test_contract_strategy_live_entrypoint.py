@@ -5,6 +5,9 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import pytest
 
+from ogami_oanda.application.errors import (
+    ExternalServiceAuthorizationError,
+)
 from ogami_oanda.application.ports.position_state import (
     CheckpointLoadResult,
     CheckpointLoadStatus,
@@ -613,6 +616,112 @@ def test_strategy_dry_run_restores_nested_json_state_without_aliasing():
 
 
 @pytest.mark.contract
+def test_strategy_runner_recovers_authorization_before_resuming_decisions():
+    market = _Market(
+        live.MarketQuote("USD_JPY", 149.99, 150.0, 149.995, True, NOW)
+    )
+    original_quote = market.current_quote
+    quote_attempts = 0
+
+    def authorizing_quote(pair):
+        nonlocal quote_attempts
+        quote_attempts += 1
+        if quote_attempts == 1:
+            raise ExternalServiceAuthorizationError(
+                "oanda",
+                status_code=403,
+                operation="PricingInfo",
+            )
+        return original_quote(pair)
+
+    market.current_quote = authorizing_quote
+    strategy = _Strategy(StrategyDecision())
+    portfolio = _Portfolio()
+    recovery_calls = 0
+
+    def recover_authorization():
+        nonlocal recovery_calls
+        recovery_calls += 1
+        return PortfolioStartupState.READY
+
+    clock = FixedClock(NOW)
+    application = _strategy_application(
+        "USD_JPY",
+        strategy,
+        "plugin-id",
+        market,
+        OrderPlanner(),
+        portfolio,
+        clock,
+        authorization_recovery=recover_authorization,
+    )
+
+    failed = application.run_resilient_once(dry_run=True)
+    backoff = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    recovered = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    resumed = application.run_resilient_once(dry_run=True)
+
+    assert failed.skipped == ("broker_authorization",)
+    assert failed.failure is not None
+    assert failed.failure.category == "authorization"
+    assert failed.failure.status_code == 403
+    assert failed.failure.operation == "PricingInfo"
+    assert failed.failure.retry_after_seconds == 1
+    assert backoff.skipped == ("broker_backoff",)
+    assert recovered.skipped == ("broker_authorization_recovered",)
+    assert resumed.skipped == ()
+    assert recovery_calls == 1
+    assert quote_attempts == 2
+    assert len(strategy.inputs) == 1
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    ("recovery_state", "expected_skip"),
+    [
+        (PortfolioStartupState.RECONCILING, "broker_reconciliation"),
+        (PortfolioStartupState.QUARANTINED, "portfolio_quarantined"),
+    ],
+)
+def test_strategy_authorization_recovery_keeps_non_ready_portfolio_stopped(
+    recovery_state,
+    expected_skip,
+):
+    market = _Market(
+        live.MarketQuote("USD_JPY", 149.99, 150.0, 149.995, True, NOW)
+    )
+
+    def unavailable_quote(_pair):
+        raise ExternalServiceAuthorizationError(
+            "oanda", status_code=401, operation="PricingInfo"
+        )
+
+    market.current_quote = unavailable_quote
+    strategy = _Strategy(StrategyDecision())
+    clock = FixedClock(NOW)
+    application = _strategy_application(
+        "USD_JPY",
+        strategy,
+        "plugin-id",
+        market,
+        OrderPlanner(),
+        _Portfolio(startup_state=recovery_state),
+        clock,
+        authorization_recovery=lambda: recovery_state,
+    )
+
+    application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    recovered = application.run_resilient_once(dry_run=True)
+
+    assert recovered.skipped == (expected_skip,)
+    assert market.quote_calls == 0
+    assert strategy.inputs == []
+
+
+@pytest.mark.contract
 @pytest.mark.parametrize(
     ("startup_state", "reconcile", "expected_skip"),
     [
@@ -643,6 +752,78 @@ def test_strategy_startup_safety_gates_before_market_and_decision(
     assert result.skipped == (expected_skip,)
     assert market.quote_calls == 0
     assert strategy.inputs == []
+
+
+@pytest.mark.contract
+def test_strategy_composition_fully_reconciles_before_authorization_recovery():
+    class _RecoveringBroker(FakeBroker):
+        def __init__(self):
+            super().__init__(account_id="id")
+            self.capability_calls = 0
+            self.pending_calls = 0
+            self.open_calls = 0
+
+        def account_capabilities(self):
+            self.capability_calls += 1
+            if self.capability_calls == 1:
+                raise ExternalServiceAuthorizationError(
+                    "oanda",
+                    status_code=401,
+                    operation="AccountSummary",
+                )
+            return super().account_capabilities()
+
+        def pending_orders(self):
+            self.pending_calls += 1
+            return super().pending_orders()
+
+        def open_positions(self):
+            self.open_calls += 1
+            return super().open_positions()
+
+    settings = AppSettings(
+        accounts={
+            "primary": RuntimeAccountConfig(
+                account_id="id",
+                access_token="token",
+                environment="practice",
+            )
+        }
+    )
+    broker = _RecoveringBroker()
+    market = _Market(
+        live.MarketQuote("USD_JPY", 149.99, 150.0, 149.995, True, NOW)
+    )
+    strategy = _Strategy(StrategyDecision())
+    clock = FixedClock(NOW)
+    application = live.build_strategy_live_application(
+        settings,
+        strategy,
+        "plugin-id",
+        market_data=market,
+        broker_execution=broker,
+        broker_query=broker,
+        notifier=FakeNotifier(),
+        history=InMemoryTradeHistoryRepository(),
+        state_repository=_StateRepository(),
+        clock=clock,
+        dry_run=True,
+    )
+
+    failed = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    recovered = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    resumed = application.run_resilient_once(dry_run=True)
+
+    assert failed.skipped == ("broker_authorization",)
+    assert recovered.skipped == ("broker_authorization_recovered",)
+    assert resumed.skipped == ()
+    assert broker.capability_calls == 3
+    assert broker.pending_calls == 1
+    assert broker.open_calls == 1
+    assert market.quote_calls == 1
+    assert len(strategy.inputs) == 1
 
 
 @pytest.mark.contract

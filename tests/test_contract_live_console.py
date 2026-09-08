@@ -183,6 +183,50 @@ def test_console_reporter_prints_recoverable_failure_to_stderr():
 
 
 @pytest.mark.contract
+def test_console_reporter_sanitizes_authorization_failure_and_reports_recovery():
+    errors = StringIO()
+    reporter = ConsoleLiveReporter(
+        SimpleNamespace(
+            pair="USD_JPY",
+            portfolio=_Portfolio(_result().summary),
+            clock=_Clock(),
+        ),
+        stdout=StringIO(),
+        stderr=errors,
+        dry_run=False,
+    )
+
+    reporter.on_result(
+        _result(
+            skipped=("broker_authorization",),
+            failure=LiveFailure(
+                "oanda",
+                "private-account private-token raw-response",
+                retry_after_seconds=1,
+                category="authorization",
+                status_code=401,
+                operation="PricingInfo",
+            ),
+        )
+    )
+    reporter.on_result(
+        _result(skipped=("broker_authorization_recovered",))
+    )
+
+    output = errors.getvalue()
+    assert (
+        "[ERROR] service=oanda category=authorization status=401 "
+        "operation=PricingInfo retry=1s"
+    ) in output
+    assert (
+        "[RECOVERED] service=oanda category=authorization"
+    ) in output
+    assert "private-account" not in output
+    assert "private-token" not in output
+    assert "raw-response" not in output
+
+
+@pytest.mark.contract
 def test_console_reporter_deduplicates_runtime_and_summary_events_and_marks_dry_run():
     output = StringIO()
     event = PositionEvent(

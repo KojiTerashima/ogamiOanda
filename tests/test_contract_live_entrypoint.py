@@ -14,7 +14,10 @@ from ogami_oanda.application.services.position_portfolio_service import (
 )
 from ogami_oanda.application.services.position_service import PositionService
 from ogami_oanda.application.services.runtime_event_buffer import RuntimeEventBuffer
-from ogami_oanda.application.errors import TransientExternalServiceError
+from ogami_oanda.application.errors import (
+    ExternalServiceAuthorizationError,
+    TransientExternalServiceError,
+)
 from ogami_oanda.domain.orders.models import (
     Direction,
     OrderContext,
@@ -405,6 +408,128 @@ def test_live_run_forever_accepts_finite_ticks_without_sleeping():
     assert broker.requests == []
     assert broker.commands == []
 
+@pytest.mark.contract
+def test_live_runner_reconciles_before_resuming_after_authorization_failure():
+    class _AuthorizationFlap:
+        def __init__(self):
+            self.calls = 0
+
+        def current_quote(self, pair):
+            self.calls += 1
+            if self.calls == 1:
+                raise ExternalServiceAuthorizationError(
+                    "oanda",
+                    status_code=401,
+                    operation="PricingInfo",
+                )
+            return MarketQuote(pair, 150.0, 150.0, 150.0)
+
+    clock = FixedClock(datetime(2026, 1, 2, 10, 0, 0))
+    broker = FakeBroker()
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+    market = _AuthorizationFlap()
+    analysis = _NoAnalysis()
+    recovery_calls = []
+
+    def recover_authorization():
+        recovery_calls.append(clock.value)
+        return PortfolioStartupState.READY
+
+    application = LiveApplication(
+        "USD_JPY",
+        market,
+        analysis,
+        OrderPlanner(),
+        PositionPortfolioService("USD_JPY", service, broker, broker),
+        clock,
+        authorization_recovery=recover_authorization,
+    )
+
+    failed = application.run_resilient_once(dry_run=True)
+    backed_off = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    recovered = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    resumed = application.run_resilient_once(dry_run=True)
+
+    assert failed.skipped == ("broker_authorization",)
+    assert failed.failure is not None
+    assert failed.failure.category == "authorization"
+    assert failed.failure.status_code == 401
+    assert failed.failure.operation == "PricingInfo"
+    assert failed.failure.retry_after_seconds == 1
+    assert backed_off.skipped == ("broker_backoff",)
+    assert recovered.skipped == ("broker_authorization_recovered",)
+    assert resumed.skipped == ()
+    assert market.calls == 2
+    assert analysis.calls == 1
+    assert recovery_calls == [datetime(2026, 1, 2, 10, 0, 1)]
+
+
+@pytest.mark.contract
+def test_live_authorization_recovery_backoff_caps_at_sixty_seconds():
+    class _DeniedMarket:
+        def __init__(self):
+            self.calls = 0
+
+        def current_quote(self, pair):
+            del pair
+            self.calls += 1
+            raise ExternalServiceAuthorizationError(
+                "oanda",
+                status_code=403,
+                operation="PricingInfo",
+            )
+
+    clock = FixedClock(datetime(2026, 1, 2, 10, 0, 0))
+    broker = FakeBroker()
+    service = PositionService(
+        broker,
+        broker,
+        FakeNotifier(),
+        InMemoryTradeHistoryRepository(),
+        clock,
+    )
+    market = _DeniedMarket()
+    recovery_calls = 0
+
+    def recover_authorization():
+        nonlocal recovery_calls
+        recovery_calls += 1
+        raise ExternalServiceAuthorizationError(
+            "oanda",
+            status_code=403,
+            operation="AccountSummary",
+        )
+
+    application = LiveApplication(
+        "USD_JPY",
+        market,
+        _NoAnalysis(),
+        OrderPlanner(),
+        PositionPortfolioService("USD_JPY", service, broker, broker),
+        clock,
+        authorization_recovery=recover_authorization,
+    )
+
+    result = application.run_resilient_once(dry_run=True)
+    observed_delays = [result.failure.retry_after_seconds]
+    for delay in (1, 2, 4, 8, 16, 32, 60):
+        clock.value += timedelta(seconds=delay)
+        result = application.run_resilient_once(dry_run=True)
+        observed_delays.append(result.failure.retry_after_seconds)
+
+    assert observed_delays == [1, 2, 4, 8, 16, 32, 60, 60]
+    assert market.calls == 1
+    assert recovery_calls == 7
+
+
 
 @pytest.mark.contract
 def test_live_runner_recovers_from_transient_read_failure_and_resets_backoff():
@@ -455,6 +580,75 @@ def test_live_runner_recovers_from_transient_read_failure_and_resets_backoff():
     assert market.calls == 4
 
 
+@pytest.mark.contract
+def test_live_composition_fully_reconciles_before_authorization_recovery():
+    class _RecoveringBroker(FakeBroker):
+        def __init__(self):
+            super().__init__()
+            self.capability_calls = 0
+            self.pending_calls = 0
+            self.open_calls = 0
+
+        def account_capabilities(self):
+            self.capability_calls += 1
+            if self.capability_calls == 1:
+                raise ExternalServiceAuthorizationError(
+                    "oanda",
+                    status_code=401,
+                    operation="AccountSummary",
+                )
+            return super().account_capabilities()
+
+        def pending_orders(self):
+            self.pending_calls += 1
+            return super().pending_orders()
+
+        def open_positions(self):
+            self.open_calls += 1
+            return super().open_positions()
+
+    class _CountingMarket(FakeMarketData):
+        def __init__(self):
+            super().__init__({}, {"USD_JPY": 150.0})
+            self.calls = 0
+
+        def current_quote(self, pair):
+            self.calls += 1
+            return super().current_quote(pair)
+
+    clock = FixedClock(datetime(2026, 1, 2, 10, 0, 0))
+    broker = _RecoveringBroker()
+    market = _CountingMarket()
+    analysis = _NoAnalysis()
+    application = build_live_application(
+        AppSettings(
+            {"primary": RuntimeAccountConfig("id", "token", "practice")}
+        ),
+        market_data=market,
+        broker_execution=broker,
+        broker_query=broker,
+        notifier=FakeNotifier(),
+        history=InMemoryTradeHistoryRepository(),
+        state_repository=_MissingStateRepository(),
+        clock=clock,
+        dry_run=True,
+    )
+    application.analysis = analysis
+
+    failed = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    recovered = application.run_resilient_once(dry_run=True)
+    clock.value += timedelta(seconds=1)
+    resumed = application.run_resilient_once(dry_run=True)
+
+    assert failed.skipped == ("broker_authorization",)
+    assert recovered.skipped == ("broker_authorization_recovered",)
+    assert resumed.skipped == ()
+    assert broker.capability_calls == 3
+    assert broker.pending_calls == 1
+    assert broker.open_calls == 1
+    assert market.calls == 1
+    assert analysis.calls == 1
 @pytest.mark.contract
 def test_live_composition_retries_transient_startup_inside_resilient_loop():
     class _FlakyStartupBroker(FakeBroker):

@@ -1,6 +1,22 @@
 from __future__ import annotations
 
 
+class ExternalServiceAuthorizationError(RuntimeError):
+    """Sanitized authorization failure from an external service."""
+
+    def __init__(
+        self,
+        service: str,
+        *,
+        status_code: int,
+        operation: str,
+    ) -> None:
+        super().__init__(f"{service} authorization failed")
+        self.service = service
+        self.status_code = status_code
+        self.operation = operation
+
+
 class TransientExternalServiceError(RuntimeError):
     def __init__(
         self,

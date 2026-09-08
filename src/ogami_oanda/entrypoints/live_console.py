@@ -202,10 +202,25 @@ class ConsoleLiveReporter:
         failure = getattr(result, "failure", None)
         if failure is not None:
             retry = self._retry_text(getattr(failure, "retry_after_seconds", None))
+            service = getattr(failure, "service", "unknown")
+            if getattr(failure, "category", "availability") == "authorization":
+                self._print(
+                    self.stderr,
+                    f"{now} [ERROR] service={service} category=authorization "
+                    f"status={self._value(getattr(failure, 'status_code', None))} "
+                    f"operation={self._value(getattr(failure, 'operation', None))} "
+                    f"retry={retry}",
+                )
+            else:
+                self._print(
+                    self.stderr,
+                    f"{now} [ERROR] service={service} "
+                    f"message={getattr(failure, 'message', '')} retry={retry}",
+                )
+        elif "broker_authorization_recovered" in skipped:
             self._print(
                 self.stderr,
-                f"{now} [ERROR] service={getattr(failure, 'service', 'unknown')} "
-                f"message={getattr(failure, 'message', '')} retry={retry}",
+                f"{now} [RECOVERED] service=oanda category=authorization",
             )
         elif "broker_reconciliation" in skipped or (
             strategy_result is not None

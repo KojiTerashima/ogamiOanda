@@ -22,7 +22,10 @@ from ogami_oanda.adapters.repositories.csv_trade_history import (
 from ogami_oanda.adapters.repositories.json_position_state import (
     JsonPositionStateRepository,
 )
-from ogami_oanda.application.errors import TransientExternalServiceError
+from ogami_oanda.application.errors import (
+    ExternalServiceAuthorizationError,
+    TransientExternalServiceError,
+)
 from ogami_oanda.application.ports.market_data import MarketDataPort, MarketQuote
 from ogami_oanda.application.ports.position_state import (
     PositionStateRepository,
@@ -80,6 +83,9 @@ class LiveFailure:
     service: str
     message: str
     retry_after_seconds: float | None = None
+    category: str = "availability"
+    status_code: int | None = None
+    operation: str | None = None
 
 
 @dataclass(frozen=True)
@@ -183,6 +189,7 @@ class LiveApplication:
         schedule: TradingSchedule | None = None,
         startup: Callable[[], None] | None = None,
         runtime_events: RuntimeEventBuffer | None = None,
+        authorization_recovery: Callable[[], PortfolioStartupState] | None = None,
     ) -> None:
         self.pair = pair
         self.market_data = market_data
@@ -193,6 +200,7 @@ class LiveApplication:
         self.schedule = schedule or TradingSchedule()
         self._startup = startup or (lambda: None)
         self.runtime_events = runtime_events or RuntimeEventBuffer()
+        self._authorization_recovery = authorization_recovery
         position_service = getattr(self.portfolio, "position_service", None)
         set_event_sink = getattr(position_service, "set_event_sink", None)
         if set_event_sink is not None:
@@ -202,6 +210,8 @@ class LiveApplication:
         self._broker_retry_not_before: datetime | None = None
         self._broker_backoff_seconds = 1.0
         self._broker_backoff_cap_seconds = 60.0
+
+        self._authorization_blocked = False
 
     @_collect_runtime_events
     def run_once(
@@ -336,35 +346,110 @@ class LiveApplication:
             self._broker_retry_not_before is not None
             and now < self._broker_retry_not_before
         ):
-            return LiveRunResult(
-                None,
-                RegistrationResult((), ()),
-                skipped=("broker_backoff",),
-                runtime_events=self.runtime_events.drain(),
+            return self._empty_result("broker_backoff")
+
+        if self._authorization_blocked:
+            try:
+                recovery_state = self._recover_authorization()
+            except ExternalServiceAuthorizationError as error:
+                return self._authorization_failure_result(error, now)
+            except TransientExternalServiceError as error:
+                return self._transient_failure_result(error, now)
+            self._authorization_blocked = False
+            self._reset_broker_backoff()
+            if recovery_state is PortfolioStartupState.READY:
+                return self._empty_result("broker_authorization_recovered")
+            if recovery_state is PortfolioStartupState.RECONCILING:
+                return self._empty_result("broker_reconciliation")
+            if recovery_state is PortfolioStartupState.QUARANTINED:
+                return self._empty_result("portfolio_quarantined")
+            raise ValueError(
+                f"Unexpected authorization recovery state: {recovery_state}"
             )
+
         try:
             result = self.run_once(now=now, dry_run=dry_run)
+        except ExternalServiceAuthorizationError as error:
+            return self._authorization_failure_result(error, now)
         except TransientExternalServiceError as error:
-            delay = error.retry_after_seconds or self._broker_backoff_seconds
-            self._broker_retry_not_before = now + timedelta(seconds=delay)
-            self._broker_backoff_seconds = min(
-                self._broker_backoff_seconds * 2,
-                self._broker_backoff_cap_seconds,
-            )
-            return LiveRunResult(
-                None,
-                RegistrationResult((), ()),
-                skipped=("broker_unavailable",),
-                runtime_events=self.runtime_events.drain(),
-                failure=LiveFailure(
-                    getattr(error, "service", "oanda"),
-                    str(error),
-                    retry_after_seconds=delay,
-                ),
-            )
+            return self._transient_failure_result(error, now)
+        self._reset_broker_backoff()
+        return result
+
+    def _recover_authorization(self) -> PortfolioStartupState:
+        if self._authorization_recovery is not None:
+            return self._authorization_recovery()
+        recovery = self.portfolio.restore_and_reconcile()
+        return recovery.state
+
+    def _authorization_failure_result(
+        self,
+        error: ExternalServiceAuthorizationError,
+        now: datetime,
+    ) -> LiveRunResult:
+        self._authorization_blocked = True
+        delay = self._schedule_broker_backoff(now)
+        return self._empty_result(
+            "broker_authorization",
+            failure=LiveFailure(
+                error.service,
+                str(error),
+                retry_after_seconds=delay,
+                category="authorization",
+                status_code=error.status_code,
+                operation=error.operation,
+            ),
+        )
+
+    def _transient_failure_result(
+        self,
+        error: TransientExternalServiceError,
+        now: datetime,
+    ) -> LiveRunResult:
+        delay = self._schedule_broker_backoff(
+            now,
+            requested_delay=error.retry_after_seconds,
+        )
+        return self._empty_result(
+            "broker_unavailable",
+            failure=LiveFailure(
+                getattr(error, "service", "oanda"),
+                str(error),
+                retry_after_seconds=delay,
+            ),
+        )
+
+    def _schedule_broker_backoff(
+        self,
+        now: datetime,
+        *,
+        requested_delay: float | None = None,
+    ) -> float:
+        delay = requested_delay or self._broker_backoff_seconds
+        self._broker_retry_not_before = now + timedelta(seconds=delay)
+        self._broker_backoff_seconds = min(
+            self._broker_backoff_seconds * 2,
+            self._broker_backoff_cap_seconds,
+        )
+        return delay
+
+    def _reset_broker_backoff(self) -> None:
         self._broker_retry_not_before = None
         self._broker_backoff_seconds = 1.0
-        return result
+
+    def _empty_result(
+        self,
+        skipped: str,
+        *,
+        failure: LiveFailure | None = None,
+    ) -> LiveRunResult:
+        return LiveRunResult(
+            None,
+            RegistrationResult((), ()),
+            skipped=(skipped,),
+            runtime_events=self.runtime_events.drain(),
+            failure=failure,
+        )
 
     def _quote(self) -> MarketQuote:
         return self.market_data.current_quote(self.pair)
@@ -420,6 +505,7 @@ class StrategyLiveApplication:
         *,
         max_quote_age: timedelta | None = None,
         runtime_events: RuntimeEventBuffer | None = None,
+        authorization_recovery: Callable[[], PortfolioStartupState] | None = None,
     ) -> None:
         if not strategy_id:
             raise ValueError("strategy_id must not be empty")
@@ -436,6 +522,7 @@ class StrategyLiveApplication:
         self.max_quote_age = max_quote_age
         self._startup = startup or (lambda: None)
         self.runtime_events = runtime_events or RuntimeEventBuffer()
+        self._authorization_recovery = authorization_recovery
         position_service = getattr(self.portfolio, "position_service", None)
         set_event_sink = getattr(position_service, "set_event_sink", None)
         if set_event_sink is not None:
@@ -444,6 +531,7 @@ class StrategyLiveApplication:
         self._broker_retry_not_before: datetime | None = None
         self._broker_backoff_seconds = 1.0
         self._broker_backoff_cap_seconds = 60.0
+        self._authorization_blocked = False
 
     @_collect_runtime_events
     def run_once(
@@ -616,31 +704,110 @@ class StrategyLiveApplication:
             self._broker_retry_not_before is not None
             and now < self._broker_retry_not_before
         ):
-            return replace(
-                self._skipped("broker_backoff"),
-                runtime_events=self.runtime_events.drain(),
+            return self._empty_result("broker_backoff")
+
+        if self._authorization_blocked:
+            try:
+                recovery_state = self._recover_authorization()
+            except ExternalServiceAuthorizationError as error:
+                return self._authorization_failure_result(error, now)
+            except TransientExternalServiceError as error:
+                return self._transient_failure_result(error, now)
+            self._authorization_blocked = False
+            self._reset_broker_backoff()
+            if recovery_state is PortfolioStartupState.READY:
+                return self._empty_result("broker_authorization_recovered")
+            if recovery_state is PortfolioStartupState.RECONCILING:
+                return self._empty_result("broker_reconciliation")
+            if recovery_state is PortfolioStartupState.QUARANTINED:
+                return self._empty_result("portfolio_quarantined")
+            raise ValueError(
+                f"Unexpected authorization recovery state: {recovery_state}"
             )
+
         try:
             result = self.run_once(now=now, dry_run=dry_run)
+        except ExternalServiceAuthorizationError as error:
+            return self._authorization_failure_result(error, now)
         except TransientExternalServiceError as error:
-            delay = error.retry_after_seconds or self._broker_backoff_seconds
-            self._broker_retry_not_before = now + timedelta(seconds=delay)
-            self._broker_backoff_seconds = min(
-                self._broker_backoff_seconds * 2,
-                self._broker_backoff_cap_seconds,
-            )
-            return replace(
-                self._skipped("broker_unavailable"),
-                runtime_events=self.runtime_events.drain(),
-                failure=LiveFailure(
-                    getattr(error, "service", "oanda"),
-                    str(error),
-                    retry_after_seconds=delay,
-                ),
-            )
+            return self._transient_failure_result(error, now)
+        self._reset_broker_backoff()
+        return result
+
+    def _recover_authorization(self) -> PortfolioStartupState:
+        if self._authorization_recovery is not None:
+            return self._authorization_recovery()
+        recovery = self.portfolio.restore_and_reconcile()
+        return recovery.state
+
+    def _authorization_failure_result(
+        self,
+        error: ExternalServiceAuthorizationError,
+        now: datetime,
+    ) -> LiveRunResult:
+        self._authorization_blocked = True
+        delay = self._schedule_broker_backoff(now)
+        return self._empty_result(
+            "broker_authorization",
+            failure=LiveFailure(
+                error.service,
+                str(error),
+                retry_after_seconds=delay,
+                category="authorization",
+                status_code=error.status_code,
+                operation=error.operation,
+            ),
+        )
+
+    def _transient_failure_result(
+        self,
+        error: TransientExternalServiceError,
+        now: datetime,
+    ) -> LiveRunResult:
+        delay = self._schedule_broker_backoff(
+            now,
+            requested_delay=error.retry_after_seconds,
+        )
+        return self._empty_result(
+            "broker_unavailable",
+            failure=LiveFailure(
+                getattr(error, "service", "oanda"),
+                str(error),
+                retry_after_seconds=delay,
+            ),
+        )
+
+    def _schedule_broker_backoff(
+        self,
+        now: datetime,
+        *,
+        requested_delay: float | None = None,
+    ) -> float:
+        delay = requested_delay or self._broker_backoff_seconds
+        self._broker_retry_not_before = now + timedelta(seconds=delay)
+        self._broker_backoff_seconds = min(
+            self._broker_backoff_seconds * 2,
+            self._broker_backoff_cap_seconds,
+        )
+        return delay
+
+    def _reset_broker_backoff(self) -> None:
         self._broker_retry_not_before = None
         self._broker_backoff_seconds = 1.0
-        return result
+
+    def _empty_result(
+        self,
+        skipped: str,
+        *,
+        failure: LiveFailure | None = None,
+    ) -> LiveRunResult:
+        return LiveRunResult(
+            None,
+            RegistrationResult((), ()),
+            skipped=(skipped,),
+            runtime_events=self.runtime_events.drain(),
+            failure=failure,
+        )
 
     def _load_strategy_state_once(self) -> None:
         if self._strategy_loaded:
@@ -826,9 +993,9 @@ def build_live_application(
 
     account_verified = False
 
-    def verify_account() -> None:
+    def verify_account(*, force: bool = False) -> None:
         nonlocal account_verified
-        if account_verified:
+        if account_verified and not force:
             return
         capabilities = broker_query.account_capabilities()
         if capabilities.account_id != account.account_id:
@@ -842,8 +1009,12 @@ def build_live_application(
         account_verified = True
 
     startup_deferred = False
+    startup_authorization_error: ExternalServiceAuthorizationError | None = None
     try:
         verify_account()
+    except ExternalServiceAuthorizationError as error:
+        startup_authorization_error = error
+        startup_deferred = True
     except TransientExternalServiceError:
         startup_deferred = True
     notifier = notifier or DiscordNotifier(settings.notifications, clock, create_http_session())
@@ -884,11 +1055,8 @@ def build_live_application(
     )
     startup_complete = False
 
-    def start() -> None:
+    def reconcile_portfolio() -> PortfolioStartupState:
         nonlocal startup_complete
-        if startup_complete:
-            return
-        verify_account()
         startup = portfolio.restore_and_reconcile()
         if startup.state is PortfolioStartupState.QUARANTINED:
             notifier.send(
@@ -896,16 +1064,35 @@ def build_live_application(
                 pair=pair,
             )
         if (
-            startup.state is PortfolioStartupState.READY
+            not startup_complete
+            and startup.state is PortfolioStartupState.READY
             and cancel_pending_on_start
             and not dry_run
         ):
             portfolio.cancel_pending_on_start(True)
         startup_complete = True
+        return startup.state
+
+    def start() -> None:
+        nonlocal startup_authorization_error
+        if startup_complete:
+            return
+        if startup_authorization_error is not None:
+            error = startup_authorization_error
+            startup_authorization_error = None
+            raise error
+        verify_account()
+        reconcile_portfolio()
+
+    def recover_authorization() -> PortfolioStartupState:
+        verify_account(force=True)
+        return reconcile_portfolio()
 
     if not startup_deferred:
         try:
             start()
+        except ExternalServiceAuthorizationError as error:
+            startup_authorization_error = error
         except TransientExternalServiceError:
             pass
     analysis = MarketAnalysisService(
@@ -924,6 +1111,7 @@ def build_live_application(
         schedule,
         startup=start,
         runtime_events=runtime_events,
+        authorization_recovery=recover_authorization,
     )
 
 
@@ -969,9 +1157,9 @@ def build_strategy_live_application(
 
     account_verified = False
 
-    def verify_account() -> None:
+    def verify_account(*, force: bool = False) -> None:
         nonlocal account_verified
-        if account_verified:
+        if account_verified and not force:
             return
         capabilities = broker_query.account_capabilities()
         if capabilities.account_id != account.account_id:
@@ -985,8 +1173,12 @@ def build_strategy_live_application(
         account_verified = True
 
     startup_deferred = False
+    startup_authorization_error: ExternalServiceAuthorizationError | None = None
     try:
         verify_account()
+    except ExternalServiceAuthorizationError as error:
+        startup_authorization_error = error
+        startup_deferred = True
     except TransientExternalServiceError:
         startup_deferred = True
     notifier = notifier or DiscordNotifier(
@@ -1030,11 +1222,8 @@ def build_strategy_live_application(
     )
     startup_complete = False
 
-    def start() -> None:
+    def reconcile_portfolio() -> PortfolioStartupState:
         nonlocal startup_complete
-        if startup_complete:
-            return
-        verify_account()
         startup = portfolio.restore_and_reconcile()
         if startup.state is PortfolioStartupState.QUARANTINED:
             notifier.send(
@@ -1042,16 +1231,35 @@ def build_strategy_live_application(
                 pair=pair,
             )
         if (
-            startup.state is PortfolioStartupState.READY
+            not startup_complete
+            and startup.state is PortfolioStartupState.READY
             and cancel_pending_on_start
             and not dry_run
         ):
             portfolio.cancel_pending_on_start(True)
         startup_complete = True
+        return startup.state
+
+    def start() -> None:
+        nonlocal startup_authorization_error
+        if startup_complete:
+            return
+        if startup_authorization_error is not None:
+            error = startup_authorization_error
+            startup_authorization_error = None
+            raise error
+        verify_account()
+        reconcile_portfolio()
+
+    def recover_authorization() -> PortfolioStartupState:
+        verify_account(force=True)
+        return reconcile_portfolio()
 
     if not startup_deferred:
         try:
             start()
+        except ExternalServiceAuthorizationError as error:
+            startup_authorization_error = error
         except TransientExternalServiceError:
             pass
     return StrategyLiveApplication(
@@ -1066,6 +1274,7 @@ def build_strategy_live_application(
         startup=start,
         max_quote_age=max_quote_age,
         runtime_events=runtime_events,
+        authorization_recovery=recover_authorization,
     )
 
 

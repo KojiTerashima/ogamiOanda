@@ -115,13 +115,30 @@ analytics from existing history after restart.
 
 ## Failure handling
 
-The generic polling loop remains fail-fast. The live runner handles only known
-temporary OANDA read failures (timeouts, connection failures, HTTP 429 and
-5xx), using bounded exponential backoff and `Retry-After` when available.
-Authentication, configuration, validation, and unknown programming errors stop
-the process. Unknown mutation outcomes are reconciled from broker state before
-any later mutation is allowed. Discord delivery failures do not roll back or
-stop trading state transitions.
+The generic polling loop remains fail-fast. The live runner handles known
+temporary OANDA failures (timeouts, connection failures, HTTP 429 and 5xx)
+using bounded exponential backoff and `Retry-After` when available. HTTP 401
+and 403 are converted at the OANDA adapter boundary to a sanitized
+authorization failure containing only the service name, HTTP status, and
+endpoint type. Raw response bodies, account IDs, and tokens are never attached
+to that failure or printed by the live observer.
+
+Both the built-in and trusted-strategy runners enter an authorization pause on
+that failure. While paused they perform no quote request, normal analysis, or
+broker mutation. Authorization is rechecked after 1, 2, 4, 8, 16, 32, and 60
+seconds, then every 60 seconds. A successful check always revalidates account
+identity and the required hedging capability, then runs full portfolio
+`restore_and_reconcile()`. A `READY` result emits a no-order recovery tick
+and normal work resumes on the following tick. `RECONCILING` and
+`QUARANTINED` remain stopped. Observer output uses sanitized `[ERROR]` and
+`[RECOVERED]` records for this path.
+
+Configuration mismatches, validation errors, non-authorization 4xx responses,
+and unknown programming errors still stop the process. If authorization fails
+during submit, cancel, close, or protection amendment, the write-ahead pending
+mutation remains durable and blocks blind resubmission until broker
+reconciliation proves the outcome. Discord delivery failures do not roll back
+or stop trading state transitions.
 
 ## Composition and command line
 
@@ -218,6 +235,13 @@ MT4 association is unknown; the local checkpoint and OANDA order/trade IDs are
 the source of truth. A live environment requires explicit
 `live_trading_enabled: true`, while practice remains the required environment
 for acceptance tests.
+
+An access token is loaded when the process composes its `OandaClient`; changing
+the settings file or shell environment does not update an already running
+process. After rotating a token, stop and manually restart each affected
+process so it receives the new value. Treat that restart as an order-capable
+operation: first inspect the checkpoint, pending-mutation journal, and broker
+pending/open state, and use the normal explicit operational approval gate.
 
 ## Root compatibility boundary
 

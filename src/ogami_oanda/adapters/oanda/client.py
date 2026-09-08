@@ -4,8 +4,10 @@ from typing import Any, Protocol
 
 from oandapyV20 import API
 
-from ogami_oanda.application.errors import TransientExternalServiceError
-
+from ogami_oanda.application.errors import (
+    ExternalServiceAuthorizationError,
+    TransientExternalServiceError,
+)
 
 
 class AccountConfiguration(Protocol):
@@ -24,16 +26,28 @@ class OandaClient:
         return self.account.account_id
 
     def request(self, endpoint: Any) -> dict[str, object]:
+        authorization_error: ExternalServiceAuthorizationError | None = None
         try:
             return self.api.request(endpoint)
         except Exception as error:
-            if _is_transient(error):
+            status_code = _status_code(error)
+            if status_code in {401, 403}:
+                authorization_error = ExternalServiceAuthorizationError(
+                    "oanda",
+                    status_code=status_code,
+                    operation=type(endpoint).__name__,
+                )
+            elif _is_transient(error):
                 raise TransientExternalServiceError(
                     "oanda",
                     str(getattr(error, "msg", None) or error),
                     retry_after_seconds=_retry_after(error),
                 ) from error
-            raise
+            else:
+                raise
+        if authorization_error is None:
+            raise AssertionError("unreachable OANDA authorization classification")
+        raise authorization_error
 
 
 def _status_code(error: Exception) -> int | None:

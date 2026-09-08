@@ -10,6 +10,7 @@ from oandapyV20.endpoints.transactions import TransactionDetails, TransactionsSi
 from oandapyV20.exceptions import V20Error
 
 from ogami_oanda.adapters.oanda.client import OandaClient
+from ogami_oanda.application import errors as application_errors
 from ogami_oanda.adapters.oanda.execution import OandaExecutionAdapter
 from ogami_oanda.adapters.oanda.market_data import OandaMarketDataAdapter
 from ogami_oanda.adapters.oanda.query import OandaQueryAdapter
@@ -20,7 +21,9 @@ from ogami_oanda.application.ports.broker import (
     OrderSubmissionState,
 )
 from ogami_oanda.application.ports.market_data import MarketDataPort
-from ogami_oanda.application.errors import TransientExternalServiceError
+from ogami_oanda.application.errors import (
+    TransientExternalServiceError,
+)
 from ogami_oanda.domain.orders.models import BrokerOrderRequest, OrderType
 
 
@@ -228,7 +231,49 @@ def test_oanda_client_translates_only_known_transient_failures(error, retry_afte
 
 
 @pytest.mark.contract
-def test_oanda_client_does_not_hide_permanent_or_programming_errors():
+@pytest.mark.parametrize("status_code", [401, 403])
+def test_oanda_client_sanitizes_authorization_failures(status_code):
+    class _FailingApi:
+        def __init__(self, error):
+            self.error = error
+
+        def request(self, endpoint):
+            del endpoint
+            raise self.error
+
+    account = SimpleNamespace(
+        account_id="account-1",
+        access_token="secret",
+        environment="practice",
+    )
+    payload = (
+        '{"errorMessage":"Insufficient authorization",'
+        '"accountID":"private-account","token":"private-token"}'
+    )
+
+    error_type = getattr(application_errors, "ExternalServiceAuthorizationError", None)
+    assert error_type is not None
+    with pytest.raises(error_type) as error_info:
+        OandaClient(account, api=_FailingApi(V20Error(status_code, payload))).request(
+            PricingInfo(
+                accountID="account-1",
+                params={"instruments": "USD_JPY"},
+            )
+        )
+
+    error = error_info.value
+    assert error.service == "oanda"
+    assert error.status_code == status_code
+    assert error.operation == "PricingInfo"
+    assert str(error) == "oanda authorization failed"
+    assert "private-account" not in str(error)
+    assert "private-token" not in str(error)
+    assert error.__cause__ is None
+    assert error.__context__ is None
+
+
+@pytest.mark.contract
+def test_oanda_client_does_not_hide_other_permanent_or_programming_errors():
     class _FailingApi:
         def __init__(self, error):
             self.error = error
@@ -246,7 +291,7 @@ def test_oanda_client_does_not_hide_permanent_or_programming_errors():
     with pytest.raises(V20Error):
         OandaClient(
             account,
-            api=_FailingApi(V20Error(401, "unauthorized")),
+            api=_FailingApi(V20Error(400, "invalid request")),
         ).request(SimpleNamespace())
     with pytest.raises(ValueError, match="programming defect"):
         OandaClient(
@@ -455,6 +500,40 @@ def test_execution_adapter_marks_transient_mutation_failure_as_unknown():
     assert result.state is MutationState.UNKNOWN
     assert result.accepted is False
     assert result.message == "SERVICE_UNAVAILABLE: Retry later"
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    "operation",
+    [
+        lambda adapter: adapter.submit(
+            BrokerOrderRequest(
+                "USD_JPY",
+                1,
+                OrderType.MARKET,
+                150.0,
+                150.2,
+                149.8,
+            )
+        ),
+        lambda adapter: adapter.cancel_order("order-1"),
+        lambda adapter: adapter.close_trade("trade-1"),
+        lambda adapter: adapter.amend_protection("trade-1", None, 149.8),
+    ],
+)
+def test_execution_adapter_propagates_authorization_failures(operation):
+    error_type = getattr(application_errors, "ExternalServiceAuthorizationError", None)
+    assert error_type is not None
+    error = error_type(
+        "oanda",
+        status_code=401,
+        operation="broker mutation",
+    )
+
+    with pytest.raises(error_type) as error_info:
+        operation(OandaExecutionAdapter(_MutationClient([error])))
+
+    assert error_info.value is error
 
 
 @pytest.mark.contract
