@@ -32,7 +32,7 @@ The implementation covers:
 
 ### Separate Codex and Copilot trees with manifest synchronization
 
-Selected. Workspace-owned Codex assets live under `.agents`; workspace-owned Copilot assets live under `.github`. A manifest lists each shared source and repository destination. This is portable, explicit, and allows each harness to receive only relevant instructions.
+Selected. Workspace-only Codex assets live under `.agents`; repository Codex assets live in the owning repository's `.agents`; workspace-owned Copilot assets live under `.github`. A manifest lists each shared Copilot source and repository destination. This is portable, explicit, and allows each harness to receive only relevant instructions without exposing two verification skills to the same Codex session.
 
 ### Generate both formats from a neutral template tree
 
@@ -162,7 +162,7 @@ The shared implementation agent keeps only role-specific behavior. Repository sa
 
 ## Synchronization Contract
 
-`agent-customizations.manifest` is a line-oriented UTF-8 file. Each non-empty, non-comment line has three tab-separated fields:
+`agent-customizations.manifest` is a line-oriented UTF-8 file for shared Copilot assets. Codex skills are deliberately excluded: the workspace skill is workspace-only, while the two `ogamiOanda` skills are repository-owned and versioned directly. Each non-empty, non-comment manifest line has three tab-separated fields:
 
 ```text
 repository\tsource-relative-path\tdestination-relative-path
@@ -185,7 +185,7 @@ The synchronization script:
 7. reports content drift, missing files, stale generated files, and generated-manifest drift in `--check` mode;
 8. supports `--repo ogamiOanda` so this change can be applied without modifying `BFScalping`.
 
-The initial manifest preserves the existing BFScalping mappings without synchronizing that repository during this implementation. `ogamiOanda` receives both shared Copilot assets and the selected Codex assets.
+The initial manifest preserves the existing BFScalping Copilot mappings without synchronizing that repository during this implementation. `ogamiOanda` receives the shared Copilot assets through the manifest; its selected Codex skills are added directly under `.agents/skills`.
 
 ## Failure Handling
 
@@ -200,11 +200,12 @@ The initial manifest preserves the existing BFScalping mappings without synchron
 
 A deterministic shell test creates temporary workspace and repository fixtures, invokes the synchronization script against an overridable workspace root, and verifies:
 
-- correct copies for both `.agents` and `.github` destinations;
+- correct copies for manifest-listed `.github` destinations;
 - `--check` success when synchronized;
 - drift, missing source, malformed row, duplicate destination, unknown repository, and traversal rejection;
 - stale generated-file detection and removal;
 - preservation of repository-owned files;
+- preservation of repository-owned `.agents` skills;
 - `--repo` isolation.
 
 Static checks also verify:
