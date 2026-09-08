@@ -1,8 +1,6 @@
 ---
 agent: 'agent'
-description: 'Start implementation from the repository plan and validate each step'
+description: 'Implement an approved repository plan to completion'
 ---
 
-# Start Implementation
-
-Read the nearest `AGENTS.md`, repository instructions, and the relevant plan. Implement the smallest complete change, validating each step before moving to the next. Preserve unrelated user changes, avoid secrets and destructive commands, and finish with the relevant tests plus a concise summary of changed files and verification.
+Implement the approved plan to completion. Work through coherent change units, inspect the result, fix failures caused by the work, and run verification proportional to the affected behavior. Continue without routine review stops unless the plan identifies a checkpoint or the next decision changes scope, requires unsafe inference, or has an irreversible or external effect. Preserve unrelated changes and finish with the changed files and verification outcomes.

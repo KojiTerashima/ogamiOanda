@@ -1,13 +1,14 @@
 ---
 name: workspace-verification
-description: "Use when verifying implementation changes in BFScalping or ogamiOanda: inspect the diff, run focused tests, and check configuration safety."
+description: Use when verifying work from the shared workspace before a repository-specific verification route has been selected.
 ---
 
 # Workspace Verification
 
-1. Read the nearest `AGENTS.md` and identify the touched behavior.
-2. Inspect `git diff --check` and the changed-file list for accidental or sensitive content.
-3. Run the narrowest relevant test or type/lint command first.
-4. For trading or migration changes, include rejection, precision, timezone, and offline-boundary cases as applicable.
-5. Run broader repository checks only when the focused check passes and the change scope warrants it.
-6. Report commands and outcomes without printing secrets or full private configuration.
+Route verification to the repository that owns the requested or changed paths.
+
+1. Select the owning repository from the task scope and changed paths.
+2. Read its root `AGENTS.md` and the verification documentation it routes to.
+3. Inspect that repository's status and relevant diff.
+4. Run the narrowest relevant offline check from its documented verification route.
+5. Report the check outcomes and any unverified boundaries with the final diff and status summary.

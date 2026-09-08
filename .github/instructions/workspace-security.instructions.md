@@ -10,3 +10,5 @@ applyTo: "**/*.{py,yaml,yml,toml,json,md,env,example}"
 - Do not log raw configuration, tokens, order credentials, or external error payloads that may contain secrets.
 - Keep tests offline and use fake values such as `DUMMY_TOKEN` and `example-account`.
 - Treat live-trading flags and endpoint changes as requiring explicit review and focused verification.
+- Validate required configuration at startup or boundary entry points with clear, non-sensitive error messages.
+- Preserve useful context from external API failures while sanitizing credentials and sensitive payloads.
