@@ -1,28 +1,20 @@
 ---
 name: pytest-coverage
-description: 'Run pytest tests with coverage, discover lines missing coverage, and increase coverage to 100%.'
+description: "Use only for an explicit pytest coverage request or user-supplied coverage target. Measure the requested scope and add tests for observable behavior without inventing a 100 percent goal."
 ---
 
-The goal is for the tests to cover all lines of code.
+# Pytest Coverage
 
-Generate a coverage report with:
+1. Use the requested test, module, package, or percentage target. If no percentage was supplied, report the measured result without inferring one.
+2. Check `pytest --help` for `--cov` support before selecting a coverage command.
+3. If `--cov` is unavailable, report that `pytest-cov` is missing. Do not install it or edit `pyproject.toml`.
+4. Run the narrowest command that measures the requested scope, for example:
 
-pytest --cov --cov-report=annotate:cov_annotate
+   ```bash
+   pytest tests/test_target.py --cov=target_module --cov-report=term-missing
+   ```
 
-If you are checking for coverage of a specific module, you can specify it like this:
+5. Inspect missing lines, then add deterministic tests only where they exercise observable behavior or a relevant risk boundary.
+6. Re-run the same scoped command and report the result against the user's target.
 
-pytest --cov=your_module_name --cov-report=annotate:cov_annotate
-
-You can also specify specific tests to run, for example:
-
-pytest tests/test_your_module.py --cov=your_module_name --cov-report=annotate:cov_annotate
-
-Open the cov_annotate directory to view the annotated source code.
-There will be one file per source file. If a file has 100% source coverage, it means all lines are covered by tests, so you do not need to open the file.
-
-For each file that has less than 100% test coverage, find the matching file in cov_annotate and review the file.
-
-If a line starts with a ! (exclamation mark), it means that the line is not covered by tests.
-Add tests to cover the missing lines.
-
-Keep running the tests and improving coverage until all lines are covered.
+Do not broaden the suite or coverage target beyond the explicit request.
