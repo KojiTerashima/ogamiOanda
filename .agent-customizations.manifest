@@ -1,0 +1,7 @@
+.github/agents/workspace-implementation.agent.md
+.github/instructions/workspace-code-quality.instructions.md
+.github/instructions/workspace-markdown.instructions.md
+.github/instructions/workspace-security.instructions.md
+.github/instructions/workspace-tests.instructions.md
+.github/prompts/workspace-start-implementation.prompt.md
+.github/skills/workspace-verification/SKILL.md
