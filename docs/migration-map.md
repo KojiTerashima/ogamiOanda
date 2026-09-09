@@ -13,6 +13,7 @@ AUD/USD launchers all enter the same `src` composition.
   excluded diagnostic/experiment, but is not reachable from the production
   live call graph.
 - `PENDING`: production live behavior still depends on the old implementation.
+- `ARCHIVED`: no retained production/test dependency was found; historical contents are stored in `archive/retired/`.
 
 ## Production live surfaces
 
@@ -53,9 +54,10 @@ removed to reproduce a historical defect.
 | --- | --- | --- | --- |
 | `fLineAnalysis._LegacyMainAnalysis`, `_LegacyLineOrderCoordinator`, and historical line helpers | RETAINED_LEGACY | Independent behavior oracle for ordered line/candidate comparisons. | Remove after captured fixtures and at least one released live version no longer require root parity. |
 | `classPosition.order_information` direct lifecycle methods | RETAINED_LEGACY | Characterization and excluded inspection/backtest scripts still exercise the old mutable object. Normal `position_control` construction never creates it; its reporting projection is a facade as listed above. | Migrate direct diagnostic callers to `ManagedPosition` plus reporting/query views. |
-| `classOanda.Oanda` | RETAINED_LEGACY | `classInspection.py`, `test_loop.py`, and manual diagnostic scripts are outside this migration's live scope. The new live composition never imports it. | Port or retire those excluded callers, then replace the root name with an adapter-backed facade. |
+| `classOanda.Oanda` | RETAINED_LEGACY | `classInspection.py` and characterization tests still depend on it. Unreferenced manual diagnostics, including `test_loop.py`, are now retired. The new live composition never imports it. | Port or retire those excluded callers, then replace the root name with an adapter-backed facade. |
 | `send_notice.line_send` | RETAINED_LEGACY | Preserves historical routing and duplicate suppression for root scripts. | Root scripts must accept `Notifier` before removal. |
-| `position_control_for_test`, `archive/`, `ForTestOandaClass.py`, root `test_*.py` | RETAINED_LEGACY | Explicitly excluded experiments or diagnostics. | Promote only with an offline contract and no production dependency on test code. |
+| `archive/classPositionForTest.py` (`position_control_for_test`) | RETAINED_LEGACY | Still imported by `classPositionControl.py`; retain this active compatibility dependency. | Remove only after root compatibility callers and characterization contracts no longer need it. |
+| Unreferenced manual tools, old `archive/practice/`, and root `test_*.py` | ARCHIVED | Compressed under `archive/retired/`; original paths and hashes are recorded. | See [archive policy](archive-policy.md); restore only for a specific historical task. |
 
 The retained rows are not hidden production dependencies: the architecture
 gate forbids every `src` module from importing a root module, and entrypoint

@@ -1,0 +1,6 @@
+# Historical bundles and metadata are opt-in, even though Git tracks them.
+/archive/retired/
+
+# .gitignore's unanchored runtime/ also matches production infrastructure.
+!/src/ogami_oanda/infrastructure/runtime/
+!/src/ogami_oanda/infrastructure/runtime/*.py

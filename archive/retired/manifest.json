@@ -1,0 +1,366 @@
+{
+  "schema_version": 1,
+  "archived_on": "2026-09-09",
+  "source_commit": "b546ca5ee048b66c76152fabb8ca5da2901058a2",
+  "policy": "../../docs/archive-policy.md",
+  "bundles": [
+    {
+      "file": "legacy-programs-2026-09-09.tar.gz",
+      "sha256": "016fcc30b8104b544df914083668c1cc9d166da002b290bb857ecf777a923530",
+      "files": [
+        {
+          "original_path": "ForTestOandaClass.py",
+          "member_path": "ForTestOandaClass.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "fbc404b640122c821223e54b451b9ba0653250b5659f41c20105e978144e1f7e",
+          "sha256": "fbc404b640122c821223e54b451b9ba0653250b5659f41c20105e978144e1f7e",
+          "size": 1159,
+          "mode": 436,
+          "redactions": {}
+        },
+        {
+          "original_path": "Ref_file.txt",
+          "member_path": "Ref_file.txt",
+          "reason": "retired-data-reference",
+          "original_sha256": "6cb8970a5c5190effd293f465444dcc9ef92baa51e6b759083cfd95fb33978d1",
+          "sha256": "6cb8970a5c5190effd293f465444dcc9ef92baa51e6b759083cfd95fb33978d1",
+          "size": 71,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "SAMPLE_tokens.py",
+          "member_path": "SAMPLE_tokens.py",
+          "reason": "retired-template",
+          "original_sha256": "ba0265d07b628ea45d7cc5d722b4fd876eefbd5b049838a2c056d85fc93dd271",
+          "sha256": "7c388dffec4e67f84b647870b32b3c3d7d730234b98d2847829e6b024f203479",
+          "size": 5281,
+          "mode": 420,
+          "redactions": {
+            "private_webhook": 2
+          }
+        },
+        {
+          "original_path": "archive/main_data_analysis.py",
+          "member_path": "archive/main_data_analysis.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "e7447d21f1c66a71547a9b297c9f28b8f6ccabe79526b1af9b1afc68379db490",
+          "sha256": "e7447d21f1c66a71547a9b297c9f28b8f6ccabe79526b1af9b1afc68379db490",
+          "size": 2816,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/ML.py",
+          "member_path": "archive/practice/ML.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "f765e2abeb366cf5ab51eab19aa343ef9805ab78eb4b52b944182b0800a6bef2",
+          "sha256": "f765e2abeb366cf5ab51eab19aa343ef9805ab78eb4b52b944182b0800a6bef2",
+          "size": 2518,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice.py",
+          "member_path": "archive/practice/Practice.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "2a7ad5d948a65103f16b14ca5e3ab1eaa3deb683e87f8b5acbaf091cf286372c",
+          "sha256": "2a7ad5d948a65103f16b14ca5e3ab1eaa3deb683e87f8b5acbaf091cf286372c",
+          "size": 20286,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice2.py",
+          "member_path": "archive/practice/Practice2.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "3387db10ec4739692b955dd849006c1519dcf33a3c2be95717beac2ecac0fb7d",
+          "sha256": "3387db10ec4739692b955dd849006c1519dcf33a3c2be95717beac2ecac0fb7d",
+          "size": 1785,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice_1127.py",
+          "member_path": "archive/practice/Practice_1127.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "a9d936d4108da40b0d7ce10cdbaeab7c61da73fbf0d7c6e2cb4559539a998c45",
+          "sha256": "a9d936d4108da40b0d7ce10cdbaeab7c61da73fbf0d7c6e2cb4559539a998c45",
+          "size": 15792,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice_inspection.py",
+          "member_path": "archive/practice/Practice_inspection.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "1e6399e8b44f074fb859170d01a347f35dc09fa03ae1b797c81c1541aab3219f",
+          "sha256": "1e6399e8b44f074fb859170d01a347f35dc09fa03ae1b797c81c1541aab3219f",
+          "size": 30758,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice_inspection2.py",
+          "member_path": "archive/practice/Practice_inspection2.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "8c504545013611c3bf6c4195091900cecd809809c5fe08f2d72bae376f701593",
+          "sha256": "8c504545013611c3bf6c4195091900cecd809809c5fe08f2d72bae376f701593",
+          "size": 55303,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice_oanda_class.py",
+          "member_path": "archive/practice/Practice_oanda_class.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "4951e9b3e335dd44c78f4e76b66b1ed91156d387badbb653ed44da530b7a2f29",
+          "sha256": "4951e9b3e335dd44c78f4e76b66b1ed91156d387badbb653ed44da530b7a2f29",
+          "size": 8820,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice_oanda_class_simple.py",
+          "member_path": "archive/practice/Practice_oanda_class_simple.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "39216d6cfb3f074ef30ed25e2a19f2e06a75a1b489c3a99db901e122ef66ecbe",
+          "sha256": "39216d6cfb3f074ef30ed25e2a19f2e06a75a1b489c3a99db901e122ef66ecbe",
+          "size": 2348,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/Practice_python.py",
+          "member_path": "archive/practice/Practice_python.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "7928888c9f319398f25e9d990cac1869d74670de11af7466367a014ab83eee81",
+          "sha256": "fdd11e91bc5369c1b0328816c33bc85799bf06ddf99ccf08e965caa539983295",
+          "size": 694,
+          "mode": 420,
+          "redactions": {
+            "access_token": 1
+          }
+        },
+        {
+          "original_path": "archive/practice/classPosition2.py",
+          "member_path": "archive/practice/classPosition2.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "b00fa7fc09f0e4b3f5270cd520a817dc2907cf4f3d9d8c4e18472e076e7be07c",
+          "sha256": "b00fa7fc09f0e4b3f5270cd520a817dc2907cf4f3d9d8c4e18472e076e7be07c",
+          "size": 59100,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/fInspectionMain523.py",
+          "member_path": "archive/practice/fInspectionMain523.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "3c901a35d7187d5ffe437af470fd401f9542800143bce3b12e9bea3ed4c83018",
+          "sha256": "3c901a35d7187d5ffe437af470fd401f9542800143bce3b12e9bea3ed4c83018",
+          "size": 14657,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/main_Prac.py",
+          "member_path": "archive/practice/main_Prac.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "f523454e2d27074f2c11dab2e7211c7febfc89dd5447db1a4681fe5e1baebc32",
+          "sha256": "f523454e2d27074f2c11dab2e7211c7febfc89dd5447db1a4681fe5e1baebc32",
+          "size": 8182,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/main_functions_Prac.py",
+          "member_path": "archive/practice/main_functions_Prac.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "52aefdeafe2596acddde36ced6ebf6a8fafbcbde77c97b176c9eee5caf30b88c",
+          "sha256": "52aefdeafe2596acddde36ced6ebf6a8fafbcbde77c97b176c9eee5caf30b88c",
+          "size": 345,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "archive/practice/oanda_class_transaction.py",
+          "member_path": "archive/practice/oanda_class_transaction.py",
+          "reason": "previously-archived-experiment",
+          "original_sha256": "7b3f929893fc45ee0d84d58eb068aaa6ed001a147be43c6a28785eb43dff49cb",
+          "sha256": "7b3f929893fc45ee0d84d58eb068aaa6ed001a147be43c6a28785eb43dff49cb",
+          "size": 7603,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "fFlagInspection.py",
+          "member_path": "fFlagInspection.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "c90bfa4eafeacf7ea81145f8adbec24c8ef2fd9bc6e48c30efa2d0ab64711442",
+          "sha256": "c90bfa4eafeacf7ea81145f8adbec24c8ef2fd9bc6e48c30efa2d0ab64711442",
+          "size": 93178,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "fPredictTurn.py",
+          "member_path": "fPredictTurn.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "8e13978223b7d8610fa85832b65433827a8b09fdab1ce82688260e24325a27f9",
+          "sha256": "8e13978223b7d8610fa85832b65433827a8b09fdab1ce82688260e24325a27f9",
+          "size": 17848,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "test_eurusd_line_summary.py",
+          "member_path": "test_eurusd_line_summary.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "0414ef70c3285b40e918d5ac69c0015dfbbb685967421f89b3b6e7588d8d46f4",
+          "sha256": "0414ef70c3285b40e918d5ac69c0015dfbbb685967421f89b3b6e7588d8d46f4",
+          "size": 13162,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "test_long_inspection.py",
+          "member_path": "test_long_inspection.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "d230884b379b6c8860f74e511d8f0987de56709f29e559b8fd6c5b1e274a244d",
+          "sha256": "d230884b379b6c8860f74e511d8f0987de56709f29e559b8fd6c5b1e274a244d",
+          "size": 3440,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "test_long_inspection_aud.py",
+          "member_path": "test_long_inspection_aud.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "101b027264718e34093c86d4b3e8f290bbb574681843967e6b960e62d9eef19d",
+          "sha256": "101b027264718e34093c86d4b3e8f290bbb574681843967e6b960e62d9eef19d",
+          "size": 1220,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "test_long_inspection_euro.py",
+          "member_path": "test_long_inspection_euro.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "532d7273f758f1873564bfbd83b5e28bbe550baa84e8d1152cc07f9ea81f50c1",
+          "sha256": "532d7273f758f1873564bfbd83b5e28bbe550baa84e8d1152cc07f9ea81f50c1",
+          "size": 1220,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "test_loop.py",
+          "member_path": "test_loop.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "77a5639f5fe2e8ddc931c31080a5b7b81211b64769d7155002698d129482e535",
+          "sha256": "77a5639f5fe2e8ddc931c31080a5b7b81211b64769d7155002698d129482e535",
+          "size": 5329,
+          "mode": 436,
+          "redactions": {}
+        },
+        {
+          "original_path": "test_one_point.py",
+          "member_path": "test_one_point.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "5967400c517f379807dd0fe4d2217d17483e72218e4e2288e63e7129c3da3ea7",
+          "sha256": "5967400c517f379807dd0fe4d2217d17483e72218e4e2288e63e7129c3da3ea7",
+          "size": 5161,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "tmp_rank_line_result.py",
+          "member_path": "tmp_rank_line_result.py",
+          "reason": "unreferenced-manual-tool",
+          "original_sha256": "4153f4321df643eae10fe1d4ef50b6ff1a52fa031241c4de213bede157ed39cd",
+          "sha256": "4153f4321df643eae10fe1d4ef50b6ff1a52fa031241c4de213bede157ed39cd",
+          "size": 7198,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "トレードJson.txt",
+          "member_path": "トレードJson.txt",
+          "reason": "retired-data-reference",
+          "original_sha256": "52f2a3a90669a14de8d59d4e6c8bb9e1d46d8876dc969b081a37b9b106c4317b",
+          "sha256": "00b3a3c6d4be313c1a680cef4af1139f9ba1bab5ea0c89b0e22721d9f43cfa61",
+          "size": 7284,
+          "mode": 436,
+          "redactions": {
+            "account_id": 1
+          }
+        }
+      ]
+    },
+    {
+      "file": "historical-docs-2026-09-09.tar.gz",
+      "sha256": "63ad164ee60dd749b9a72c94f2f3c8bfcaadf637ea0eb0991893a4ab5fc4f74a",
+      "files": [
+        {
+          "original_path": "docs/plan-completion-acceptance-record-2026-08-24.md",
+          "member_path": "docs/plan-completion-acceptance-record-2026-08-24.md",
+          "reason": "historical-document",
+          "original_sha256": "f537d94b7894e95bbcad657e9e46503dc46f8c8842d9a9cb34d0c060390e0911",
+          "sha256": "f537d94b7894e95bbcad657e9e46503dc46f8c8842d9a9cb34d0c060390e0911",
+          "size": 5290,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "docs/plan-completion-remaining-work-2026-08-24.md",
+          "member_path": "docs/plan-completion-remaining-work-2026-08-24.md",
+          "reason": "historical-document",
+          "original_sha256": "c137e6391c7cda0d62aef277412f994e62dcf77d86821c351b575217b216f449",
+          "sha256": "c137e6391c7cda0d62aef277412f994e62dcf77d86821c351b575217b216f449",
+          "size": 17046,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "docs/superpowers/plans/2026-08-24-eff331c-differential-verification-handoff.md",
+          "member_path": "docs/superpowers/plans/2026-08-24-eff331c-differential-verification-handoff.md",
+          "reason": "historical-document",
+          "original_sha256": "c57c998cdc3a35109be7bac26ed491c3cf3891e90a8d3bcbcf56e86b7010f14d",
+          "sha256": "c57c998cdc3a35109be7bac26ed491c3cf3891e90a8d3bcbcf56e86b7010f14d",
+          "size": 21173,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "docs/superpowers/plans/2026-08-27-matcha-strategy-plugin.md",
+          "member_path": "docs/superpowers/plans/2026-08-27-matcha-strategy-plugin.md",
+          "reason": "historical-document",
+          "original_sha256": "048670f6bf44dd06c413b622bea9fac750e9ac4b392515cc767d22555086ab7e",
+          "sha256": "048670f6bf44dd06c413b622bea9fac750e9ac4b392515cc767d22555086ab7e",
+          "size": 10334,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "docs/superpowers/plans/2026-09-08-astra-agent-customization.md",
+          "member_path": "docs/superpowers/plans/2026-09-08-astra-agent-customization.md",
+          "reason": "historical-document",
+          "original_sha256": "0df58cfbace694132ca11e4e76eb8c864d92464450b4847106eb8306a657b383",
+          "sha256": "0df58cfbace694132ca11e4e76eb8c864d92464450b4847106eb8306a657b383",
+          "size": 23173,
+          "mode": 420,
+          "redactions": {}
+        },
+        {
+          "original_path": "docs/superpowers/specs/2026-09-08-astra-agent-customization-design.md",
+          "member_path": "docs/superpowers/specs/2026-09-08-astra-agent-customization-design.md",
+          "reason": "historical-document",
+          "original_sha256": "c2bc87cda24d20f84faaedb06d5731e1bacd6286f083ea88ece99ec9ca489074",
+          "sha256": "c2bc87cda24d20f84faaedb06d5731e1bacd6286f083ea88ece99ec9ca489074",
+          "size": 13413,
+          "mode": 420,
+          "redactions": {}
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,16 @@
 # Offline Test Baseline
 
+The retained `classOanda.py` characterization dependency imports `pytz`.
+It is not currently declared in `pyproject.toml`; install it explicitly for
+legacy compatibility tests if the environment does not already provide it:
+
+```sh
+.venv/bin/python -m pip install pytz
+```
+
+This dependency setup may require package-download access. Do not substitute a
+fake timezone implementation just to make the compatibility tests pass.
+
 Run the normal migration gate with:
 
 ```sh
@@ -19,8 +30,10 @@ plan/OANDA payload, reversed candle order, line session, Position reset, and
 Inspection DataFrame-boundary contracts. Extend snapshots with sanitized
 captured candles before changing an affected behavior.
 
-Legacy root modules contain pre-existing lint violations. Until MIG-12 isolates
-them, lint tests in MIG-00 and the new source tree plus tests from MIG-01.
+Legacy root modules still required by characterization contain pre-existing
+lint violations; keep the lint scope at `src tests`. Unreferenced manual
+root `test_*.py` scripts are archived under `archive/retired/` and are not
+pytest tests. See [the archive policy](../docs/archive-policy.md).
 Restore the repository-wide lint gate when the legacy facades are removed.
 
 Credentialed read-only OANDA checks require both the integration marker and an
@@ -36,3 +49,13 @@ Real practice mutations are not pytest tests. Use only the isolated
 `ogami-oanda-practice-acceptance` command documented in
 `docs/architecture-migration.md`; it requires four explicit safety gates and
 must finish with no owned pending order or open trade.
+
+Documentation-only validation uses the standard library and does not import the
+trading program:
+
+```sh
+python3 scripts/check_documentation.py
+```
+
+Add `--archives` only when verifying the retired bundles: it checks member
+paths, modes, and hashes without extracting or executing old code.
