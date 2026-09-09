@@ -14,7 +14,7 @@ from ogami_oanda.domain.analysis.peaks import (
 from ogami_oanda.domain.analysis.peaks import (
     judge_peak_is_belong_peak_group,
 )
-from ogami_oanda.strategy.line import (
+from ogami_oanda.strategy.original.line import (
     LineCandidateCoordinator,
     LineStrategyProfileUsdJpy,
     UsdJpyM5BreakoutLineOrderStrategy,

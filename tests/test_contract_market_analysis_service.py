@@ -14,8 +14,8 @@ from ogami_oanda.application.services.portfolio import ActiveOrder, Portfolio
 from ogami_oanda.domain.analysis.peaks import PeaksClass
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import Direction
-from ogami_oanda.strategy.line import LineCandidateBuilder
-from ogami_oanda.strategy.line.builder import (
+from ogami_oanda.strategy.original.line import LineCandidateBuilder
+from ogami_oanda.strategy.original.line.builder import (
     CandidateBuildResult,
     CandidateDiagnostics,
 )

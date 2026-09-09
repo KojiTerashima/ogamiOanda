@@ -18,7 +18,7 @@ from ogami_oanda.application.services.practice_order_acceptance_service import (
 from ogami_oanda.infrastructure.config.loader import load_settings
 from ogami_oanda.infrastructure.config.models import AppSettings
 from ogami_oanda.infrastructure.runtime import SystemClock, system_sleep
-from ogami_oanda.strategy.loader import StrategyPluginError, load_strategy
+from ogami_oanda.strategy.shared.loader import StrategyPluginError, load_strategy
 from ogami_oanda.domain.market.currency_pair import currency_pair
 
 

@@ -59,6 +59,7 @@ Git管理外の `config/settings.yaml` を用意します。`${変数名}` は�
 | --- | --- |
 | `--config PATH` / `--settings PATH` | 設定ファイル。smoke以外で必須 |
 | `--account NAME` | 接続設定名。既定 `primary` |
+| `--strategy {original,matcha}` | 起動する戦略。省略時original。明示Python/YAMLとの併用不可 |
 | `--pair PAIR` | `USD_JPY`, `EUR_USD`, `AUD_USD`。未指定時は構築処理の設定に従う |
 | `--dry-run` | 分析を行い、発注・取消・決済・保護変更・起動取消を抑止する。通常は外部読み取りあり |
 | `--once` | 1 tickで終了。単独指定では発注を抑止しない |
@@ -75,15 +76,33 @@ Git管理外の `config/settings.yaml` を用意します。`${変数名}` は�
 起動取消の挙動を引き継ぐため、新規の操作手順は引数が明示できるCLIを使います。
 旧ルートの手動検証スクリプトは退役済みです。現在のpytestは `tests/` を収集します。
 
-## Matcha戦略
+## 戦略の選択と継続ループ
+
+[戦略ディレクトリの一覧](../src/ogami_oanda/strategy/README.md) に、起動名と専用/共用の所有区分をまとめています。
+`original/` が従来のライン戦略、`matcha/` がMatcha、`shared/` が共用です。
+ループはentrypointが担当し、以下のどちらも `--once` を付けなければ継続します。
+通常dry-runなのでOANDAへの読み取り通信を伴います。
+
+```sh
+.venv/bin/ogami-oanda-live --strategy original --config config/settings.yaml --account practice --pair USD_JPY --dry-run
+.venv/bin/ogami-oanda-live --strategy matcha --config config/settings.yaml --account practice --pair USD_JPY --dry-run
+```
+
+`--strategy` 省略時はoriginal。sharedは起動対象ではありません。
+名前指定のMatchaはインストール先から本体/YAMLを解決するので、作業ディレクトリに依存しません。
+`--strategy matcha` とoffline-smokeは併用できません。
+
+## Matcha戦略（明示パス指定）
 
 外部読み取りを許可して同梱戦略を1回評価する例:
 
 ```sh
-.venv/bin/ogami-oanda-live   --config config/settings.yaml --account practice --pair USD_JPY   --strategy-py src/ogami_oanda/strategy/matcha_oanda.py   --strategy-yaml src/ogami_oanda/strategy/matcha_param2019_oanda.yaml   --dry-run --once
+.venv/bin/ogami-oanda-live   --config config/settings.yaml --account practice --pair USD_JPY   --strategy-py src/ogami_oanda/strategy/matcha/strategy.py   --strategy-yaml src/ogami_oanda/strategy/matcha/parameters.yaml   --dry-run --once
 ```
 
 両ファイルとも `src/ogami_oanda/strategy/` 内の実ファイルに解決される必要があります。
+明示パス指定と `--strategy` は併用しません。旧 `strategy/matcha_oanda.py` と
+`strategy/matcha_param2019_oanda.yaml` のファイルパスは、新しい `matcha/` 内のパスへ更新してください。
 Pythonモジュールは実行されるため信頼済みコードを使用します。
 `STRATEGY_API_VERSION = 1`、`create_strategy(config)`、
 `decide(input)` / `dump_state()` / `load_state(state)` が契約です。

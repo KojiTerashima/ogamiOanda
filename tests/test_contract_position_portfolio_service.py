@@ -35,7 +35,7 @@ from ogami_oanda.domain.positions.models import (
     TradeState,
 )
 from ogami_oanda.domain.positions.managed_position import ManagedPosition
-from ogami_oanda.strategy.contracts import StrategyCommand, StrategyCommandAction
+from ogami_oanda.strategy.shared.contracts import StrategyCommand, StrategyCommandAction
 from ogami_oanda.infrastructure.config.models import TradingSettings
 from tests.fakes import (
     FakeBroker,

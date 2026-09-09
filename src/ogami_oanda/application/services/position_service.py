@@ -25,7 +25,7 @@ from ogami_oanda.domain.positions.models import (
     PositionSnapshot,
     SubmissionPhase,
 )
-from ogami_oanda.strategy.position_management import (
+from ogami_oanda.strategy.shared.position_management import (
     EntryAction,
     EntryConfirmationPolicy,
     EntryConfirmationState,

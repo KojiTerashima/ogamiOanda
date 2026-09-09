@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from ogami_oanda.domain.market.currency_pair import currency_pair
-from ogami_oanda.strategy.position_sizing import PositionSizingPolicy
+from ogami_oanda.strategy.original.position_sizing import PositionSizingPolicy
 
 from .aud_usd import LineStrategyProfileAudUsd
 from .coordinator import LineCandidateCoordinator

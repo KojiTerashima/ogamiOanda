@@ -19,7 +19,7 @@ from ogami_oanda.domain.orders.models import (
 )
 
 if TYPE_CHECKING:
-    from ogami_oanda.strategy.line.builder import CandidateDiagnostics
+    from ogami_oanda.strategy.original.line.builder import CandidateDiagnostics
 
 CandidateBuilder = Callable[[Mapping[str, object], float], list[dict]]
 CandidateContextBuilder = Callable[[str, Mapping[str, pd.DataFrame], Mapping[str, PeaksClass], float, str], Mapping[str, object]]

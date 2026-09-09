@@ -36,9 +36,11 @@
 | `domain/market/` | 通貨ペアの桁・pips換算、ローソク足のスキーマ | [domain](reference/domain.md) |
 | `domain/analysis/` | 指標・ピーク・ライン・値幅の純粋計算 | [domain](reference/domain.md) |
 | `domain/orders/` / `domain/positions/` | 注文意図・確定計画・管理状態・イベントの型 | [domain](reference/domain.md) |
-| `strategy/line/` | 通貨ペア別ライン候補の生成・選択・保護幅・期限判断 | [strategy](reference/strategy.md) |
-| `strategy/position_management/` | watching、決済、SL更新、連動・ヘッジの判断 | [strategy](reference/strategy.md) |
-| `strategy/` | 数量計算、戦略プラグイン契約・読込、Matcha戦略と同梱YAML | [strategy](reference/strategy.md) |
+| `strategy/original/line/` | 通貨ペア別ライン候補の生成・選択・保護幅・期限判断 | [strategy](reference/strategy.md) |
+| `strategy/shared/position_management/` | watching、決済、SL更新、連動・ヘッジの判断 | [strategy](reference/strategy.md) |
+| `strategy/original/` | 従来のライン戦略と専用数量計算。起動名original | [戦略一覧](../src/ogami_oanda/strategy/README.md) |
+| `strategy/matcha/` | Matcha本体とparameters.yaml。起動名matcha | [strategy](reference/strategy.md) |
+| `strategy/shared/` | 共通の戦略契約、ローダー、ポジション管理方針。単独起動不可 | [strategy](reference/strategy.md) |
 | `application/ports/` | 市場・発注・照会・時刻・通知・履歴・状態保存のインターフェース | [application](reference/application.md) |
 | `application/services/` | 分析、注文計画、ポジション、復旧、集計を組み合わせるユースケース | [application](reference/application.md) |
 | `application/` | 業務設定、スケジュール、外部サービス例外の契約 | [application](reference/application.md) |

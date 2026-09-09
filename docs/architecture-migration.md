@@ -179,6 +179,30 @@ an OANDA/Discord/CSV adapter:
 installed console entrypoint and one scheduling tick. A regular dry-run still
 uses read-only market and account queries so it can produce real decisions.
 
+### Named strategy loops
+
+`strategy/original/` owns the built-in multi-pair line strategy;
+`strategy/matcha/` owns Matcha Python/YAML; `strategy/shared/` owns shared
+contracts, loading, and lifecycle policies. See the
+[strategy directory guide](../src/ogami_oanda/strategy/README.md).
+
+`ogami-oanda-live --strategy original` and `--strategy matcha` select the
+existing built-in and plugin runners respectively. Omitting `--strategy`
+preserves the built-in default. Supply the usual config/account/pair options;
+add `--dry-run` to suppress broker mutations and `--once` to stop after one tick.
+Without `--once`, either strategy enters the existing polling loop.
+`shared` is not runnable. Named selection cannot be combined with explicit
+Python/YAML options; Matcha cannot use the built-in offline smoke.
+
+The Matcha Python/YAML bytes, their content-derived identity, and the pinned
+differential runner are unchanged by relocation. Retained historical contracts, line, sizing, loader, and lifecycle-policy
+imports resolve through package aliases to the same canonical objects, including
+child modules. This preserves old Enum/class identity without keeping duplicate
+source files. New code should use ownership-qualified imports. Explicit old
+filesystem paths must be updated to `matcha/strategy.py` and `matcha/parameters.yaml`.
+Direct imports of the old `ogami_oanda.strategy.matcha_oanda` module must move
+to `ogami_oanda.strategy.matcha.strategy`; Matcha is loaded only when selected.
+
 ### Trusted Python + YAML strategy plugins
 
 The live entrypoint can select a trusted strategy as a Python/YAML pair:
@@ -188,8 +212,8 @@ The live entrypoint can select a trusted strategy as a Python/YAML pair:
   --config config/settings.yaml \
   --account primary \
   --pair USD_JPY \
-  --strategy-py src/ogami_oanda/strategy/matcha_oanda.py \
-  --strategy-yaml src/ogami_oanda/strategy/matcha_param2019_oanda.yaml \
+  --strategy-py src/ogami_oanda/strategy/matcha/strategy.py \
+  --strategy-yaml src/ogami_oanda/strategy/matcha/parameters.yaml \
   --dry-run \
   --once
 ```
@@ -202,8 +226,8 @@ an untrusted upload mechanism; they must expose API version 1 and a
 `create_strategy(config)` factory. BFScalping is not imported at runtime.
 
 The initial packaged Matcha pair is
-`ogami_oanda/strategy/matcha_param2019_oanda.yaml` plus
-`matcha_oanda.py`. It supports only `USD_JPY`, `AutoLot: false`, `Cancel:
+`ogami_oanda/strategy/matcha/parameters.yaml` plus
+`matcha/strategy.py`. It supports only `USD_JPY`, `AutoLot: false`, `Cancel:
 false`, `MaxPos: 1`, amount-based TP/SL, suppressed TP/SL close intents,
 `close_position: false`, and `timescale: 60`. Unsupported values are rejected
 at startup. The YAML is package data and must contain no credentials,
@@ -339,8 +363,8 @@ OGAMI_OANDA_ENABLE_PRACTICE_ORDERS=1 \
   --execute-practice-orders \
   --confirm-account-id '<practice-account-id>' \
   --accept-small-loss \
-  --strategy-py src/ogami_oanda/strategy/matcha_oanda.py \
-  --strategy-yaml src/ogami_oanda/strategy/matcha_param2019_oanda.yaml \
+  --strategy-py src/ogami_oanda/strategy/matcha/strategy.py \
+  --strategy-yaml src/ogami_oanda/strategy/matcha/parameters.yaml \
   --report practice-strategy-acceptance-report.json
 ```
 

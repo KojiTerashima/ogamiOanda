@@ -61,15 +61,15 @@ from ogami_oanda.infrastructure.config.loader import load_settings
 from ogami_oanda.infrastructure.config.models import AppSettings
 from ogami_oanda.infrastructure.logging.daily_file import setup_daily_file_logging
 from ogami_oanda.infrastructure.runtime import PollingLoop, Sleeper, SystemClock
-from ogami_oanda.strategy.contracts import (
+from ogami_oanda.strategy.shared.contracts import (
     StrategyDecision,
     StrategyInput,
     StrategyQuote,
     TradingStrategy,
 )
-from ogami_oanda.strategy.line import LineCandidateBuilder
-from ogami_oanda.strategy.loader import StrategyPluginError, load_strategy
-from ogami_oanda.strategy.position_management import (
+from ogami_oanda.strategy.original.line import LineCandidateBuilder
+from ogami_oanda.strategy.shared.loader import StrategyPluginError, load_strategy
+from ogami_oanda.strategy.shared.position_management import (
     EntryConfirmationPolicy,
     ExitPolicy,
     HedgePolicy,
@@ -1283,6 +1283,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", "--settings", dest="config")
     parser.add_argument("--account", default="primary")
     parser.add_argument("--pair")
+    parser.add_argument(
+        "--strategy", choices=("original", "matcha"),
+        help="packaged strategy to run (default: original; shared is not runnable)",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--cancel-pending-on-start", action="store_true")
     parser.add_argument("--once", action="store_true", help="run one deterministic scheduling tick")
@@ -1307,6 +1311,12 @@ def main(argv: list[str] | None = None) -> int:
         help="trusted package-local strategy YAML configuration",
     )
     arguments = parser.parse_args(argv)
+    if arguments.strategy and (arguments.strategy_py is not None or arguments.strategy_yaml is not None):
+        parser.error("--strategy cannot be combined with --strategy-py or --strategy-yaml")
+    if arguments.strategy == "matcha":
+        strategy_dir = Path(__file__).resolve().parents[1] / "strategy" / "matcha"
+        arguments.strategy_py = strategy_dir / "strategy.py"
+        arguments.strategy_yaml = strategy_dir / "parameters.yaml"
     has_strategy_py = arguments.strategy_py is not None
     has_strategy_yaml = arguments.strategy_yaml is not None
     if has_strategy_py != has_strategy_yaml:

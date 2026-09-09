@@ -8,7 +8,7 @@ import pytest
 
 
 def _loader_module():
-    return importlib.import_module("ogami_oanda.strategy.loader")
+    return importlib.import_module("ogami_oanda.strategy.shared.loader")
 
 
 def _plugin_directory() -> Path:
@@ -104,7 +104,7 @@ def test_loader_resolves_paths_from_cwd_and_hashes_plugin_contents_deterministic
     plugin_path, yaml_path = _write_plugin(
         package_dir,
         "_test_valid_plugin",
-        "from ogami_oanda.strategy.contracts import StrategyDecision\n\nSTRATEGY_API_VERSION = 1\n\nclass Plugin:\n    def decide(self, input): return StrategyDecision()\n    def dump_state(self): return {}\n    def load_state(self, state): pass\n\ndef create_strategy(config): return Plugin()\n",
+        "from ogami_oanda.strategy.shared.contracts import StrategyDecision\n\nSTRATEGY_API_VERSION = 1\n\nclass Plugin:\n    def decide(self, input): return StrategyDecision()\n    def dump_state(self): return {}\n    def load_state(self, state): pass\n\ndef create_strategy(config): return Plugin()\n",
         "pair: USD_JPY\n",
     )
     monkeypatch.chdir(package_dir.parent)
@@ -126,7 +126,7 @@ def test_loader_supports_dataclass_decorated_plugin():
     plugin_path, yaml_path = _write_plugin(
         _plugin_directory(),
         "_test_dataclass_plugin",
-        "from __future__ import annotations\n\nfrom dataclasses import dataclass\n\nfrom ogami_oanda.strategy.contracts import StrategyDecision\n\nSTRATEGY_API_VERSION = 1\n\n@dataclass\nclass Plugin:\n    pair: str\n\n    def decide(self, input): return StrategyDecision()\n    def dump_state(self): return {}\n    def load_state(self, state): pass\n\ndef create_strategy(config): return Plugin(config['pair'])\n",
+        "from __future__ import annotations\n\nfrom dataclasses import dataclass\n\nfrom ogami_oanda.strategy.shared.contracts import StrategyDecision\n\nSTRATEGY_API_VERSION = 1\n\n@dataclass\nclass Plugin:\n    pair: str\n\n    def decide(self, input): return StrategyDecision()\n    def dump_state(self): return {}\n    def load_state(self, state): pass\n\ndef create_strategy(config): return Plugin(config['pair'])\n",
         "pair: USD_JPY\n",
     )
     try:

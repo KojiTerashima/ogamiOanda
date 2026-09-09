@@ -15,7 +15,7 @@ from ogami_oanda.infrastructure.config.models import (
     PathSettings,
     RuntimeAccountConfig,
 )
-from ogami_oanda.strategy.line import CandidateDiagnostics
+from ogami_oanda.strategy.original.line import CandidateDiagnostics
 
 
 @pytest.mark.contract
@@ -383,8 +383,8 @@ def test_console_surfaces_loader_containment_error_as_argparse_error(monkeypatch
 
 @pytest.mark.contract
 def test_matcha_yaml_is_a_package_resource_and_contains_no_secret_hooks():
-    package = resources.files("ogami_oanda.strategy")
-    yaml_text = package.joinpath("matcha_param2019_oanda.yaml").read_text(encoding="utf-8")
+    package = resources.files("ogami_oanda.strategy.matcha")
+    yaml_text = package.joinpath("parameters.yaml").read_text(encoding="utf-8")
 
     assert "pair: USD_JPY" in yaml_text
     assert "TODO(notification-integration)" in yaml_text
@@ -407,6 +407,89 @@ def test_strategy_operator_documentation_covers_boundary_invocation_and_safety()
         "quarant",
         "dry-run",
         "secret",
-        "matcha_param2019_oanda.yaml",
+        "matcha/parameters.yaml",
     ):
         assert phrase.lower() in documentation.lower()
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize("strategy_name", ["original", "matcha"])
+@pytest.mark.parametrize("once", [True, False])
+def test_named_strategy_selects_packaged_logic_for_once_or_loop(
+    monkeypatch, tmp_path, strategy_name, once,
+):
+    calls = []
+    settings = object()
+    application = SimpleNamespace(
+        run_resilient_once=lambda **kwargs: (
+            calls.append(("once", kwargs))
+            or LiveRunResult(None, RegistrationResult((), ()))
+        ),
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(live, "load_settings", lambda path: settings)
+
+    def build_original(received, **kwargs):
+        assert received is settings
+        calls.append(("original", kwargs))
+        return application
+
+    def build_matcha(received, strategy, strategy_id, **kwargs):
+        assert received is settings
+        assert type(strategy).__name__ == "MatchaStrategy"
+        assert strategy.pair == "USD_JPY"
+        assert strategy_id.startswith("strategy-")
+        calls.append(("matcha", kwargs))
+        return application
+
+    monkeypatch.setattr(live, "build_live_application", build_original)
+    monkeypatch.setattr(live, "build_strategy_live_application", build_matcha)
+    monkeypatch.setattr(
+        live, "_run_forever_with_observer",
+        lambda received, **kwargs: calls.append(("loop", received, kwargs)),
+    )
+    arguments = [
+        "--strategy", strategy_name, "--config", "offline-settings.yaml",
+        "--account", "practice", "--pair", "USD_JPY", "--dry-run",
+    ]
+    if once:
+        arguments.append("--once")
+
+    assert live.main(arguments) == 0
+    assert calls[0] == (strategy_name, {
+        "account_name": "practice", "pair": "USD_JPY",
+        "cancel_pending_on_start": False, "dry_run": True,
+    })
+    assert len(calls) == 2
+    if once:
+        assert calls[1] == ("once", {"dry_run": True})
+    else:
+        assert calls[1][0:2] == ("loop", application)
+        assert calls[1][2]["dry_run"] is True
+        assert isinstance(calls[1][2]["observer"], ConsoleLiveReporter)
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize("arguments", [
+    ["--strategy", "unknown"],
+    ["--strategy", "shared"],
+    ["--strategy", "original", "--strategy-py", "plugin.py", "--strategy-yaml", "plugin.yaml"],
+    ["--strategy", "matcha", "--strategy-py", "plugin.py", "--strategy-yaml", "plugin.yaml"],
+    ["--strategy", "matcha", "--offline-smoke", "--dry-run", "--once"],
+])
+def test_invalid_named_strategy_options_fail_before_settings_or_external_io(monkeypatch, arguments):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("invalid selection must fail before config or plugin load")
+
+    monkeypatch.setattr(live, "load_settings", forbidden)
+    monkeypatch.setattr(live, "load_strategy", forbidden)
+    with pytest.raises(SystemExit) as exit_info:
+        live.main(arguments)
+    assert exit_info.value.code == 2
+
+
+@pytest.mark.contract
+def test_named_original_offline_smoke_requires_no_settings(monkeypatch, capsys):
+    monkeypatch.setattr(live, "load_settings", lambda *args: pytest.fail("must stay offline"))
+    assert live.main(["--strategy", "original", "--offline-smoke", "--dry-run", "--once"]) == 0
+    assert "accepted=0" in capsys.readouterr().out

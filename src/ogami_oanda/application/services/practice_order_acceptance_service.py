@@ -20,7 +20,7 @@ from ogami_oanda.domain.orders.models import (
     OrderType,
     submission_fingerprint,
 )
-from ogami_oanda.strategy.contracts import StrategyDecision, StrategyInput, StrategyQuote, TradingStrategy
+from ogami_oanda.strategy.shared.contracts import StrategyDecision, StrategyInput, StrategyQuote, TradingStrategy
 
 
 class PracticeAcceptanceError(RuntimeError):

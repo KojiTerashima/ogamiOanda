@@ -16,7 +16,7 @@ from ogami_oanda.domain.orders.models import (
 )
 from ogami_oanda.domain.positions.managed_position import ManagedPosition
 from ogami_oanda.domain.positions.models import OrderState, PositionSnapshot, TradeState
-from ogami_oanda.strategy.position_management import ExitPolicy, StopLossPolicy
+from ogami_oanda.strategy.shared.position_management import ExitPolicy, StopLossPolicy
 from tests.fakes import (
     FakeBroker,
     FakeNotifier,

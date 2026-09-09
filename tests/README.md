@@ -59,3 +59,16 @@ python3 scripts/check_documentation.py
 
 Add `--archives` only when verifying the retired bundles: it checks member
 paths, modes, and hashes without extracting or executing old code.
+
+
+Strategy layout and named-loop selection have focused offline contracts:
+
+```sh
+.venv/bin/python -m pytest -q tests/architecture/test_strategy_ownership.py tests/test_contract_live_cli.py tests/test_contract_strategy_plugins.py tests/test_matcha_strategy.py
+```
+
+They cover legacy/canonical module identity, owner dependency direction,
+original startup without importing unselected Matcha, named once/loop dispatch,
+argument conflicts, plugin containment, and the packaged Matcha parameters.
+Neither loop dispatch test starts a real trading loop. Strategy ownership and
+operator commands are documented in [the strategy guide](../src/ogami_oanda/strategy/README.md).

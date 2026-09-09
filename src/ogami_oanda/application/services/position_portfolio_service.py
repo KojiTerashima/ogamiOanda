@@ -37,13 +37,13 @@ from ogami_oanda.domain.positions.models import (
     SubmissionPhase,
     TradeState,
 )
-from ogami_oanda.strategy.position_management import (
+from ogami_oanda.strategy.shared.position_management import (
     HedgePolicy,
     HedgePosition,
     LinkagePolicy,
     LinkedPosition,
 )
-from ogami_oanda.strategy.contracts import StrategyCommand, StrategyCommandAction
+from ogami_oanda.strategy.shared.contracts import StrategyCommand, StrategyCommandAction
 
 
 @dataclass(frozen=True)

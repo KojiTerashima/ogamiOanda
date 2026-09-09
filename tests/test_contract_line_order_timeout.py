@@ -1,6 +1,6 @@
 import pytest
 
-from ogami_oanda.strategy.line import order_timeout_min_for_distance
+from ogami_oanda.strategy.original.line import order_timeout_min_for_distance
 
 
 @pytest.mark.contract

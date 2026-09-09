@@ -31,7 +31,7 @@ from ogami_oanda.infrastructure.config.models import (
     AppSettings,
     RuntimeAccountConfig,
 )
-from ogami_oanda.strategy.contracts import (
+from ogami_oanda.strategy.shared.contracts import (
     StrategyCommand,
     StrategyCommandAction,
     StrategyDecision,

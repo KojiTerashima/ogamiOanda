@@ -826,7 +826,7 @@ def test_strategy_acceptance_evaluates_quote_and_exact_m1_candles_before_workflo
 
         def decide(self, input):
             calls.append(("decision", input.quote.source_time, input.evaluation_time, input.positions, input.candles))
-            from ogami_oanda.strategy.contracts import StrategyDecision
+            from ogami_oanda.strategy.shared.contracts import StrategyDecision
 
             return StrategyDecision(intents=(_strategy_intent(),))
 
@@ -860,7 +860,7 @@ def test_strategy_acceptance_checks_account_and_clean_baseline_before_decision_o
 
         def decide(self, _input):
             calls.append("decision")
-            from ogami_oanda.strategy.contracts import StrategyDecision
+            from ogami_oanda.strategy.shared.contracts import StrategyDecision
 
             return StrategyDecision(intents=(_strategy_intent(),))
 
@@ -892,7 +892,7 @@ def test_strategy_acceptance_rejected_account_precedes_decision_and_rules():
 
         def decide(self, _input):
             calls.append("decision")
-            from ogami_oanda.strategy.contracts import StrategyDecision
+            from ogami_oanda.strategy.shared.contracts import StrategyDecision
 
             return StrategyDecision(intents=(_strategy_intent(),))
 

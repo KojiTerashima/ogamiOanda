@@ -80,6 +80,10 @@ Matchaのプラグイン経路は別の評価経路で、開場tickごとに戦�
 
 ## 戦略プラグインとMatcha
 
+専用コードは `strategy/original/` と `strategy/matcha/`、共通契約・管理方針は `strategy/shared/` に置きます。
+起動は `--strategy original` / `--strategy matcha` で選び、同じlive CLIからそれぞれのループを実行します。
+省略時の組込み経路、判断内容、注文・復旧の規則は保持します。
+
 `TradingStrategy` は市場・保有状態を `StrategyInput` で受け、`StrategyDecision` を返します。
 判断には注文intentと、戦略sourceに限定された `CANCEL_PENDING`、`REDUCE_EXPOSURE`、
 `CLOSE_ALL` commandを含められます。JSON互換状態をdump/loadして再起動をまたぎます。
@@ -99,9 +103,9 @@ Matchaのプラグイン経路は別の評価経路で、開場tickごとに戦�
 | `timescale`, `minutes_to_expire` | 対応時間尺度と注文の期限 |
 
 YAMLにある全キーが汎用機能を有効化するわけではありません。
-対応範囲は [MatchaConfig.from_mapping](../src/ogami_oanda/strategy/matcha_oanda.py) を正本とします。
+対応範囲は [MatchaConfig.from_mapping](../src/ogami_oanda/strategy/matcha/strategy.py) を正本とします。
 戦略は新しい足の重複判定、価格鮮度、保有量、クールダウン等を考慮し、注文がない判断も正常です。
-同梱設定は [matcha_param2019_oanda.yaml](../src/ogami_oanda/strategy/matcha_param2019_oanda.yaml)、
+同梱設定は [matcha_param2019_oanda.yaml](../src/ogami_oanda/strategy/matcha/parameters.yaml)、
 契約は [戦略テスト](../tests/test_matcha_strategy.py) を参照してください。
 
 ## 障害・副作用

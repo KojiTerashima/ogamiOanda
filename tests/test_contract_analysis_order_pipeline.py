@@ -19,7 +19,7 @@ from ogami_oanda.application.services.market_analysis_service import (
 )
 from ogami_oanda.application.services.order_planner import OrderPlanner
 from ogami_oanda.domain.market.currency_pair import currency_pair
-from ogami_oanda.strategy.line import (
+from ogami_oanda.strategy.original.line import (
     LineCandidateBuilder,
     LineCandidateCoordinator,
     LineStrategyProfileUsdJpy,

@@ -316,7 +316,7 @@ def test_strategy_cli_loads_after_gates_and_dispatches_service(monkeypatch, tmp_
 
 @pytest.mark.contract
 def test_strategy_loader_error_is_reported_as_argparse_error_before_adapters(monkeypatch):
-    from ogami_oanda.strategy.loader import StrategyPluginError
+    from ogami_oanda.strategy.shared.loader import StrategyPluginError
 
     settings = AppSettings(
         {"practice": RuntimeAccountConfig("practice-id", "secret-token", "practice")}

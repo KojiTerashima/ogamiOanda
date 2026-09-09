@@ -9,6 +9,7 @@ OANDA向けのPython取引プログラムです。現行実装は `src/ogami_oan
 | --- | --- |
 | ドキュメント全体を探す | [ドキュメント索引](docs/README.md) |
 | 各ディレクトリ・ファイルの役割を知る | [構成と処理の流れ](docs/structure.md) |
+| 起動する売買戦略を選ぶ | [戦略一覧](src/ogami_oanda/strategy/README.md) |
 | セットアップ・CLI・設定・ログを調べる | [操作ガイド](docs/usage.md) |
 | 入出力・状態遷移・戦略の制約を調べる | [現行仕様](docs/specification.md) |
 | クラス・関数・メソッドを探す | [コード参照](docs/reference/README.md) |

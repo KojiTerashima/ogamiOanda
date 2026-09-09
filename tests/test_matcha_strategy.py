@@ -9,11 +9,11 @@ import yaml
 
 from ogami_oanda.domain.orders.models import Direction, OrderType
 from ogami_oanda.domain.positions.models import OrderState, PositionSnapshot, TradeState
-from ogami_oanda.strategy.contracts import StrategyCommand, StrategyCommandAction, StrategyInput, StrategyQuote
+from ogami_oanda.strategy.shared.contracts import StrategyCommand, StrategyCommandAction, StrategyInput, StrategyQuote
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "matcha_bf_literals.json"
-MATCHA_YAML = Path(__file__).parents[1] / "src" / "ogami_oanda" / "strategy" / "matcha_param2019_oanda.yaml"
+MATCHA_YAML = Path(__file__).parents[1] / "src" / "ogami_oanda" / "strategy" / "matcha" / "parameters.yaml"
 NOW = datetime(2026, 8, 27, 12, 0, tzinfo=timezone.utc)
 
 
@@ -117,7 +117,7 @@ def _breakout_input(signal: int, *, positions: tuple[PositionSnapshot, ...] = ()
 
 
 def _normal_strategy(**overrides: object):
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     return create_strategy(
         _config(
@@ -134,7 +134,7 @@ def _normal_strategy(**overrides: object):
 
 
 def _breakout_strategy(**overrides: object):
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     return create_strategy(
         _config(
@@ -188,14 +188,14 @@ def test_strategy_contract_supplies_evaluation_time_and_typed_source_scoped_comm
     ],
 )
 def test_factory_rejects_each_unsupported_initial_route(key: str, unsupported: object):
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     with pytest.raises(ValueError, match=rf"{key}.*supported"):
         create_strategy(_config(**{key: unsupported}))
 
 
 def test_factory_accepts_supported_tunable_values():
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     strategy = create_strategy(
         _config(
@@ -226,14 +226,14 @@ def test_factory_accepts_supported_tunable_values():
 
 @pytest.mark.parametrize("unsupported", [9, 6, 7.0, True])
 def test_factory_rejects_minutes_to_expire_outside_exact_v1_route(unsupported: object):
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     with pytest.raises(ValueError, match="minutes_to_expire.*supported"):
         create_strategy(_config(minutes_to_expire=unsupported))
 
 
 def test_factory_accepts_zero_past_window_to_disable_breakout_threshold():
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     strategy = create_strategy(_config(pastPrice_len=0))
 
@@ -258,7 +258,7 @@ def test_bf_literal_fixture_is_fixed_test_data():
 
 
 def test_normal_price_fixture_uses_newest_first_input_but_bf_oldest_first_math():
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     strategy = create_strategy(
         _config(
@@ -279,7 +279,7 @@ def test_normal_price_fixture_uses_newest_first_input_but_bf_oldest_first_math()
 
 
 def test_breakout_direction_matches_fixed_bf_fixture():
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     strategy = create_strategy(
         _config(
@@ -313,7 +313,7 @@ def test_unready_price_calculation_never_emits_zero_price_intents(closes: list[f
 
 
 def test_lot_helpers_match_fixed_bf_fixture():
-    from ogami_oanda.strategy.matcha_oanda import create_strategy
+    from ogami_oanda.strategy.matcha.strategy import create_strategy
 
     strategy = create_strategy(_config(Cancel_len=5))
 

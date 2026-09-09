@@ -1,7 +1,7 @@
 import pytest
 
 from ogami_oanda.domain.market.currency_pair import currency_pair
-from ogami_oanda.strategy.position_sizing import PositionSizingPolicy
+from ogami_oanda.strategy.original.position_sizing import PositionSizingPolicy
 
 
 @pytest.mark.contract

@@ -12,7 +12,7 @@ from typing import Mapping
 
 import yaml
 
-from ogami_oanda.strategy.contracts import TradingStrategy
+from ogami_oanda.strategy.shared.contracts import TradingStrategy
 
 STRATEGY_API_VERSION = 1
 _MISSING = object()
@@ -63,7 +63,7 @@ def load_strategy(strategy_py: str | Path, strategy_yaml: str | Path) -> LoadedS
 
 def _resolve_package_path(value: str | Path, label: str) -> Path:
     path = Path(value).expanduser().resolve()
-    package_dir = Path(__file__).resolve().parent
+    package_dir = Path(__file__).resolve().parents[1]
     try:
         path.relative_to(package_dir)
     except ValueError as exc:

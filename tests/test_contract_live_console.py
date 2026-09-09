@@ -15,7 +15,7 @@ from ogami_oanda.entrypoints.live_console import (
     ConsoleLiveReporter,
     LiveFailure,
 )
-from ogami_oanda.strategy.line import CandidateDiagnostics
+from ogami_oanda.strategy.original.line import CandidateDiagnostics
 
 
 class _Clock:

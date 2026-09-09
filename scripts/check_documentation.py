@@ -18,7 +18,11 @@ LINK = re.compile(r'\[[^\]\n]+\]\(([^\s)]+)\)')
 def check_documents(root: Path) -> list[str]:
     """Check local Markdown targets and exact file/symbol coverage of src."""
     errors = []
-    documents = [root / 'README.md', *sorted((root / 'docs').rglob('*.md'))]
+    documents = [
+        root / 'README.md',
+        *sorted((root / 'docs').rglob('*.md')),
+        *sorted((root / 'src').rglob('README.md')),
+    ]
     for document in documents:
         if not document.is_file():
             errors.append(f'missing document: {document.relative_to(root)}')
