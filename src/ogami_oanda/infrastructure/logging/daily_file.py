@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo
 
+from ogami_oanda.infrastructure.runtime import SystemClock
+
 JST = ZoneInfo("Asia/Tokyo")
 DEFAULT_PREFIX = "ogami-oanda"
 
@@ -26,7 +28,7 @@ class DailyFileTee:
         self.stream = stream
         self.log_dir = Path(log_dir)
         self.prefix = prefix
-        self.now = now or (lambda: datetime.now(JST))
+        self.now = now or SystemClock().now
         self.compress_older_than_days = compress_older_than_days
         self._current_date: str | None = None
         self._last_compressed_date: str | None = None
@@ -128,7 +130,7 @@ def compress_old_daily_logs(
     directory = Path(log_dir)
     if not directory.exists():
         return ()
-    current_time = (now or (lambda: datetime.now(JST)))()
+    current_time = (now or SystemClock().now)()
     today = _current_jst_datetime(current_time).date()
     compressed: list[Path] = []
     for log_path in sorted(directory.glob(f"{prefix}-*.log")):

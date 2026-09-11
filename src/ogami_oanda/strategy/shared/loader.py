@@ -12,7 +12,7 @@ from typing import Mapping
 
 import yaml
 
-from ogami_oanda.strategy.shared.contracts import TradingStrategy
+from ogami_oanda.strategy.shared.contracts import TradingStrategy, strategy_data_requirements
 
 STRATEGY_API_VERSION = 1
 _MISSING = object()
@@ -51,6 +51,11 @@ def load_strategy(strategy_py: str | Path, strategy_yaml: str | Path) -> LoadedS
         raise StrategyPluginError(
             f"strategy factory in {python_path} must return a TradingStrategy"
         )
+
+    try:
+        strategy_data_requirements(strategy)
+    except ValueError as exc:
+        raise StrategyPluginError(str(exc)) from exc
 
     return LoadedStrategy(
         strategy=strategy,

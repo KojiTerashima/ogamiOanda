@@ -9,6 +9,7 @@
 | [戦略一覧と専用/共用の区分](../src/ogami_oanda/strategy/README.md) | original / matchaのファイル配置とループ起動方法を知る |
 | [操作ガイド](usage.md) | インストール、CLI、設定、戦略選択、ログ、テストを実行する |
 | [現行仕様](specification.md) | データ契約、スケジュール、注文、復旧、戦略の制約を確認する |
+| [バックテスト](backtest.md) | S5履歴の取得・再開、オフライン再生、約定近似、結果・長期検証 |
 | [コード参照](reference/README.md) | 各ファイルのクラス・関数・メソッドと実装箇所を探す |
 | [詳細アーキテクチャと移行契約](architecture-migration.md) | 層の依存制約・互換性・外部受入手順を確認する |
 | [移行マップ](migration-map.md) | 旧公開APIと新実装の対応、残存理由を確認する |

@@ -213,11 +213,7 @@ JSTの曜日・時間窓・解析間隔・状態同期間隔を判定する。
 
 足・ピーク・ラインから、純粋なライン戦略に渡す解析文脈を構築する。
 
-| 定義 | 種別 | 役割 |
-| --- | --- | --- |
-| [`build_line_candidate_context`](../../src/ogami_oanda/application/services/line_candidate_context_builder.py#L11) | function | Build the pure line-analysis context required by LineCandidateBuilder. |
-| [`_rsi_info`](../../src/ogami_oanda/application/services/line_candidate_context_builder.py#L70) | function / internal | 解析文脈用のRSI情報を作る。 |
-| [`_timeframe_rsi_info`](../../src/ogami_oanda/application/services/line_candidate_context_builder.py#L79) | function / internal | 特定時間足のRSI情報を作る。 |
+定義の正本は[originalの解析文脈](../../src/ogami_oanda/strategy/original/context.py)です。
 
 ## `application/services/market_analysis_service.py`
 
@@ -227,15 +223,10 @@ JSTの曜日・時間窓・解析間隔・状態同期間隔を判定する。
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`MarketAnalysisResult`](../../src/ogami_oanda/application/services/market_analysis_service.py#L29) | class | 解析で得た足・注文意図・候補診断をまとめた結果。 |
-| [`MarketAnalysisService`](../../src/ogami_oanda/application/services/market_analysis_service.py#L38) | class | 市場データと指標を準備し、選択候補をOrderIntentへ変換する。 この責任を提供するクラス。 |
-| [`MarketAnalysisService.__init__`](../../src/ogami_oanda/application/services/market_analysis_service.py#L39) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`MarketAnalysisService.analyze`](../../src/ogami_oanda/application/services/market_analysis_service.py#L55) | method | 足を準備して戦略候補を解析し、注文intentと診断結果を返す。 |
-| [`MarketAnalysisService._prepared_frame`](../../src/ogami_oanda/application/services/market_analysis_service.py#L117) | method / internal | 市場足を検証し、指標を付けて解析へ渡す。 |
-| [`MarketAnalysisService._candidate_to_intent`](../../src/ogami_oanda/application/services/market_analysis_service.py#L133) | method / internal | 選択された候補をOrderIntentへ変換する。 |
-| [`MarketAnalysisService._legacy_order_name`](../../src/ogami_oanda/application/services/market_analysis_service.py#L184) | method / internal | 従来の規則に沿って注文名を作る。 |
-| [`MarketAnalysisService._intent_metadata`](../../src/ogami_oanda/application/services/market_analysis_service.py#L187) | method / internal | 候補の判断文脈をintentメタデータへ移す。 |
-| [`MarketAnalysisService._pair_name`](../../src/ogami_oanda/application/services/market_analysis_service.py#L265) | method / internal | 解析で使う通貨ペア名を正規化する。 |
+| [`MarketAnalysisService`](../../src/ogami_oanda/application/services/market_analysis_service.py#L17) | class | 市場データと指標を準備し、選択候補をOrderIntentへ変換する。 この責任を提供するクラス。 |
+| [`MarketAnalysisService.__init__`](../../src/ogami_oanda/application/services/market_analysis_service.py#L18) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`MarketAnalysisService.analyze`](../../src/ogami_oanda/application/services/market_analysis_service.py#L38) | method | 足を準備して戦略候補を解析し、注文intentと診断結果を返す。 |
+| [`MarketAnalysisService._prepared_frame`](../../src/ogami_oanda/application/services/market_analysis_service.py#L53) | method / internal | 市場足を検証し、指標を付けて解析へ渡す。 |
 
 ## `application/services/order_planner.py`
 
@@ -435,3 +426,53 @@ intentの価格/距離を確定価格へ変換し、OrderPlanを構築する。
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
 | [`TradingSettings`](../../src/ogami_oanda/application/settings.py#L7) | class | Business limits consumed by trading application services. |
+
+## `application/ports/historical_data.py`
+
+[ソース](../../src/ogami_oanda/application/ports/historical_data.py)
+
+履歴の期間取得と保存・検証を切り離すポート契約。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`HistoricalSource`](../../src/ogami_oanda/application/ports/historical_data.py#L9) | class | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+| [`HistoricalSource.fetch`](../../src/ogami_oanda/application/ports/historical_data.py#L10) | method | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+| [`HistoricalRepository`](../../src/ogami_oanda/application/ports/historical_data.py#L13) | class | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+| [`HistoricalRepository.missing_intervals`](../../src/ogami_oanda/application/ports/historical_data.py#L16) | method | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+| [`HistoricalRepository.covers`](../../src/ogami_oanda/application/ports/historical_data.py#L18) | method | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+| [`HistoricalRepository.validate`](../../src/ogami_oanda/application/ports/historical_data.py#L20) | method | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+| [`HistoricalRepository.write_interval`](../../src/ogami_oanda/application/ports/historical_data.py#L22) | method | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+| [`HistoricalRepository.read`](../../src/ogami_oanda/application/ports/historical_data.py#L24) | method | 履歴の期間取得と保存・検証を切り離すポート契約。 |
+
+## `application/services/historical_market.py`
+
+[ソース](../../src/ogami_oanda/application/services/historical_market.py)
+
+UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`ReplayClock`](../../src/ogami_oanda/application/services/historical_market.py#L19) | class | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`ReplayClock.__init__`](../../src/ogami_oanda/application/services/historical_market.py#L20) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`ReplayClock.set`](../../src/ogami_oanda/application/services/historical_market.py#L23) | method | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`ReplayClock.now`](../../src/ogami_oanda/application/services/historical_market.py#L28) | method | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`HistoricalMarket`](../../src/ogami_oanda/application/services/historical_market.py#L32) | class | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`HistoricalMarket.__init__`](../../src/ogami_oanda/application/services/historical_market.py#L33) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`HistoricalMarket.advance`](../../src/ogami_oanda/application/services/historical_market.py#L49) | method | 次の観測済みS5を適用する。 |
+| [`HistoricalMarket.record_gap`](../../src/ogami_oanda/application/services/historical_market.py#L83) | method | 観測のない区間を集計し、設定された出力先へ渡す。 |
+| [`HistoricalMarket._record`](../../src/ogami_oanda/application/services/historical_market.py#L90) | method | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`HistoricalMarket.ready`](../../src/ogami_oanda/application/services/historical_market.py#L98) | method | 必要な足窓と価格の観測状態を確認する。 |
+| [`HistoricalMarket.buffered_candles`](../../src/ogami_oanda/application/services/historical_market.py#L102) | method | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`HistoricalMarket.candles`](../../src/ogami_oanda/application/services/historical_market.py#L105) | method | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`HistoricalMarket.current_quote`](../../src/ogami_oanda/application/services/historical_market.py#L142) | method | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+| [`HistoricalMarket.current_price`](../../src/ogami_oanda/application/services/historical_market.py#L148) | method | UTCのS5から観測済み価格だけでローリング足を生成し、JST再生時計を提供する。 |
+
+## `application/services/history_download.py`
+
+[ソース](../../src/ogami_oanda/application/services/history_download.py)
+
+未取得区間を6時間・UTC日境界で分割し、上限付き再試行で保存する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`download_history`](../../src/ogami_oanda/application/services/history_download.py#L11) | function | 未取得区間を6時間・UTC日境界で分割し、上限付き再試行で保存する。 |

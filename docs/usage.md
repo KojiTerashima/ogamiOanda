@@ -111,6 +111,10 @@ Pythonモジュールは実行されるため信頼済みコードを使用し�
 
 ## 出力と復旧
 
+履歴の取得・オフライン再生は専用の`ogami-oanda-backtest fetch/run`を使用します。
+操作例・保存形式・約定の近似・結果の読み方は[バックテストガイド](backtest.md)を参照してください。
+`run`は認証設定不要です。
+
 継続実行時は `[TICK]` と、`[ORDER]`, `[FILL]`, `[TP]`, `[LC]`, `[LC_UPDATE]`,
 `[CANCEL]`, `[REJECT]` 等のイベントを表示します。dry-runは `DRY_RUN` / `PLAN` で区別します。
 `--once` は採用数・不採用理由・計画名を1行で返します。
@@ -124,8 +128,8 @@ Pythonモジュールは実行されるため信頼済みコードを使用し�
 
 ## 検証用コマンド
 
-旧互換テストは `classOanda.py` が使う `pytz` を必要とします。現在の `pyproject.toml` には
-直接依存として未記載なので、未導入なら `.venv/bin/python -m pip install pytz` で補います。
+旧互換テストは `classOanda.py` が使う `pytz` を必要とします。開発依存に含まれるので、
+未導入なら `.venv/bin/python -m pip install -e '.[dev]'` で導入します。
 このインストールはネットワークアクセスを伴う場合があります。
 
 ```sh

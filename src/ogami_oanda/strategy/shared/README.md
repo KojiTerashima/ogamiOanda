@@ -22,3 +22,8 @@ Matchaのロット計算は `matcha/strategy.py` にあります。
 ローダーの許可範囲は移動後も `strategy/` 全体です。`shared/` 内だけに限定しません。
 OANDA接続、実時計、ポーリングループは共用であってもこの層の責任外です。
 新規共用コードは `original` / `matcha` 等の具体戦略をimportしないでください。
+
+`StrategyInput.candles`は従来のM1入力を維持し、`candle_frames`で時間足別の入力を受け取れます。
+任意の`data_requirements`がない戦略はM1・1,000本、空辞書を宣言した戦略は足を要求しません。
+`StrategyDecision.order_context`と`candle_protection`は注文計画と保護判断に必要な任意の共通情報です。
+評価スケジュールはapplicationが管理し、データ要件から頻度を決めません。

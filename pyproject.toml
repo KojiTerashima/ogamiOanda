@@ -18,17 +18,19 @@ dependencies = [
 
 [project.scripts]
 ogami-oanda-live = "ogami_oanda.entrypoints.live:main"
+ogami-oanda-backtest = "ogami_oanda.entrypoints.backtest:main"
 ogami-oanda-practice-acceptance = "ogami_oanda.entrypoints.practice_acceptance:main"
 
 [tool.setuptools.package-data]
 "ogami_oanda.strategy" = ["README.md"]
-"ogami_oanda.strategy.original" = ["README.md"]
+"ogami_oanda.strategy.original" = ["README.md", "*.yaml"]
 "ogami_oanda.strategy.matcha" = ["*.yaml", "README.md"]
 "ogami_oanda.strategy.shared" = ["README.md"]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytz",
     "ruff",
 ]
 

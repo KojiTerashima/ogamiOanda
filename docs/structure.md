@@ -45,11 +45,12 @@
 | `application/services/` | 分析、注文計画、ポジション、復旧、集計を組み合わせるユースケース | [application](reference/application.md) |
 | `application/` | 業務設定、スケジュール、外部サービス例外の契約 | [application](reference/application.md) |
 | `adapters/oanda/` | OANDA要求と応答の変換、市場取得、発注、照会 | [adapters](reference/adapters.md) |
+| `adapters/backtest/` | 仮想ブローカー、取引台帳、逐次レポート出力 | [バックテスト](backtest.md) |
 | `adapters/notifications/` / `adapters/repositories/` | Discord通知、CSV履歴、JSONチェックポイント | [adapters](reference/adapters.md) |
 | `adapters/legacy/` | 旧dict・オブジェクトと現行型との互換変換。退役資産ではない | [adapters](reference/adapters.md) |
 | `infrastructure/config/` | YAML・環境変数・旧tokensからの設定構築 | [infrastructure](reference/infrastructure.md) |
 | `infrastructure/runtime/` / `infrastructure/logging/` | JST時計、固定間隔ループ、日次ログ・圧縮 | [infrastructure](reference/infrastructure.md) |
-| `entrypoints/` | 依存を組み立て、CLI・liveループ・表示・practice受入を起動 | [entrypoints](reference/entrypoints.md) |
+| `entrypoints/` | 依存を組み立て、CLI・liveループ・バックテスト・表示・practice受入を起動 | [entrypoints](reference/entrypoints.md) |
 | `backtest/` | 現在はパッケージ入口のみ。決済判定実装はapplicationのBacktestSimulator | [backtest](reference/backtest.md) |
 
 `domain` は他層に依存せず、`strategy` はdomainに、`application` はdomainとstrategyに依存します。

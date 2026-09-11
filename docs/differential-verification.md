@@ -270,6 +270,31 @@ allowlist before identifying which implementation owns the difference.
 .venv/bin/python -m compileall -q src tests
 ```
 
+### Golden recapture, 2026-09-11
+
+The checked-in AUD/USD H1 and USD/JPY M5 traces differed from both the
+pre-backtest implementation (`cf6f427`) and a fresh isolated replay of the
+fixed legacy commit. The differences were six Bollinger values (one row's
+`bb_lower`, `bb_upper`, and `bb_range` per scenario), with maximum absolute
+difference `5.684341886080802e-14`. The four analysis scenarios produced
+byte-identical traces before and after the backtest migration. The specific
+environmental cause of the floating-point differences has not been established.
+
+All 41 golden traces were recaptured using the documented `update-golden --all`
+command, with both SHA arguments set to
+`eff331c2367570dcb8bc35a323a382e8255eda7b`. This used Python 3.12.5,
+NumPy 2.3.2, and pandas 2.3.1 on Linux x86_64. Only the six observed values and
+their two manifest trace hashes changed. Baseline commit/tree, input hashes,
+runner hashes, dependency versions, comparison rules, and the intentional
+delta allowlist remain unchanged. The source of the refreshed expectations
+is the isolated legacy replay.
+
+The audit is saved in
+`runtime/backtest-verification/golden-refresh-audit.json`; the original legacy
+comparison is in `legacy-replay-comparison.json` in the same directory.
+`baseline-reproducibility.log` records the repeated legacy captures and golden
+comparison, and `final-pytest.log` records the current offline gate.
+
 ### Verified 2026-08-24
 
 The completed local run used 41 scenarios: 4 analysis, 6 order payload, 21

@@ -120,7 +120,10 @@ YAMLにある全キーが汎用機能を有効化するわけではありませ�
 
 ## バックテストの範囲
 
-現行 `BacktestSimulator.evaluate_exit()` は1本の高値/安値からTP/SL到達を評価し、
-両方に到達した足ではSLを優先します。旧 `classInspection.py` の実験環境全体を
-置き換える汎用バックテストCLIは現行 `backtest/` には実装されていません。
-根拠: [バックテスト契約](../tests/test_contract_backtest_simulator.py)。
+`ogami-oanda-backtest fetch/run`はS5の履歴取得・再開と戦略共通のオフライン検証を提供します。
+original・matcha・信頼済みAPI v1プラグインを、既存の注文計画・ポジション管理と組み合わせます。
+Bid/Ask、スリッページ、次S5始値執行、一部決済、SL優先の保守的近似を使用します。
+保存形式・約定規則・出力・対象外費用は[バックテストガイド](backtest.md)を正本とします。
+既存の`BacktestSimulator.evaluate_exit()`は単一足のTP/SL判定を提供する別の互換APIです。
+根拠: [仮想ブローカー](../tests/test_backtest_broker.py)、
+[再生とCLI](../tests/test_backtest_run.py)、[単一足契約](../tests/test_contract_backtest_simulator.py)。

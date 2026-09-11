@@ -257,14 +257,16 @@ sharedの専用パッケージ入口。役割は [戦略一覧](../../src/ogami_
 | --- | --- | --- |
 | [`StrategyQuote`](../../src/ogami_oanda/strategy/shared/contracts.py#L19) | class | A market quote supplied to a strategy without exposing a broker adapter. |
 | [`StrategyInput`](../../src/ogami_oanda/strategy/shared/contracts.py#L31) | class | The broker-neutral data available for one strategy evaluation. |
-| [`StrategyCommandAction`](../../src/ogami_oanda/strategy/shared/contracts.py#L40) | class | Broker-neutral source-scoped portfolio actions. |
-| [`StrategyCommand`](../../src/ogami_oanda/strategy/shared/contracts.py#L49) | class | A portfolio action confined to positions owned by one strategy source. |
-| [`StrategyCommand.__post_init__`](../../src/ogami_oanda/strategy/shared/contracts.py#L57) | method | 生成直後に入力の整合性確認や不変形式への変換を行う。 |
-| [`StrategyDecision`](../../src/ogami_oanda/strategy/shared/contracts.py#L70) | class | Commands and order intents requested by a strategy evaluation. |
-| [`TradingStrategy`](../../src/ogami_oanda/strategy/shared/contracts.py#L79) | class | Versioned plugin surface consumed by application services. |
-| [`TradingStrategy.decide`](../../src/ogami_oanda/strategy/shared/contracts.py#L82) | method | 現在入力と内部状態から注文/管理commandと診断を決める。 |
-| [`TradingStrategy.dump_state`](../../src/ogami_oanda/strategy/shared/contracts.py#L84) | method | 再起動へ引き継ぐ戦略状態をJSON互換形式で返す。 |
-| [`TradingStrategy.load_state`](../../src/ogami_oanda/strategy/shared/contracts.py#L86) | method | 保存された戦略状態を検証して読み戻す。 |
+| [`StrategyCommandAction`](../../src/ogami_oanda/strategy/shared/contracts.py#L42) | class | Broker-neutral source-scoped portfolio actions. |
+| [`StrategyCommand`](../../src/ogami_oanda/strategy/shared/contracts.py#L51) | class | A portfolio action confined to positions owned by one strategy source. |
+| [`StrategyCommand.__post_init__`](../../src/ogami_oanda/strategy/shared/contracts.py#L59) | method | 生成直後に入力の整合性確認や不変形式への変換を行う。 |
+| [`StrategyDecision`](../../src/ogami_oanda/strategy/shared/contracts.py#L80) | class | Commands and order intents requested by a strategy evaluation. |
+| [`TradingStrategy`](../../src/ogami_oanda/strategy/shared/contracts.py#L91) | class | Versioned plugin surface consumed by application services. |
+| [`TradingStrategy.decide`](../../src/ogami_oanda/strategy/shared/contracts.py#L94) | method | 現在入力と内部状態から注文/管理commandと診断を決める。 |
+| [`TradingStrategy.dump_state`](../../src/ogami_oanda/strategy/shared/contracts.py#L96) | method | 再起動へ引き継ぐ戦略状態をJSON互換形式で返す。 |
+| [`TradingStrategy.load_state`](../../src/ogami_oanda/strategy/shared/contracts.py#L98) | method | 保存された戦略状態を検証して読み戻す。 |
+| [`StrategyCandleProtection`](../../src/ogami_oanda/strategy/shared/contracts.py#L72) | class | Completed-candle facts for the application lifecycle policies. |
+| [`strategy_data_requirements`](../../src/ogami_oanda/strategy/shared/contracts.py#L101) | function | Return validated candle requests, retaining API-v1's historical default. |
 
 ## `strategy/shared/loader.py`
 
@@ -277,12 +279,12 @@ sharedの専用パッケージ入口。役割は [戦略一覧](../../src/ogami_
 | [`StrategyPluginError`](../../src/ogami_oanda/strategy/shared/loader.py#L21) | class | An actionable configuration error that prevents strategy startup. |
 | [`LoadedStrategy`](../../src/ogami_oanda/strategy/shared/loader.py#L26) | class | ロード済み戦略・設定・内容ID・元パスをまとめた値。 |
 | [`load_strategy`](../../src/ogami_oanda/strategy/shared/loader.py#L34) | function | Validate and instantiate one trusted package-local strategy plugin. |
-| [`_resolve_package_path`](../../src/ogami_oanda/strategy/shared/loader.py#L64) | function / internal | 戦略パスが許可パッケージ内の実ファイルか検証する。 |
-| [`_load_config`](../../src/ogami_oanda/strategy/shared/loader.py#L78) | function / internal | 戦略YAMLを文字列キーのmappingとして検証して読む。 |
-| [`_load_module`](../../src/ogami_oanda/strategy/shared/loader.py#L92) | function / internal | 戦略Pythonを固有名でロードし、失敗時に登録状態を戻す。 |
-| [`_validate_api`](../../src/ogami_oanda/strategy/shared/loader.py#L112) | function / internal | 戦略API版とfactoryの存在を検証する。 |
-| [`_strategy_id`](../../src/ogami_oanda/strategy/shared/loader.py#L124) | function / internal | Python/YAMLの内容ハッシュから戦略IDを作る。 |
-| [`_content_hash`](../../src/ogami_oanda/strategy/shared/loader.py#L128) | function / internal | ファイル内容のSHA-256を計算する。 |
+| [`_resolve_package_path`](../../src/ogami_oanda/strategy/shared/loader.py#L69) | function / internal | 戦略パスが許可パッケージ内の実ファイルか検証する。 |
+| [`_load_config`](../../src/ogami_oanda/strategy/shared/loader.py#L83) | function / internal | 戦略YAMLを文字列キーのmappingとして検証して読む。 |
+| [`_load_module`](../../src/ogami_oanda/strategy/shared/loader.py#L97) | function / internal | 戦略Pythonを固有名でロードし、失敗時に登録状態を戻す。 |
+| [`_validate_api`](../../src/ogami_oanda/strategy/shared/loader.py#L117) | function / internal | 戦略API版とfactoryの存在を検証する。 |
+| [`_strategy_id`](../../src/ogami_oanda/strategy/shared/loader.py#L129) | function / internal | Python/YAMLの内容ハッシュから戦略IDを作る。 |
+| [`_content_hash`](../../src/ogami_oanda/strategy/shared/loader.py#L133) | function / internal | ファイル内容のSHA-256を計算する。 |
 
 ## `strategy/shared/position_management/__init__.py`
 
@@ -359,3 +361,54 @@ STOP/LIMITのwatching状態から待機・発注・取消を判断する。
 | [`StopLossPolicy.amended_stop_loss`](../../src/ogami_oanda/strategy/shared/position_management/stop_loss_policy.py#L20) | method | 現在条件でSL変更値を計算する。 |
 | [`StopLossPolicy.next_amendment`](../../src/ogami_oanda/strategy/shared/position_management/stop_loss_policy.py#L30) | method | 設定された段階的SL変更の次の適用値を選ぶ。 |
 | [`StopLossPolicy.candle_amendment`](../../src/ogami_oanda/strategy/shared/position_management/stop_loss_policy.py#L58) | method | 確定足に基づくSL変更を判断する。 |
+
+## `strategy/original/analysis.py`
+
+[ソース](../../src/ogami_oanda/strategy/original/analysis.py)
+
+足の前処理・ピーク解析・候補選択・OrderIntent生成を行う純粋なoriginal処理。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`MarketAnalysisResult`](../../src/ogami_oanda/strategy/original/analysis.py#L27) | class | 解析で得た足・注文意図・候補診断をまとめた結果。 |
+| [`OriginalAnalysis`](../../src/ogami_oanda/strategy/original/analysis.py#L36) | class | 市場データと指標を準備し、選択候補をOrderIntentへ変換する。 この責任を提供するクラス。 |
+| [`OriginalAnalysis.__init__`](../../src/ogami_oanda/strategy/original/analysis.py#L37) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`OriginalAnalysis.analyze_frames`](../../src/ogami_oanda/strategy/original/analysis.py#L49) | method | 足の前処理・ピーク解析・候補選択・OrderIntent生成を行う純粋なoriginal処理。 |
+| [`OriginalAnalysis.prepare_frame`](../../src/ogami_oanda/strategy/original/analysis.py#L112) | method | 足の前処理・ピーク解析・候補選択・OrderIntent生成を行う純粋なoriginal処理。 |
+| [`OriginalAnalysis._candidate_to_intent`](../../src/ogami_oanda/strategy/original/analysis.py#L128) | method | 選択された候補をOrderIntentへ変換する。 |
+| [`OriginalAnalysis._legacy_order_name`](../../src/ogami_oanda/strategy/original/analysis.py#L179) | method | 従来の規則に沿って注文名を作る。 |
+| [`OriginalAnalysis._intent_metadata`](../../src/ogami_oanda/strategy/original/analysis.py#L182) | method | 候補の判断文脈をintentメタデータへ移す。 |
+| [`OriginalAnalysis._pair_name`](../../src/ogami_oanda/strategy/original/analysis.py#L260) | method | 解析で使う通貨ペア名を正規化する。 |
+
+## `strategy/original/context.py`
+
+[ソース](../../src/ogami_oanda/strategy/original/context.py)
+
+originalのライン候補判断へ渡す足・ピーク・RSIの文脈を構築する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`build_line_candidate_context`](../../src/ogami_oanda/strategy/original/context.py#L11) | function | Build the pure line-analysis context required by LineCandidateBuilder. |
+| [`_rsi_info`](../../src/ogami_oanda/strategy/original/context.py#L70) | function | 解析文脈用のRSI情報を作る。 |
+| [`_timeframe_rsi_info`](../../src/ogami_oanda/strategy/original/context.py#L79) | function | 特定時間足のRSI情報を作る。 |
+
+## `strategy/original/parameters.yaml`
+
+[ソース](../../src/ogami_oanda/strategy/original/parameters.yaml)
+
+originalの明示プラグイン用pair・risk_yen・line_units設定。
+
+## `strategy/original/strategy.py`
+
+[ソース](../../src/ogami_oanda/strategy/original/strategy.py)
+
+originalのAPI v1判断、データ要件、空の状態読込とfactoryを提供する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`OriginalStrategy`](../../src/ogami_oanda/strategy/original/strategy.py#L27) | class | Pure multi-frame decisions; scheduling and broker state stay with callers. |
+| [`OriginalStrategy.__init__`](../../src/ogami_oanda/strategy/original/strategy.py#L33) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`OriginalStrategy.decide`](../../src/ogami_oanda/strategy/original/strategy.py#L57) | method | 共通市場入力から戦略判断を返す。 |
+| [`OriginalStrategy.dump_state`](../../src/ogami_oanda/strategy/original/strategy.py#L92) | method | JSON互換の戦略状態を返す。 |
+| [`OriginalStrategy.load_state`](../../src/ogami_oanda/strategy/original/strategy.py#L95) | method | 保存された戦略状態を検証して読み込む。 |
+| [`create_strategy`](../../src/ogami_oanda/strategy/original/strategy.py#L101) | function | originalのAPI v1判断、データ要件、空の状態読込とfactoryを提供する。 |

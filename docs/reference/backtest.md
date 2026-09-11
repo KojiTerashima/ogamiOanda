@@ -6,4 +6,7 @@
 
 [ソース](../../src/ogami_oanda/backtest/__init__.py)
 
-パッケージの入口。初期化時に業務処理を開始しない。 現時点ではバックテストCLIはなく、決済判定はapplicationのBacktestSimulatorが担当。
+互換パッケージの入口。初期化時に業務処理を開始しない。
+履歴取得・再生CLIは[entrypoints](entrypoints.md)、仮想ブローカーと結果出力は
+[adapters](adapters.md)、増分市場・再生時計は[application](application.md)が担当する。
+操作・保存形式・約定規則は[バックテストガイド](../backtest.md)を参照。

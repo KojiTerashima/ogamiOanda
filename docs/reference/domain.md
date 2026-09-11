@@ -191,3 +191,18 @@ OHLCの派生列、RSI、MACD、EMA、ボリンジャーバンドを計算する
 | [`PositionRuntimeState`](../../src/ogami_oanda/domain/positions/models.py#L72) | class | 監視・期限・SL変更・重複抑止等の管理状態。 |
 | [`PositionCommand`](../../src/ogami_oanda/domain/positions/models.py#L99) | class | ポジションへ適用する変更指示。 |
 | [`PositionEvent`](../../src/ogami_oanda/domain/positions/models.py#L108) | class | 管理状態の変化を通知・表示へ渡すイベント。 |
+
+## `domain/market/history.py`
+
+[ソース](../../src/ogami_oanda/domain/market/history.py)
+
+UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`OHLC`](../../src/ogami_oanda/domain/market/history.py#L13) | class | UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。 |
+| [`OHLC.__post_init__`](../../src/ogami_oanda/domain/market/history.py#L19) | method | 入力の型・値とモデルの整合性を検証する。 |
+| [`HistoricalCandle`](../../src/ogami_oanda/domain/market/history.py#L28) | class | UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。 |
+| [`HistoricalCandle.__post_init__`](../../src/ogami_oanda/domain/market/history.py#L36) | method | 入力の型・値とモデルの整合性を検証する。 |
+| [`HistoricalCandle.end`](../../src/ogami_oanda/domain/market/history.py#L50) | method | UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。 |
+| [`utc_time`](../../src/ogami_oanda/domain/market/history.py#L54) | function | UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。 |

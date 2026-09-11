@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Mapping, Protocol, TypeAlias, runtime_checkable
 
-from ogami_oanda.domain.orders.models import OrderIntent
+from ogami_oanda.domain.orders.models import OrderContext, OrderIntent
 from ogami_oanda.domain.positions.models import PositionSnapshot
 
 JSONScalar: TypeAlias = str | int | float | bool | None
@@ -35,6 +35,8 @@ class StrategyInput:
     positions: tuple[PositionSnapshot, ...] = ()
     candles: object | None = None
     evaluation_time: datetime | None = None
+    candle_frames: Mapping[str, object] = field(default_factory=dict)
+    decision_time: str | None = None
 
 
 class StrategyCommandAction(str, Enum):
@@ -67,12 +69,22 @@ class StrategyCommand:
 
 
 @dataclass(frozen=True)
+class StrategyCandleProtection:
+    """Completed-candle facts for the application lifecycle policies."""
+
+    latest_peak: Mapping[str, object]
+    previous_candle: Mapping[str, object]
+
+
+@dataclass(frozen=True)
 class StrategyDecision:
     """Commands and order intents requested by a strategy evaluation."""
 
     commands: tuple[StrategyCommand, ...] = ()
     intents: tuple[OrderIntent, ...] = ()
     diagnostics: Mapping[str, JSONValue] = field(default_factory=dict)
+    order_context: OrderContext | None = None
+    candle_protection: StrategyCandleProtection | None = None
 
 
 @runtime_checkable
@@ -84,3 +96,16 @@ class TradingStrategy(Protocol):
     def dump_state(self) -> JSONState: ...
 
     def load_state(self, state: Mapping[str, JSONValue]) -> None: ...
+
+
+def strategy_data_requirements(strategy: object) -> dict[str, int]:
+    """Return validated candle requests, retaining API-v1's historical default."""
+    requirements = getattr(strategy, "data_requirements", {"M1": 1000})
+    if not isinstance(requirements, Mapping):
+        raise ValueError("strategy data_requirements must be a mapping")
+    for granularity, count in requirements.items():
+        if granularity not in {"S5", "M1", "M5", "M30", "H1"}:
+            raise ValueError(f"unsupported strategy data_requirements granularity: {granularity}")
+        if type(count) is not int or count <= 0:
+            raise ValueError("strategy data_requirements counts must be positive integers")
+    return dict(requirements)

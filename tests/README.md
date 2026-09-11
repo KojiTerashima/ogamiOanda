@@ -1,11 +1,11 @@
 # Offline Test Baseline
 
 The retained `classOanda.py` characterization dependency imports `pytz`.
-It is not currently declared in `pyproject.toml`; install it explicitly for
-legacy compatibility tests if the environment does not already provide it:
+It is included in the development dependencies; install the development extra
+before running compatibility tests:
 
 ```sh
-.venv/bin/python -m pip install pytz
+.venv/bin/python -m pip install -e '.[dev]'
 ```
 
 This dependency setup may require package-download access. Do not substitute a
@@ -72,3 +72,24 @@ original startup without importing unselected Matcha, named once/loop dispatch,
 argument conflicts, plugin containment, and the packaged Matcha parameters.
 Neither loop dispatch test starts a real trading loop. Strategy ownership and
 operator commands are documented in [the strategy guide](../src/ogami_oanda/strategy/README.md).
+
+## Backtest Verification
+
+```sh
+.venv/bin/python -m pytest -q tests/test_backtest_*.py tests/test_contract_original_strategy_api.py
+```
+
+These offline tests cover acquisition recovery, atomic storage, rolling frames,
+execution ambiguity, partial-close accounting, lifecycle integration, source-scoped
+commands, CLI isolation, reproducibility, and future-input independence.
+The full normal gate remains required because original and live share evaluation.
+
+Run synthetic long-history verification separately; it is not collected by pytest:
+
+```sh
+.venv/bin/python scripts/verify_backtest_long_run.py --days 730 --output-dir results/synthetic-730-days
+```
+
+Use `--days 1` for a short benchmark of the same streaming path. See the
+[backtest guide](../docs/backtest.md) for the memory limit, artifacts, approximations,
+and the separate credentialed real-data acceptance boundary.

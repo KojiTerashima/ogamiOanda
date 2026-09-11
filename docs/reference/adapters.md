@@ -243,3 +243,117 @@
 | [`_optional_string`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L603) | function / internal | 省略可能な文字列を検証・復元する。 |
 | [`_optional_float`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L607) | function / internal | 省略可能な浮動小数を検証・復元する。 |
 | [`_optional_int`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L611) | function / internal | 省略可能な整数を検証・復元する。 |
+
+## `adapters/backtest/__init__.py`
+
+[ソース](../../src/ogami_oanda/adapters/backtest/__init__.py)
+
+オフライン再生adapterのパッケージ入口。
+
+## `adapters/backtest/broker.py`
+
+[ソース](../../src/ogami_oanda/adapters/backtest/broker.py)
+
+S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`SimulatedTrade`](../../src/ogami_oanda/adapters/backtest/broker.py#L23) | class | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker`](../../src/ogami_oanda/adapters/backtest/broker.py#L34) | class | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.__init__`](../../src/ogami_oanda/adapters/backtest/broker.py#L35) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`SimulatedBroker._event`](../../src/ogami_oanda/adapters/backtest/broker.py#L65) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.submit`](../../src/ogami_oanda/adapters/backtest/broker.py#L84) | method | 新規注文を検証し、次のS5以降で有効な注文として記録する。 |
+| [`SimulatedBroker.cancel_order`](../../src/ogami_oanda/adapters/backtest/broker.py#L112) | method | 未約定注文を取消し理由を記録する。 |
+| [`SimulatedBroker.close_trade`](../../src/ogami_oanda/adapters/backtest/broker.py#L122) | method | 次のS5始値で実行する数量付き決済を予約する。 |
+| [`SimulatedBroker.amend_protection`](../../src/ogami_oanda/adapters/backtest/broker.py#L134) | method | 保護価格を変更しイベントへ記録する。 |
+| [`SimulatedBroker.advance`](../../src/ogami_oanda/adapters/backtest/broker.py#L150) | method | 次の観測済みS5を適用する。 |
+| [`SimulatedBroker._entry`](../../src/ogami_oanda/adapters/backtest/broker.py#L191) | method | 注文種別とBid/Askから約定価格と始値約定の有無を判定する。 |
+| [`SimulatedBroker._exit_prices`](../../src/ogami_oanda/adapters/backtest/broker.py#L208) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker._protect`](../../src/ogami_oanda/adapters/backtest/broker.py#L211) | method | SL優先と足途中約定の保守的TP規則で保護決済する。 |
+| [`SimulatedBroker._close`](../../src/ogami_oanda/adapters/backtest/broker.py#L227) | method | 決済数量分の実現損益を取引台帳と集計へ反映する。 |
+| [`SimulatedBroker.finalize`](../../src/ogami_oanda/adapters/backtest/broker.py#L252) | method | 未約定を取消し、残存数量を最後のBid/Ask終値で清算する。 |
+| [`SimulatedBroker.unrealized_pl`](../../src/ogami_oanda/adapters/backtest/broker.py#L267) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.order`](../../src/ogami_oanda/adapters/backtest/broker.py#L270) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.trade`](../../src/ogami_oanda/adapters/backtest/broker.py#L277) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.position`](../../src/ogami_oanda/adapters/backtest/broker.py#L281) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.pending_orders`](../../src/ogami_oanda/adapters/backtest/broker.py#L284) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.open_positions`](../../src/ogami_oanda/adapters/backtest/broker.py#L287) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.account_capabilities`](../../src/ogami_oanda/adapters/backtest/broker.py#L290) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.instrument_rules`](../../src/ogami_oanda/adapters/backtest/broker.py#L293) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.transactions_since`](../../src/ogami_oanda/adapters/backtest/broker.py#L298) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.release_inactive`](../../src/ogami_oanda/adapters/backtest/broker.py#L304) | method | Keep terminal evidence only while application slots can reference it. |
+
+## `adapters/backtest/history.py`
+
+[ソース](../../src/ogami_oanda/adapters/backtest/history.py)
+
+実口座へ接続せず、再生用の履歴重複抑止と通知境界を提供する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`SimulationHistory`](../../src/ogami_oanda/adapters/backtest/history.py#L4) | class | 実口座へ接続せず、再生用の履歴重複抑止と通知境界を提供する。 |
+| [`SimulationHistory.__init__`](../../src/ogami_oanda/adapters/backtest/history.py#L5) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`SimulationHistory.read_all`](../../src/ogami_oanda/adapters/backtest/history.py#L8) | method | 実口座へ接続せず、再生用の履歴重複抑止と通知境界を提供する。 |
+| [`SimulationHistory.append`](../../src/ogami_oanda/adapters/backtest/history.py#L11) | method | 実口座へ接続せず、再生用の履歴重複抑止と通知境界を提供する。 |
+| [`SimulationHistory.append_once`](../../src/ogami_oanda/adapters/backtest/history.py#L14) | method | 実口座へ接続せず、再生用の履歴重複抑止と通知境界を提供する。 |
+| [`SimulationNotifier`](../../src/ogami_oanda/adapters/backtest/history.py#L22) | class | 実口座へ接続せず、再生用の履歴重複抑止と通知境界を提供する。 |
+| [`SimulationNotifier.send`](../../src/ogami_oanda/adapters/backtest/history.py#L23) | method | 実口座へ接続せず、再生用の履歴重複抑止と通知境界を提供する。 |
+
+## `adapters/backtest/report.py`
+
+[ソース](../../src/ogami_oanda/adapters/backtest/report.py)
+
+UTCのCSV結果、欠損区間、資産曲線・DDと実行状態を逐次保存する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`BacktestReport`](../../src/ogami_oanda/adapters/backtest/report.py#L15) | class | UTCのCSV結果、欠損区間、資産曲線・DDと実行状態を逐次保存する。 |
+| [`BacktestReport.__init__`](../../src/ogami_oanda/adapters/backtest/report.py#L16) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`BacktestReport._writer`](../../src/ogami_oanda/adapters/backtest/report.py#L30) | method | UTCのCSV結果、欠損区間、資産曲線・DDと実行状態を逐次保存する。 |
+| [`BacktestReport.event`](../../src/ogami_oanda/adapters/backtest/report.py#L37) | method | イベントをUTCへ正規化し注文・取引CSVへ追記する。 |
+| [`BacktestReport.gap`](../../src/ogami_oanda/adapters/backtest/report.py#L43) | method | 欠損区間の開始・終了・秒数をCSVへ追記する。 |
+| [`BacktestReport.mark`](../../src/ogami_oanda/adapters/backtest/report.py#L47) | method | UTC時刻の残高・含み損益・資産と最大DDを更新する。 |
+| [`BacktestReport.finish`](../../src/ogami_oanda/adapters/backtest/report.py#L54) | method | 出力を閉じてsummaryと完了状態を確定する。 |
+| [`BacktestReport.fail`](../../src/ogami_oanda/adapters/backtest/report.py#L59) | method | 出力を閉じて失敗状態と例外型だけを保存する。 |
+| [`BacktestReport.close`](../../src/ogami_oanda/adapters/backtest/report.py#L63) | method | 開いている結果ファイルを閉じる。 |
+
+## `adapters/oanda/history.py`
+
+[ソース](../../src/ogami_oanda/adapters/oanda/history.py)
+
+6時間以内のS5 Mid/Bid/Ask取得と応答検証を行う。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`OandaHistorySource`](../../src/ogami_oanda/adapters/oanda/history.py#L15) | class | 6時間以内のS5 Mid/Bid/Ask取得と応答検証を行う。 |
+| [`OandaHistorySource.__init__`](../../src/ogami_oanda/adapters/oanda/history.py#L16) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`OandaHistorySource.fetch`](../../src/ogami_oanda/adapters/oanda/history.py#L19) | method | 6時間以内のS5 Mid/Bid/Ask取得と応答検証を行う。 |
+
+## `adapters/repositories/historical_store.py`
+
+[ソース](../../src/ogami_oanda/adapters/repositories/historical_store.py)
+
+日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`file_hash`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L27) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`atomic_json`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L35) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`atomic_bytes`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L40) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`candle_row`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L55) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`row_candle`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L61) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`_range`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L71) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L78) | class | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore.__init__`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L79) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`HistoricalStore._reload_manifest`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L86) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore.download_lock`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L102) | method | Exclude concurrent download writers; process exit releases the lock. |
+| [`HistoricalStore._file`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L118) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore._intervals`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L129) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore.missing_intervals`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L150) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore.covers`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L168) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore._day_rows`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L171) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore._validated_day`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L203) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore.validate`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L217) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore.write_interval`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L235) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`HistoricalStore.read`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L281) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+| [`read_mid_csv`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L292) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |

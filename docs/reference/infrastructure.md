@@ -67,22 +67,22 @@ stdout/stderrを日次ログへ複製し、古いログをgzip圧縮する。
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`DailyFileTee`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L16) | class | stdout/stderrを日次ログへ複製し、古いログをgzip圧縮する。 この責任を提供するクラス。 |
-| [`DailyFileTee.__init__`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L17) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`DailyFileTee.write`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L35) | method | 出力文字列を元のstreamと日次ログへ複製する。 |
-| [`DailyFileTee.flush`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L41) | method | streamとログのバッファをflushする。 |
-| [`DailyFileTee.close_log_file`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L46) | method | 開いているログファイルを閉じる。 |
-| [`DailyFileTee.isatty`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L53) | method | 元のstreamの端末属性を返す。 |
-| [`DailyFileTee.fileno`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L56) | method | 元のstreamのファイル記述子を返す。 |
-| [`DailyFileTee.encoding`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L60) | method | 元のstreamの文字コードを返す。 |
-| [`DailyFileTee.errors`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L64) | method | 元のstreamの文字コードエラー処理を返す。 |
-| [`DailyFileTee.__getattr__`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L67) | method | 未定義属性を元のstreamへ委譲する。 |
-| [`DailyFileTee._open_log_file`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L70) | method / internal | 現在日付に対応するログファイルを開く。 |
-| [`setup_daily_file_logging`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L94) | function | stdout/stderrに日次ログへの複製を設定する。 |
-| [`compress_old_daily_logs`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L121) | function | 過去日付のログをgzip圧縮する。 |
-| [`_current_jst_datetime`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L146) | function / internal | 日次ログ処理用のJST日時を取得する。 |
-| [`_date_from_log_path`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L152) | function / internal | ログファイル名から日付を取り出す。 |
-| [`_gzip_log_file`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L160) | function / internal | 指定ログをgzipへ圧縮する。 |
+| [`DailyFileTee`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L18) | class | stdout/stderrを日次ログへ複製し、古いログをgzip圧縮する。 この責任を提供するクラス。 |
+| [`DailyFileTee.__init__`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L19) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`DailyFileTee.write`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L37) | method | 出力文字列を元のstreamと日次ログへ複製する。 |
+| [`DailyFileTee.flush`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L43) | method | streamとログのバッファをflushする。 |
+| [`DailyFileTee.close_log_file`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L48) | method | 開いているログファイルを閉じる。 |
+| [`DailyFileTee.isatty`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L55) | method | 元のstreamの端末属性を返す。 |
+| [`DailyFileTee.fileno`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L58) | method | 元のstreamのファイル記述子を返す。 |
+| [`DailyFileTee.encoding`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L62) | method | 元のstreamの文字コードを返す。 |
+| [`DailyFileTee.errors`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L66) | method | 元のstreamの文字コードエラー処理を返す。 |
+| [`DailyFileTee.__getattr__`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L69) | method | 未定義属性を元のstreamへ委譲する。 |
+| [`DailyFileTee._open_log_file`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L72) | method / internal | 現在日付に対応するログファイルを開く。 |
+| [`setup_daily_file_logging`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L96) | function | stdout/stderrに日次ログへの複製を設定する。 |
+| [`compress_old_daily_logs`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L123) | function | 過去日付のログをgzip圧縮する。 |
+| [`_current_jst_datetime`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L148) | function / internal | 日次ログ処理用のJST日時を取得する。 |
+| [`_date_from_log_path`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L154) | function / internal | ログファイル名から日付を取り出す。 |
+| [`_gzip_log_file`](../../src/ogami_oanda/infrastructure/logging/daily_file.py#L162) | function / internal | 指定ログをgzipへ圧縮する。 |
 
 ## `infrastructure/runtime/__init__.py`
 

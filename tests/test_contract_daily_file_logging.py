@@ -76,3 +76,31 @@ def test_daily_file_tee_compresses_old_logs_when_opening_a_new_day(tmp_path):
     assert (tmp_path / "ogami-oanda-2026-09-04.log").read_text(
         encoding="utf-8"
     ) == "new day\n"
+
+
+def test_default_logging_clock_uses_runtime_jst_date_for_rotation_and_retention(tmp_path, monkeypatch):
+    from ogami_oanda.infrastructure.runtime import SystemClock
+
+    # 15:00 UTC is already the next calendar day in Japan.
+    from datetime import timezone
+    monkeypatch.setattr(SystemClock, 'now', lambda self: datetime(2026, 9, 4, 15, 0, tzinfo=timezone.utc))
+    old_log = tmp_path / 'ogami-oanda-2026-08-25.log'
+    old_log.write_text('retained until the JST boundary\n')
+    tee = DailyFileTee(StringIO(), tmp_path, compress_older_than_days=10)
+    tee.write('new JST day\n')
+    tee.close_log_file()
+    assert (tmp_path / 'ogami-oanda-2026-09-05.log').read_text() == 'new JST day\n'
+    assert not old_log.exists()
+    assert (tmp_path / 'ogami-oanda-2026-08-25.log.gz').exists()
+
+
+def test_default_compression_clock_uses_runtime_clock(tmp_path, monkeypatch):
+    from ogami_oanda.infrastructure.runtime import SystemClock
+
+    monkeypatch.setattr(SystemClock, 'now', lambda self: datetime(2026, 9, 4, 0, 0, tzinfo=ZoneInfo('Asia/Tokyo')))
+    old_log = tmp_path / 'ogami-oanda-2026-08-24.log'
+    old_log.write_text('old\n')
+    boundary_log = tmp_path / 'ogami-oanda-2026-08-25.log'
+    boundary_log.write_text('boundary\n')
+    assert compress_old_daily_logs(tmp_path) == (tmp_path / 'ogami-oanda-2026-08-24.log.gz',)
+    assert boundary_log.exists()

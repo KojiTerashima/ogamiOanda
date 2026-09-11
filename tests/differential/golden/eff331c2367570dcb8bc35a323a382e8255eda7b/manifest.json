@@ -33,7 +33,7 @@
       "scenario_sha256": "00ca90373fa2ec65c809ce25e2b3a6808f76706487f59a3e23624b0561929b46",
       "materialized_input_sha256": "01c43d8e89782ef3a12621c11b8c8a9e08bd53a7d742270008279726ca4f8c8a",
       "trace_file": "analysis-order-aud-usd.trace.json",
-      "trace_sha256": "87d938c04fd8f58a0087c6f23881029117f83957bc03dd406139b03bea0b5a1f"
+      "trace_sha256": "07eaa1b9ff7f4f08bfe0c198ce585b5ee38d9c64d9c8aabe9c3287971f539307"
     },
     "analysis-order-eur-usd": {
       "scenario_file": "analysis-order-eur-usd.json",
@@ -54,7 +54,7 @@
       "scenario_sha256": "e7e4cf51a6be3c7e453f81dab0de6216e58dfe4cdc0005959999bd85b3535837",
       "materialized_input_sha256": "e8cbc0a33d3dc808d0e09b89f54d247f0b56a23533bcb21c3f129ec7444e771c",
       "trace_file": "analysis-order-usd-jpy.trace.json",
-      "trace_sha256": "c6060e4f0c392223e81b65818939df649f033efa00772107dbc226a7779bc806"
+      "trace_sha256": "722cca409de67545c9a7745e94fd63502f3643dd6d765397f44413a01daf4d3b"
     },
     "live-analysis-second-window-usd-jpy": {
       "scenario_file": "live-analysis-second-window-usd-jpy.json",

@@ -66,6 +66,7 @@ from ogami_oanda.strategy.shared.contracts import (
     StrategyInput,
     StrategyQuote,
     TradingStrategy,
+    strategy_data_requirements,
 )
 from ogami_oanda.strategy.original.line import LineCandidateBuilder
 from ogami_oanda.strategy.shared.loader import StrategyPluginError, load_strategy
@@ -310,11 +311,17 @@ class LiveApplication:
             decision_time=decision_time,
         )
         plans = tuple(self.planner.plan(intent, context) for intent in analysis.intents)
-        registration = self.portfolio.register_plans(list(plans), submit=not dry_run)
+        registration = self._register_plans(plans, dry_run)
         self._last_analysis_at = now
         if should_sync_after:
             summary = self._sync_positions(quote.mid, dry_run)
-        return LiveRunResult(analysis, registration, summary, quote, plans=plans)
+        return LiveRunResult(
+            analysis, registration, summary, quote, plans=plans,
+            strategy_decision=getattr(self.analysis, "last_decision", None),
+        )
+
+    def _register_plans(self, plans: tuple[OrderPlan, ...], dry_run: bool) -> RegistrationResult:
+        return self.portfolio.register_plans(list(plans), submit=not dry_run)
 
     def run_forever(
         self,
@@ -488,7 +495,7 @@ class LiveApplication:
         )
 
 
-class StrategyLiveApplication:
+class StrategyLiveApplication(LiveApplication):
     """Evaluate one trusted strategy plugin on every open-market tick."""
 
     def __init__(
@@ -527,6 +534,13 @@ class StrategyLiveApplication:
         set_event_sink = getattr(position_service, "set_event_sink", None)
         if set_event_sink is not None:
             set_event_sink(self.runtime_events.publish)
+        self.data_requirements = strategy_data_requirements(strategy)
+        self._original_profile = getattr(strategy, "evaluation_profile", None) == "original"
+        self._last_analysis_at = None
+        self._candle_stop_loss = None
+        self._original_dry_run = False
+        if self._original_profile:
+            self.analysis = MarketAnalysisService(market_data, strategy=strategy)
         self._strategy_loaded = False
         self._broker_retry_not_before: datetime | None = None
         self._broker_backoff_seconds = 1.0
@@ -542,6 +556,13 @@ class StrategyLiveApplication:
         decision_time: str | None = None,
     ) -> LiveRunResult:
         now = now or self.clock.now()
+        if self._original_profile:
+            self._original_dry_run = dry_run
+            # Use the same scheduler, including its first-tick exception and
+            # sync-before / analyze / sync-after ordering.
+            return LiveApplication.run_once.__wrapped__(
+                self, now=now, dry_run=dry_run, decision_time=decision_time,
+            )
         self._startup()
         if (
             getattr(
@@ -567,10 +588,7 @@ class StrategyLiveApplication:
         try:
             quote = self.market_data.current_quote(self.pair)
             skipped = self._entry_safety_reasons(quote, now)
-            summary = self.portfolio.sync_all(
-                current_price=quote.mid,
-                dry_run=dry_run,
-            )
+            summary = self._sync_positions(quote.mid, dry_run)
             if (
                 getattr(
                     self.portfolio,
@@ -595,7 +613,10 @@ class StrategyLiveApplication:
                     ("broker_reconciliation",),
                 )
 
-            candles = self.market_data.candles(self.pair, "M1", 1000)
+            candle_frames = {
+                granularity: self.market_data.candles(self.pair, granularity, count)
+                for granularity, count in self.data_requirements.items()
+            }
             strategy_input = StrategyInput(
                 quote=StrategyQuote(
                     pair=quote.pair,
@@ -606,13 +627,19 @@ class StrategyLiveApplication:
                     source_time=quote.source_time,
                 ),
                 positions=self._strategy_positions(),
-                candles=candles,
+                candles=candle_frames.get("M1"),
+                candle_frames=candle_frames,
                 evaluation_time=now,
             )
             decision = self.strategy.decide(strategy_input)
             if not isinstance(decision, StrategyDecision):
                 raise TypeError("strategy decide() must return StrategyDecision")
 
+            protection = decision.candle_protection
+            self._candle_stop_loss = (
+                CandleStopLossInput(protection.latest_peak, protection.previous_candle)
+                if protection is not None else None
+            )
             if not dry_run:
                 self.portfolio.set_strategy_checkpoint_state(
                     self.strategy.dump_state(),
@@ -649,7 +676,7 @@ class StrategyLiveApplication:
                     strategy_command_result=command_result,
                 )
 
-            context = OrderContext(
+            context = decision.order_context or OrderContext(
                 current_price=quote.mid,
                 decision_time=decision_time or now.isoformat(),
             )
@@ -814,6 +841,20 @@ class StrategyLiveApplication:
             return
         self.strategy.load_state(self.portfolio.strategy_state)
         self._strategy_loaded = True
+
+    def _register_plans(self, plans: tuple[OrderPlan, ...], dry_run: bool) -> RegistrationResult:
+        if dry_run:
+            return RegistrationResult((), ())
+        return super()._register_plans(plans, dry_run)
+
+    def _analyze(self, decision_time: str, current_price: float) -> MarketAnalysisResult:
+        self._load_strategy_state_once()
+        result = super()._analyze(decision_time, current_price)
+        if not self._original_dry_run:
+            self.portfolio.set_strategy_checkpoint_state(
+                self.strategy.dump_state(), persist=True,
+            )
+        return result
 
     def _strategy_positions(self) -> tuple:
         snapshots = []
