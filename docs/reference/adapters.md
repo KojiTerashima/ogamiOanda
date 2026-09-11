@@ -357,3 +357,132 @@ UTCのCSV結果、欠損区間、資産曲線・DDと実行状態を逐次保存
 | [`HistoricalStore.write_interval`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L235) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
 | [`HistoricalStore.read`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L281) | method | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
 | [`read_mid_csv`](../../src/ogami_oanda/adapters/repositories/historical_store.py#L292) | function | 日別gzipとatomicマニフェストによる履歴保存・検証・取得再開を提供する。 |
+
+## `adapters/legacy/main_analysis/__init__.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/__init__.py)
+
+Pinned main analysis; source modules are accessible only through sessions.
+
+## `adapters/legacy/main_analysis/analysis.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/analysis.py)
+
+Analysis-only entry points; order construction lives in orders.py.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`policy_from`](../../src/ogami_oanda/adapters/legacy/main_analysis/analysis.py#L17) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+| [`analyze`](../../src/ogami_oanda/adapters/legacy/main_analysis/analysis.py#L21) | function | Run native detection and detach facts; retain native objects in the session. |
+
+
+## `adapters/legacy/main_analysis/backend.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py)
+
+Compose native evaluation stages behind the domain analysis port.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`MainSourceAnalysis`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L21) | class | mainの原文を一度読み込み、評価ごとの実行状態を分離する。 |
+| [`MainSourceAnalysis.__init__`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L24) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`MainSourceAnalysis.source_directory`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L30) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`MainSourceAnalysis.evaluation`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L33) | method | Open the session shared by analyze and build_order_candidates. |
+| [`MainSourceAnalysis.evaluate`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L37) | method | Compose the currently enabled original line strategy for the domain port. |
+
+
+## `adapters/legacy/main_analysis/inputs.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py)
+
+Translate candle inputs using the pinned source's own preparation routines.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`jst_time`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L14) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+| [`SnapshotPrices`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L21) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`SnapshotPrices.__init__`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L22) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SnapshotPrices.NowPrice_exe`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L29) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`prepare_frames`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L34) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+| [`prepare_candles`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L97) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+| [`line_view`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L131) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+| [`peak_objects`](../../src/ogami_oanda/adapters/legacy/main_analysis/inputs.py#L161) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+
+
+## `adapters/legacy/main_analysis/loader.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py)
+
+Execute original modules using evaluation-local imports and output sinks.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`_compiled`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L25) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+| [`_forbidden`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L29) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |
+| [`_UnavailableBroker`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L33) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`_UnavailableBroker.__init__`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L34) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L38) | class | One namespace per evaluation. Never aliases the host's legacy imports. |
+| [`SourceRuntime.__init__`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L41) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime.__enter__`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L57) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime.__exit__`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L60) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime.close`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L63) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime._print`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L71) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime._redirect_stdout`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L78) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime._notice`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L85) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime._missing`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L88) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime._shim`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L91) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime._import`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L141) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime.load`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L162) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`SourceRuntime.binding`](../../src/ogami_oanda/adapters/legacy/main_analysis/loader.py#L187) | method | Bind an environment boundary in this private namespace only. |
+
+
+## `adapters/legacy/main_analysis/orders.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/orders.py)
+
+Create candidates with upstream order functions, without submitting orders.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`from_native_order`](../../src/ogami_oanda/adapters/legacy/main_analysis/orders.py#L13) | function | Copy finalized prices, units and management metadata without recalculation. |
+| [`build_order_candidates`](../../src/ogami_oanda/adapters/legacy/main_analysis/orders.py#L53) | function | Build native orders once from a result owned by this open session. |
+
+
+## `adapters/legacy/main_analysis/session.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py)
+
+Evaluation lifetime and native result ownership.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`AnalysisSession`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L17) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`AnalysisSession.__init__`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L18) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`AnalysisSession.__enter__`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L30) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`AnalysisSession.__exit__`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L33) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`AnalysisSession.translated_errors`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L41) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`AnalysisSession.candles`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L59) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`AnalysisSession.store`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L67) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`AnalysisSession.native`](../../src/ogami_oanda/adapters/legacy/main_analysis/session.py#L75) | method | 評価状態と既存の呼び出し契約を接続する。 |
+
+
+## `adapters/legacy/main_analysis/source.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py)
+
+指定されたmainディレクトリから対応する原文だけを読み込み、実行器の生存期間中は同じ内容を保持する。
+
+| シンボル | 種別 | 役割 |
+| --- | --- | --- |
+| [`MainSources`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L28) | class | 参照ディレクトリと変更不可の原文バイト列を保持する。 |
+| [`read_sources`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L35) | function | 必要なPythonファイルを読み込み、不足時は参照先を示すエラーにする。 |
+
+## `adapters/legacy/main_analysis/values.py`
+
+[ソース](../../src/ogami_oanda/adapters/legacy/main_analysis/values.py)
+
+Detach upstream values before disposing their private module namespace.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`plain`](../../src/ogami_oanda/adapters/legacy/main_analysis/values.py#L14) | function | 解析・注文候補の受け渡しに必要な処理を行う。 |

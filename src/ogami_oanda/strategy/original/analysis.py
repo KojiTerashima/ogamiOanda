@@ -7,6 +7,7 @@ import pandas as pd
 
 from ogami_oanda.domain.analysis.indicators import add_basic_data, add_bb_data, add_rsi
 from ogami_oanda.domain.analysis.peaks import PeaksClass
+from ogami_oanda.domain.analysis.main_contracts import AnalysisRequest, MainAnalysisBackend, PeakSnapshot
 from ogami_oanda.domain.market.candle_frame import CandleFrameSchema
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import (
@@ -27,10 +28,11 @@ CandidateContextBuilder = Callable[[str, Mapping[str, pd.DataFrame], Mapping[str
 class MarketAnalysisResult:
     intents: tuple[OrderIntent, ...]
     frames: Mapping[str, pd.DataFrame]
-    peaks: Mapping[str, PeaksClass]
+    peaks: Mapping[str, PeaksClass | PeakSnapshot]
     order_context: OrderContext | None = None
     candidate_context: Mapping[str, object] = field(default_factory=dict)
     candidate_diagnostics: CandidateDiagnostics | None = None
+    completed_frames: Mapping[str, pd.DataFrame] = field(default_factory=dict)
 
 
 class OriginalAnalysis:
@@ -40,11 +42,18 @@ class OriginalAnalysis:
         active_orders: object | None = None,
         candidate_context_builder: CandidateContextBuilder | None = None,
         units: int = 1000,
+        *,
+        analysis_backend: MainAnalysisBackend | None = None,
+        analysis_mode: str = "inspection",
+        risk_yen: float | None = None,
     ) -> None:
         self.candidate_builder = candidate_builder
         self.candidate_context_builder = candidate_context_builder
         self.active_orders = active_orders
         self.units = units
+        self.analysis_backend = analysis_backend
+        self.analysis_mode = analysis_mode
+        self.risk_yen = risk_yen
 
     def analyze_frames(
         self,
@@ -53,7 +62,10 @@ class OriginalAnalysis:
         *,
         current_price: float,
         candle_frames: Mapping[str, pd.DataFrame],
+        evaluation_time: object | None = None,
     ) -> MarketAnalysisResult:
+        if self.analysis_backend is not None:
+            return self._analyze_main(pair, decision_time, current_price, candle_frames, evaluation_time)
         frames = {granularity: self.prepare_frame(pair, granularity, candle_frames[granularity]) for granularity in ("M5", "H1", "M30", "S5")}
         peaks = {
             granularity: PeaksClass(frame, granularity, current_price, currency_pair(pair))
@@ -106,6 +118,34 @@ class OriginalAnalysis:
             order_context,
             context,
             diagnostics,
+        )
+
+    def _analyze_main(self, pair, decision_time, current_price, candle_frames, evaluation_time=None):
+        from ogami_oanda.strategy.original.line.builder import CandidateDiagnostics
+
+        evaluation = self.analysis_backend.evaluate(AnalysisRequest(
+            pair, pd.Timestamp(decision_time).floor("5min"), current_price, candle_frames,
+            mode=self.analysis_mode, evaluation_time=evaluation_time or decision_time, risk_yen=self.risk_yen,
+        ))
+        intents = []
+        rejected = {}
+        for intent in evaluation.intents:
+            if self.active_orders and self.active_orders.has_similar_active_order(
+                intent.direction.value, intent.target, source=intent.metadata.get("source"),
+                line_strategy=intent.metadata.get("line_strategy"),
+            ):
+                rejected["similar_active_order"] = rejected.get("similar_active_order", 0) + 1
+            else:
+                intents.append(intent)
+        for reason in evaluation.diagnostics.get("withheld", ()):
+            rejected[str(reason)] = rejected.get(str(reason), 0) + 1
+        diagnostics = CandidateDiagnostics(
+            {"main": len(evaluation.candidates)}, {"main": len(intents)}, {"main": rejected},
+        )
+        return MarketAnalysisResult(
+            tuple(intents), evaluation.frames, evaluation.peaks, evaluation.order_context,
+            {"main_analysis": evaluation.diagnostics, "status": evaluation.status}, diagnostics,
+            evaluation.completed_frames,
         )
 
     @staticmethod

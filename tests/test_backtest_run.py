@@ -112,15 +112,16 @@ def test_cli_run_is_offline_and_writes_zero_trade_statistics(tmp_path, monkeypat
 
 @pytest.mark.parametrize("name,pair", [("original", "USD_JPY"), ("original", "EUR_USD"),
                                        ("original", "AUD_USD"), ("matcha", "USD_JPY")])
-def test_packaged_strategies_complete_a_short_offline_replay(tmp_path, name, pair):
+def test_packaged_strategies_complete_a_short_offline_replay(tmp_path, name, pair, request):
     from argparse import Namespace
     from ogami_oanda.entrypoints.backtest import select_strategy
     from ogami_oanda.entrypoints.backtest_run import run_backtest
 
-    strategy, identity, metadata = select_strategy(Namespace(strategy=name, strategy_py=None, strategy_yaml=None,
+    main_dir = request.getfixturevalue("main_source_directory") if name == "original" else tmp_path / "missing-main"
+    strategy, identity, metadata = select_strategy(Namespace(command="run", main_analysis_dir=main_dir, strategy=name, strategy_py=None, strategy_yaml=None,
                                                              pair=pair, risk_yen=500, line_units=1))
-    interval = 3600 if name == "original" else 60
-    amount = 300 if name == "original" else 1100
+    interval = 300 if name == "original" else 60
+    amount = 3600 if name == "original" else 1100
     base = 150 if pair == "USD_JPY" else 1.05 if pair == "EUR_USD" else .7
 
     def history():
@@ -231,9 +232,11 @@ def test_mid_replay_failure_retains_incomplete_artifacts(tmp_path):
 
 @pytest.mark.parametrize("name,pair", [("original", "USD_JPY"), ("original", "EUR_USD"),
                                        ("original", "AUD_USD"), ("matcha", "USD_JPY")])
-def test_cli_runs_real_packaged_strategies_without_live_composition(tmp_path, monkeypatch, name, pair):
+def test_cli_runs_real_packaged_strategies_without_live_composition(tmp_path, monkeypatch, name, pair, request):
     from ogami_oanda.entrypoints import backtest, live
     from ogami_oanda.infrastructure.config import loader
+
+    main_dir = request.getfixturevalue("main_source_directory") if name == "original" else tmp_path / "absent-main"
 
     def forbidden(*args, **kwargs):
         raise AssertionError("offline replay used live composition or credentials")
@@ -242,8 +245,8 @@ def test_cli_runs_real_packaged_strategies_without_live_composition(tmp_path, mo
     monkeypatch.setattr(live, "build_live_application", forbidden)
     monkeypatch.setattr(live, "build_strategy_live_application", forbidden)
     price = 150 if pair == "USD_JPY" else 1.1 if pair == "EUR_USD" else .7
-    interval = 3600 if name == "original" else 60
-    amount = 300 if name == "original" else 1100
+    interval = 300 if name == "original" else 60
+    amount = 3600 if name == "original" else 1100
     source = tmp_path / "mid.csv"
     with source.open("w") as stream:
         writer = csv.writer(stream)
@@ -253,7 +256,7 @@ def test_cli_runs_real_packaged_strategies_without_live_composition(tmp_path, mo
             value = price * (1 + .0001 * (index % 11))
             writer.writerow([at.isoformat(), value, value * 1.00001, value * .99999, value])
     output = tmp_path / "result"
-    assert backtest.main(["run", "--strategy", name, "--pair", pair, "--from", START.isoformat(),
+    assert backtest.main(["run", "--strategy", name, "--main-analysis-dir", str(main_dir), "--pair", pair, "--from", START.isoformat(),
                           "--to", (START + timedelta(minutes=1)).isoformat(), "--mid-csv", str(source),
                           "--fixed-spread-pips", "0", "--initial-balance", "10000", "--output-dir", str(output)]) == 0
     metadata = json.loads((output / "run.json").read_text())
@@ -319,7 +322,8 @@ def test_cli_pins_manifest_content_when_writer_commits_during_preflight(tmp_path
             return StrategyDecision()
     output = tmp_path / 'result'
     args = Namespace(output_dir=output, mid_csv=None, fixed_spread_pips=None, data_dir=writer.root,
-                     pair='USD_JPY', start=START, end=START + timedelta(seconds=5), initial_balance=10000, slippage_pips=0)
+                     pair='USD_JPY', start=START, end=START + timedelta(seconds=5), initial_balance=10000, slippage_pips=0,
+                     main_analysis_dir=tmp_path / 'absent-main')
     backtest._run(args, Quiet(), 'quiet', {})
     metadata = json.loads((output / 'run.json').read_text())
     assert metadata['data_manifest'] == pinned

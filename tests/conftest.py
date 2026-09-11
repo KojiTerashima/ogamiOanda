@@ -176,3 +176,19 @@ def candle_frame() -> pd.DataFrame:
             "RSI": [55.0] * 6,
         }
     )
+
+
+def pytest_addoption(parser):
+    parser.addoption("--main-analysis-dir", default="../main", metavar="PATH",
+                     help="external main directory used by native analysis tests")
+
+
+@pytest.fixture(scope="session")
+def main_source_directory(pytestconfig):
+    path = Path(pytestconfig.getoption("--main-analysis-dir")).expanduser()
+    if not path.is_absolute():
+        path = Path(pytestconfig.invocation_params.dir) / path
+    path = path.resolve()
+    if not path.is_dir():
+        pytest.skip(f"native main analysis tests require --main-analysis-dir: {path}")
+    return path

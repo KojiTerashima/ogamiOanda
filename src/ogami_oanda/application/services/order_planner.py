@@ -49,10 +49,10 @@ class OrderPlanner:
     @staticmethod
     def _target_price(intent: OrderIntent, context: OrderContext) -> float:
         pair = currency_pair(intent.pair)
-        if intent.order_type is OrderType.MARKET:
-            return pair.round_price(context.current_price)
         if intent.target_is_price:
             return pair.round_price(intent.target)
+        if intent.order_type is OrderType.MARKET:
+            return pair.round_price(context.current_price)
         target_direction = intent.direction.value if intent.order_type is OrderType.STOP else -intent.direction.value
         return pair.round_price(context.current_price + intent.target * target_direction)
 

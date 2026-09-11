@@ -12,6 +12,20 @@ for reviewed entries in `tests/differential/intentional_deltas.json`. It does
 not prove that the behavior is correct for the current OANDA API. API wire
 compliance and practice acceptance are separate gates.
 
+## Main source adapter
+
+The pinned friend-owned main repository is a separate calculation baseline from
+this historical ogamiOanda golden. `tests/test_main_analysis_bridge.py` compares
+native source calls and adapter results using the same evaluation inputs. The
+historical golden continues to exercise the retained, explicitly injected legacy
+pipeline; it has not been rewritten to force the new calculations to match.
+
+The main-source composition tests use complete flags and contiguous warmup history.
+The previous hourly-only synthetic replay left 11 of 12 M5 bars missing, and the
+old short live fixtures omitted completion flags. Those inputs do not satisfy the
+native source contract. Full offline broker/schedule assertions remain in place;
+expected live intents are obtained from the tested main-source backend.
+
 ## Fixed baseline
 
 The accepted identity is:

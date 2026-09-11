@@ -225,8 +225,8 @@ JSTの曜日・時間窓・解析間隔・状態同期間隔を判定する。
 | --- | --- | --- |
 | [`MarketAnalysisService`](../../src/ogami_oanda/application/services/market_analysis_service.py#L17) | class | 市場データと指標を準備し、選択候補をOrderIntentへ変換する。 この責任を提供するクラス。 |
 | [`MarketAnalysisService.__init__`](../../src/ogami_oanda/application/services/market_analysis_service.py#L18) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`MarketAnalysisService.analyze`](../../src/ogami_oanda/application/services/market_analysis_service.py#L38) | method | 足を準備して戦略候補を解析し、注文intentと診断結果を返す。 |
-| [`MarketAnalysisService._prepared_frame`](../../src/ogami_oanda/application/services/market_analysis_service.py#L53) | method / internal | 市場足を検証し、指標を付けて解析へ渡す。 |
+| [`MarketAnalysisService.analyze`](../../src/ogami_oanda/application/services/market_analysis_service.py#L42) | method | 足を準備して戦略候補を解析し、注文intentと診断結果を返す。 |
+| [`MarketAnalysisService._prepared_frame`](../../src/ogami_oanda/application/services/market_analysis_service.py#L57) | method / internal | 市場足を検証し、指標を付けて解析へ渡す。 |
 
 ## `application/services/order_planner.py`
 

@@ -289,11 +289,11 @@ def test_live_composition_never_cancels_unmanaged_pending_on_start(candle_frame)
     broker = FakeBroker()
     market = FakeMarketData({("USD_JPY", "M5"): candle_frame}, {"USD_JPY": 150.0})
 
-    build_live_application(settings, market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), state_repository=_MissingStateRepository(), clock=FixedClock(datetime(2026, 1, 2)))
+    build_live_application(settings, candidate_builder=lambda *args, **kwargs: [], market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), state_repository=_MissingStateRepository(), clock=FixedClock(datetime(2026, 1, 2)))
     assert broker.commands == []
 
     broker.orders["pending-1"] = PositionSnapshot("pending", "USD_JPY", OrderState.PENDING, TradeState.NONE, order_id="pending-1")
-    application = build_live_application(settings, market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), state_repository=_MissingStateRepository(), clock=FixedClock(datetime(2026, 1, 2)), cancel_pending_on_start=True)
+    application = build_live_application(settings, candidate_builder=lambda *args, **kwargs: [], market_data=market, broker_execution=broker, broker_query=broker, notifier=FakeNotifier(), history=InMemoryTradeHistoryRepository(), state_repository=_MissingStateRepository(), clock=FixedClock(datetime(2026, 1, 2)), cancel_pending_on_start=True)
     assert broker.commands == []
     assert application.portfolio.startup_state is PortfolioStartupState.QUARANTINED
 
@@ -307,6 +307,7 @@ def test_live_composition_never_cancels_unmanaged_pending_on_start(candle_frame)
     )
     build_live_application(
         settings,
+        candidate_builder=lambda *args, **kwargs: [],
         market_data=market,
         broker_execution=dry_broker,
         broker_query=dry_broker,
@@ -624,6 +625,7 @@ def test_live_composition_fully_reconciles_before_authorization_recovery():
         AppSettings(
             {"primary": RuntimeAccountConfig("id", "token", "practice")}
         ),
+        candidate_builder=lambda *args, **kwargs: [],
         market_data=market,
         broker_execution=broker,
         broker_query=broker,
@@ -671,6 +673,7 @@ def test_live_composition_retries_transient_startup_inside_resilient_loop():
         AppSettings(
             {"primary": RuntimeAccountConfig("id", "token", "practice")}
         ),
+        candidate_builder=lambda *args, **kwargs: [],
         market_data=FakeMarketData({}, {"USD_JPY": 150.0}),
         broker_execution=broker,
         broker_query=broker,
@@ -912,6 +915,7 @@ def test_live_composition_shares_one_oanda_client_across_all_broker_adapters(mon
 
     application = build_live_application(
         settings,
+        candidate_builder=lambda *args, **kwargs: [],
         notifier=FakeNotifier(),
         history=InMemoryTradeHistoryRepository(),
         state_repository=_MissingStateRepository(),
@@ -938,6 +942,7 @@ def test_live_composition_fails_closed_when_required_hedging_is_disabled(candle_
     with pytest.raises(ValueError, match="hedging enabled"):
         build_live_application(
             settings,
+            candidate_builder=lambda *args, **kwargs: [],
             market_data=market,
             broker_execution=broker,
             broker_query=broker,
@@ -960,6 +965,7 @@ def test_non_dry_live_composition_requires_runtime_checkpoint(candle_frame):
     with pytest.raises(ValueError, match="position state repository"):
         build_live_application(
             settings,
+            candidate_builder=lambda *args, **kwargs: [],
             market_data=FakeMarketData(
                 {("USD_JPY", "M5"): candle_frame},
                 {"USD_JPY": 150.0},
@@ -995,9 +1001,9 @@ def test_live_environment_requires_explicit_opt_in_but_allows_dry_run(candle_fra
     }
 
     with pytest.raises(ValueError, match="live trading opt-in"):
-        build_live_application(settings, **dependencies)
+        build_live_application(settings, candidate_builder=lambda *args, **kwargs: [], **dependencies)
 
-    application = build_live_application(settings, dry_run=True, **dependencies)
+    application = build_live_application(settings, candidate_builder=lambda *args, **kwargs: [], dry_run=True, **dependencies)
     assert application.pair == "USD_JPY"
 
 

@@ -25,10 +25,14 @@ class MarketAnalysisService(OriginalAnalysis):
         candle_count: int = 250,
         *,
         strategy: OriginalStrategy | None = None,
+        analysis_backend=None,
+        analysis_mode: str = "inspection",
+        risk_yen: float | None = None,
     ) -> None:
         if strategy is None and candidate_builder is None:
             raise ValueError("candidate_builder or strategy is required")
-        super().__init__(candidate_builder, active_orders, candidate_context_builder, units)
+        super().__init__(candidate_builder, active_orders, candidate_context_builder, units,
+                         analysis_backend=analysis_backend, analysis_mode=analysis_mode, risk_yen=risk_yen)
         self.market_data = market_data
         self.candle_count = candle_count
         self.strategy = strategy

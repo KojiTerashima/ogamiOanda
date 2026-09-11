@@ -206,3 +206,34 @@ UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。
 | [`HistoricalCandle.__post_init__`](../../src/ogami_oanda/domain/market/history.py#L36) | method | 入力の型・値とモデルの整合性を検証する。 |
 | [`HistoricalCandle.end`](../../src/ogami_oanda/domain/market/history.py#L50) | method | UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。 |
 | [`utc_time`](../../src/ogami_oanda/domain/market/history.py#L54) | function | UTC・S5境界・OHLC・Bid/Mid/Ask整合性を検証する履歴モデル。 |
+
+## `domain/analysis/main_contracts.py`
+
+[ソース](../../src/ogami_oanda/domain/analysis/main_contracts.py)
+
+Data-only boundary for evaluating unchanged main analysis sources.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`MainAnalysisError`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L13) | class | An invalid evaluation, distinct from an ordinary absence of signals. |
+| [`AnalysisNotReady`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L17) | class | Completed history or an explicitly required policy is unavailable. |
+| [`AnalysisIntegrityError`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L21) | class | The supplied history or result violates the upstream contract. |
+| [`UnsupportedAnalysisDependency`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L25) | class | The main source requested an unsupported dependency or API contract. |
+| [`AnalysisRequest`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L30) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`AnalysisResult`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L44) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`OrderCandidate`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L54) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`PeakSnapshot`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L73) | class | The existing peak read surface, without an upstream class instance. |
+| [`MainAnalysisEvaluation`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L83) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`MainAnalysisBackend`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L94) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`MainAnalysisBackend.evaluate`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L95) | method | 評価状態と既存の呼び出し契約を接続する。 |
+
+
+## `domain/analysis/main_orders.py`
+
+[ソース](../../src/ogami_oanda/domain/analysis/main_orders.py)
+
+Explicit conversion of upstream resolved prices to the existing order API.
+
+| 定義 | 種別 | 役割 |
+| --- | --- | --- |
+| [`to_order_intents`](../../src/ogami_oanda/domain/analysis/main_orders.py#L8) | function | Translate executable candidates using explicit absolute-price flags. |

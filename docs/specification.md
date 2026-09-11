@@ -11,7 +11,8 @@
 - 組込みライン戦略の対象はUSD/JPY、EUR/USD、AUD/USD。
 - ローソク足は `time_jp/open/close/high/low` を必須列とするDataFrame。
   `time_jp` は `YYYY/MM/DD HH:MM:SS`、新しい足から古い足への順序、空データ不可。
-- 指標・ピーク・ライン計算はdomainに配置。分析サービスが複数時間足を準備する。
+- originalの本番組立は[main原文の互換実行器](main-analysis.md)を注入し、原文の確定足・ピーク・ラインを使用する。
+  domainの従来計算は未注入の互換経路に残す。live原文解析には確定フラグと十分な連続履歴も必要。
 - 価格精度・pips/価格差の換算は `CurrencyPair` が担当する。
 - `MarketQuote` はbid/ask/midを保持し、同じtickのスプレッド・分析・状態同期で共有する。
 
@@ -29,6 +30,9 @@
 | `OrderPlan` | 確定した価格とレンジ、元のintent/context、ブローカー中立要求 |
 | `BrokerOrderRequest` | 外部業者のSDK型を含まない発注要求 |
 | `submission_fingerprint` | 同じ判断を識別する注文参照値 |
+
+mainの候補は解決済み価格と数量をIntentへコピーする。`target_is_price=True`ならMARKETも指定価格を保つ。
+待機・trial・未対応の管理条件を持つ候補と制御通知は通常Intentへ変換せず、診断に保持する。
 
 OANDA adapterはMARKETをFOKかつトップレベルpriceなし、LIMIT/STOPをGTCかつpriceありに変換します。
 発注応答はpending、filled、rejected、cancelled、terminal、unknownを区別します。
@@ -82,7 +86,7 @@ Matchaのプラグイン経路は別の評価経路で、開場tickごとに戦�
 
 専用コードは `strategy/original/` と `strategy/matcha/`、共通契約・管理方針は `strategy/shared/` に置きます。
 起動は `--strategy original` / `--strategy matcha` で選び、同じlive CLIからそれぞれのループを実行します。
-省略時の組込み経路、判断内容、注文・復旧の規則は保持します。
+省略時もoriginalを選びます。originalの計算はmain原文基準になり、注文・復旧・スケジュールの契約は保持します。
 
 `TradingStrategy` は市場・保有状態を `StrategyInput` で受け、`StrategyDecision` を返します。
 判断には注文intentと、戦略sourceに限定された `CANCEL_PENDING`、`REDUCE_EXPOSURE`、

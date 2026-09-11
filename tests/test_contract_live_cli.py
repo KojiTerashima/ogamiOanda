@@ -33,6 +33,7 @@ def test_console_script_is_declared_and_help_is_available(capsys):
         "--settings",
         "--account",
         "--pair",
+        "--main-analysis-dir",
         "--dry-run",
         "--cancel-pending-on-start",
         "--once",
@@ -109,6 +110,7 @@ def test_console_once_dry_run_is_offline_testable_and_prints_plan_and_reject_rea
             "pair": "AUD_USD",
             "cancel_pending_on_start": True,
             "dry_run": True,
+            "main_analysis_dir": "../main",
         },
         "resilient_dry_run": True,
     }
@@ -345,6 +347,7 @@ def test_console_dispatches_trusted_strategy_loader_and_builder(monkeypatch, cap
                 "pair": "USD_JPY",
                 "cancel_pending_on_start": False,
                 "dry_run": True,
+                "main_analysis_dir": "../main",
             },
         ),
         "dry_run": True,
@@ -459,6 +462,7 @@ def test_named_strategy_selects_packaged_logic_for_once_or_loop(
     assert calls[0] == (strategy_name, {
         "account_name": "practice", "pair": "USD_JPY",
         "cancel_pending_on_start": False, "dry_run": True,
+        "main_analysis_dir": "../main",
     })
     assert len(calls) == 2
     if once:

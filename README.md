@@ -14,6 +14,7 @@ OANDA向けのPython取引プログラムです。現行実装は `src/ogami_oan
 | 入出力・状態遷移・戦略の制約を調べる | [現行仕様](docs/specification.md) |
 | クラス・関数・メソッドを探す | [コード参照](docs/reference/README.md) |
 | オフラインで検証する | [テストガイド](tests/README.md) |
+| mainの原文の解析を呼び出す | [main解析ガイド](docs/main-analysis.md) |
 | 履歴データで戦略を検証する | [バックテストガイド](docs/backtest.md) |
 | 旧ファイルを残した理由・復元方法を調べる | [アーカイブ方針](docs/archive-policy.md) |
 

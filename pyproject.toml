@@ -12,6 +12,7 @@ dependencies = [
     "pandas",
     "plotly",
     "pympler",
+    "pytz",
     "PyYAML",
     "requests",
 ]
@@ -26,6 +27,10 @@ ogami-oanda-practice-acceptance = "ogami_oanda.entrypoints.practice_acceptance:m
 "ogami_oanda.strategy.original" = ["README.md", "*.yaml"]
 "ogami_oanda.strategy.matcha" = ["*.yaml", "README.md"]
 "ogami_oanda.strategy.shared" = ["README.md"]
+"ogami_oanda.adapters.legacy.main_analysis" = ["README.md"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [project.optional-dependencies]
 dev = [

@@ -60,6 +60,7 @@ Git管理外の `config/settings.yaml` を用意します。`${変数名}` は�
 | `--config PATH` / `--settings PATH` | 設定ファイル。smoke以外で必須 |
 | `--account NAME` | 接続設定名。既定 `primary` |
 | `--strategy {original,matcha}` | 起動する戦略。省略時original。明示Python/YAMLとの併用不可 |
+| `--main-analysis-dir PATH` | originalの解析コードを直接読むmainディレクトリ。既定 `../main`。詳細は[main解析ガイド](main-analysis.md) |
 | `--pair PAIR` | `USD_JPY`, `EUR_USD`, `AUD_USD`。未指定時は構築処理の設定に従う |
 | `--dry-run` | 分析を行い、発注・取消・決済・保護変更・起動取消を抑止する。通常は外部読み取りあり |
 | `--once` | 1 tickで終了。単独指定では発注を抑止しない |

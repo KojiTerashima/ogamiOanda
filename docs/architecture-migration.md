@@ -25,6 +25,14 @@ Dependency direction is enforced by
 - `requests` is confined to `adapters/notifications`.
 - wall-clock and loop sleep calls are confined to `infrastructure/runtime`.
 
+The main analysis adapter reads supported Python sources directly from an external
+main directory (default `../main`, relative to the working directory). The private
+loader connects native imports, supplies input prices and isolates per-evaluation
+state and output. No original source is packaged, and static dependency checks
+need no source exceptions. See [the main source guide](main-analysis.md) for
+`--main-analysis-dir`, API use and restart behavior. The old domain/LineCandidateBuilder
+path remains available to explicit dependency injection and legacy parity tests.
+
 ## Data and decision flow
 
 One live tick follows this flow:
@@ -34,13 +42,14 @@ One live tick follows this flow:
    analysis behavior.
 3. The OANDA adapter maps candles to the canonical newest-first
    `time_jp/open/close/high/low` contract.
-4. domain analysis adds indicators, peaks, and line classes.
-5. `LineCandidateBuilder` applies the pair profile and returns ordered strategy
-   decisions, including risk-sized units, protection values, timeout, reasons,
-   and the legacy-compatible line/session metadata used downstream.
-6. `MarketAnalysisService` converts selected candidates to immutable
-   `OrderIntent` values; `OrderPlanner` derives prices and a broker-neutral
-   `BrokerOrderRequest`.
+4. The composition injects `MainSourceAnalysis` through the domain analysis port.
+   Its evaluation-local source modules prepare indicators, completed candles, peaks and lines.
+5. A separate candidate entry point applies the original pair policy and returns
+   resolved prices, units, timeouts and management metadata. Waiting/trial and
+   unsupported management/control conditions do not become executable intents.
+6. `MarketAnalysisService` preserves its result API. The domain converter builds
+   absolute-price `OrderIntent` values; `OrderPlanner` preserves resolved prices
+   and builds the existing broker-neutral request.
 7. `PositionPortfolioService` applies deduplication and slot policy, while
    `PositionService` evaluates watching, timeout, stop-loss, linkage, hedge, and
    close-reporting policies through ports.

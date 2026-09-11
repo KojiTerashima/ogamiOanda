@@ -10,6 +10,8 @@ import math
 from pathlib import Path
 import sys
 
+from ogami_oanda.entrypoints.main_analysis import bind_main_analysis
+from ogami_oanda.adapters.legacy.main_analysis.source import DEFAULT_SOURCE_DIRECTORY
 from ogami_oanda.adapters.repositories.historical_store import HistoricalStore, file_hash, read_mid_csv
 from ogami_oanda.application.services.historical_market import HistoricalMarket
 from ogami_oanda.application.services.history_download import download_history
@@ -51,6 +53,8 @@ def select_strategy(args) -> tuple:
         loaded = load_strategy(root / "matcha" / "strategy.py", root / "matcha" / "parameters.yaml")
         strategy, identity = loaded.strategy, loaded.strategy_id
         hashes = {"strategy_python_sha256": file_hash(loaded.python_path), "strategy_yaml_sha256": file_hash(loaded.yaml_path)}
+    if args.command == "run":
+        bind_main_analysis(strategy, mode="inspection", main_analysis_dir=args.main_analysis_dir)
     configured_pair = getattr(strategy, "pair", args.pair)
     if configured_pair != args.pair:
         raise ValueError("strategy pair does not match --pair")
@@ -77,6 +81,8 @@ def parser() -> argparse.ArgumentParser:
             sub.add_argument("--account", default="primary")
             sub.add_argument("--warmup-days", type=int, help="override automatically sized warmup history")
         else:
+            sub.add_argument("--main-analysis-dir", default=DEFAULT_SOURCE_DIRECTORY, metavar="PATH",
+                             help="main source directory for original (default: ../main, relative to working directory)")
             data = sub.add_mutually_exclusive_group(required=True)
             data.add_argument("--data-dir")
             data.add_argument("--mid-csv", help="ascending Mid OHLC CSV (optionally .gz)")
@@ -147,7 +153,7 @@ def _run(args, strategy, identity, hashes) -> dict:
         )
     return run_backtest(strategy, identity, args.pair, values, args.start, args.end,
                         initial_balance=args.initial_balance, output_dir=args.output_dir,
-                        slippage_pips=args.slippage_pips, metadata=metadata,
+                        slippage_pips=args.slippage_pips, metadata=metadata, main_analysis_dir=args.main_analysis_dir,
                         progress=lambda at: print(f"[REPLAY] {at.isoformat()}", flush=True))
 
 

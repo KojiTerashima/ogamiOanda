@@ -200,3 +200,12 @@ Python 3.12.5・NumPy 2.3.2・pandas 2.3.1、Linux環境で約4,454.55秒（74.2
 1日分の再生を追加実施しました。修正前後の`trades.csv`・`equity.csv`はバイト単位で一致しました。
 所要時間・メモリは環境と戦略で変動し、この合成戦略の損益は戦略性能の評価には使えません。
 認証付き取得後の実データ2年間の検証は、別途行う受入確認です。
+
+## originalのmain参照先
+
+originalの`run`はmainディレクトリの解析コードを直接読みます。ogamiOandaルートからの起動では
+既定の`../main`を使い、別配置では`--main-analysis-dir PATH`を指定します。`fetch`とMatchaには不要です。
+mainの変更は次の実行で反映します。コードを同梱・同期する処理はありません。
+`run.json`の`main_source_directory`は参照パスです。既存の`source_sha256`はogamiOanda内のコードが対象で、
+外部mainの内容は含みません。同じ結果の再現には同じmainの内容を用意します。
+[main解析ガイド](main-analysis.md)にPython APIとエラー時の扱いを記載しています。

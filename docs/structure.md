@@ -47,6 +47,7 @@
 | `adapters/oanda/` | OANDA要求と応答の変換、市場取得、発注、照会 | [adapters](reference/adapters.md) |
 | `adapters/backtest/` | 仮想ブローカー、取引台帳、逐次レポート出力 | [バックテスト](backtest.md) |
 | `adapters/notifications/` / `adapters/repositories/` | Discord通知、CSV履歴、JSONチェックポイント | [adapters](reference/adapters.md) |
+| `adapters/legacy/main_analysis/` | main原文の評価単位の実行と入出力変換。[利用方法](main-analysis.md) |
 | `adapters/legacy/` | 旧dict・オブジェクトと現行型との互換変換。退役資産ではない | [adapters](reference/adapters.md) |
 | `infrastructure/config/` | YAML・環境変数・旧tokensからの設定構築 | [infrastructure](reference/infrastructure.md) |
 | `infrastructure/runtime/` / `infrastructure/logging/` | JST時計、固定間隔ループ、日次ログ・圧縮 | [infrastructure](reference/infrastructure.md) |
@@ -66,8 +67,9 @@
 flowchart TD
     CLI[entrypoints.live / CLI] --> CLOCK[JST時刻・スケジュール]
     CLOCK --> QUOTE[MarketDataPort: 1回の価格取得]
-    QUOTE --> ANALYSIS[MarketAnalysisService: 足・指標・ライン]
-    ANALYSIS --> STRATEGY[LineCandidateBuilder: 候補とOrderIntent]
+    QUOTE --> ANALYSIS[MarketAnalysisService: 入力と解析結果]
+    ANALYSIS --> SOURCE[MainSourceAnalysis: 原文の解析]
+    SOURCE --> STRATEGY[原文の候補作成 → OrderIntent変換]
     STRATEGY --> PLAN[OrderPlanner: OrderPlan]
     PLAN --> PORTFOLIO[PositionPortfolioService: 重複・枠・復旧]
     PORTFOLIO --> POSITION[PositionService: 状態同期と変更]

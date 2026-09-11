@@ -1,6 +1,5 @@
-import json
+from dataclasses import replace
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
@@ -31,6 +30,9 @@ from ogami_oanda.infrastructure.config.models import (
     AppSettings,
     RuntimeAccountConfig,
 )
+from tests.fakes.main_analysis import request_for
+from ogami_oanda.adapters.legacy.main_analysis.backend import MainSourceAnalysis
+
 from tests.fakes import (
     FakeBroker,
     FakeMarketData,
@@ -141,35 +143,21 @@ def test_live_scheduler_allows_pair_spread_limit_and_blocks_above_it(pair_name):
 
 
 @pytest.mark.contract
-@pytest.mark.parametrize(
-    ("pair_name", "snapshot_name"),
-    [
-        ("USD_JPY", "analysis_oracle_usd_jpy.json"),
-        ("EUR_USD", "analysis_oracle_eur_usd.json"),
-        ("AUD_USD", "analysis_oracle_aud_usd.json"),
-    ],
-)
-def test_fixture_composition_runs_finite_dry_run_without_broker_mutation(
-    pair_name,
-    snapshot_name,
-    analysis_frame_store,
-):
-    expected = json.loads(
-        (Path(__file__).parent / "fixtures" / snapshot_name).read_text(encoding="utf-8")
-    )
-    frames = analysis_frame_store[pair_name]
+@pytest.mark.parametrize("pair_name", ["USD_JPY", "EUR_USD", "AUD_USD"])
+def test_fixture_composition_runs_finite_dry_run_without_broker_mutation(pair_name, main_source_directory):
+    request = request_for(pair_name, mode="live")
     market = FakeMarketData(
-        {
-            (pair_name, granularity): frames[granularity]
-            for granularity in ("M5", "H1", "M30", "S5")
-        },
-        {pair_name: expected["current_price"]},
+        {(pair_name, granularity): frame for granularity, frame in request.candle_frames.items()},
+        {pair_name: request.current_price},
     )
+    expected = MainSourceAnalysis(source_directory=main_source_directory).evaluate(replace(
+        request, risk_yen=500, candle_frames={key: frame.head(250) for key, frame in request.candle_frames.items()}))
     broker = FakeBroker()
-    now = datetime.strptime(expected["decision_time"], "%Y/%m/%d %H:%M:%S")
+    now = datetime.fromisoformat(request.decision_time)
     application = build_live_application(
         AppSettings({"primary": RuntimeAccountConfig("id", "token", "practice")}),
         pair=pair_name,
+        main_analysis_dir=main_source_directory,
         market_data=market,
         broker_execution=broker,
         broker_query=broker,
@@ -182,7 +170,7 @@ def test_fixture_composition_runs_finite_dry_run_without_broker_mutation(
 
     initial = application.run_once(
         now=now,
-        decision_time=expected["decision_time"],
+        decision_time=request.decision_time,
         dry_run=True,
     )
     following_ticks = application.run_forever(
@@ -194,7 +182,8 @@ def test_fixture_composition_runs_finite_dry_run_without_broker_mutation(
     )
 
     assert initial.analysis is not None
-    assert len(initial.plans) == len(expected["legacy_orders"])
+    assert tuple(plan.intent for plan in initial.plans) == expected.intents
+    assert initial.analysis.candidate_context["main_analysis"]["source_directory"] == expected.diagnostics["source_directory"]
     assert all(plan.intent.pair == pair_name for plan in initial.plans)
     assert len(following_ticks) == 1
     assert broker.requests == []
@@ -202,7 +191,8 @@ def test_fixture_composition_runs_finite_dry_run_without_broker_mutation(
 
 
 @pytest.mark.contract
-def test_dry_run_never_writes_runtime_checkpoint(candle_frame):
+def test_dry_run_never_writes_runtime_checkpoint():
+    request = request_for(mode="live")
     class _Repository:
         def __init__(self):
             self.saved = []
@@ -222,10 +212,11 @@ def test_dry_run_never_writes_runtime_checkpoint(candle_frame):
     broker = FakeBroker()
     application = build_live_application(
         AppSettings({"primary": RuntimeAccountConfig("id", "token", "practice")}),
+        candidate_builder=lambda *args, **kwargs: [],
         market_data=FakeMarketData(
             {
-                ("USD_JPY", granularity): candle_frame
-                for granularity in ("M5", "H1", "M30", "S5")
+                ("USD_JPY", granularity): frame
+                for granularity, frame in request.candle_frames.items()
             },
             {"USD_JPY": 150.0},
         ),
@@ -234,7 +225,7 @@ def test_dry_run_never_writes_runtime_checkpoint(candle_frame):
         notifier=FakeNotifier(),
         history=InMemoryTradeHistoryRepository(),
         state_repository=repository,
-        clock=FixedClock(datetime(2026, 1, 2, 10, 0, 0)),
+        clock=FixedClock(datetime.fromisoformat(request.decision_time)),
         dry_run=True,
     )
 
@@ -290,6 +281,7 @@ def test_live_dry_run_never_submits_prepared_checkpoint():
         AppSettings(
             {"primary": RuntimeAccountConfig("id", "token", "live")}
         ),
+        candidate_builder=lambda *args, **kwargs: [],
         market_data=FakeMarketData({}, {"USD_JPY": 150.0}),
         broker_execution=broker,
         broker_query=broker,
@@ -308,7 +300,8 @@ def test_live_dry_run_never_submits_prepared_checkpoint():
 
 
 @pytest.mark.contract
-def test_dry_run_composition_cannot_be_switched_to_broker_mutation(candle_frame):
+def test_dry_run_composition_cannot_be_switched_to_broker_mutation():
+    request = request_for(mode="live")
     class _Repository:
         def load(self, **_kwargs):
             return CheckpointLoadResult(CheckpointLoadStatus.MISSING)
@@ -321,10 +314,11 @@ def test_dry_run_composition_cannot_be_switched_to_broker_mutation(candle_frame)
         AppSettings(
             {"primary": RuntimeAccountConfig("id", "token", "practice")}
         ),
+        candidate_builder=lambda *args, **kwargs: [],
         market_data=FakeMarketData(
             {
-                ("USD_JPY", granularity): candle_frame
-                for granularity in ("M5", "H1", "M30", "S5")
+                ("USD_JPY", granularity): frame
+                for granularity, frame in request.candle_frames.items()
             },
             {"USD_JPY": 150.0},
         ),
@@ -333,7 +327,7 @@ def test_dry_run_composition_cannot_be_switched_to_broker_mutation(candle_frame)
         notifier=FakeNotifier(),
         history=InMemoryTradeHistoryRepository(),
         state_repository=_Repository(),
-        clock=FixedClock(datetime(2026, 1, 2, 10, 0, 0)),
+        clock=FixedClock(datetime.fromisoformat(request.decision_time)),
         dry_run=True,
     )
     plan = OrderPlanner().plan(

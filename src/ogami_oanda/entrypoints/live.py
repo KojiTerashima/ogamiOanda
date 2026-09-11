@@ -12,6 +12,9 @@ from ogami_oanda.adapters.notifications.discord import (
     DiscordNotifier,
     create_http_session,
 )
+from ogami_oanda.adapters.legacy.main_analysis.backend import MainSourceAnalysis
+from ogami_oanda.adapters.legacy.main_analysis.source import DEFAULT_SOURCE_DIRECTORY
+from ogami_oanda.entrypoints.main_analysis import bind_main_analysis
 from ogami_oanda.adapters.oanda.client import OandaClient
 from ogami_oanda.adapters.oanda.execution import OandaExecutionAdapter
 from ogami_oanda.adapters.oanda.market_data import OandaMarketDataAdapter
@@ -304,8 +307,8 @@ class LiveApplication:
         decision_time = decision_time or now.isoformat()
         analysis = self._analyze(decision_time, quote.mid)
         self._candle_stop_loss = self._candle_input(analysis)
-        # MarketAnalysisService derives its decision time from the newest M5
-        # candle and carries the move average used by legacy reporting.
+        # The analysis carries its decision boundary and the move average
+        # used by existing order planning and reporting.
         context = analysis.order_context or OrderContext(
             current_price=quote.mid,
             decision_time=decision_time,
@@ -484,14 +487,18 @@ class LiveApplication:
     def _candle_input(
         analysis: MarketAnalysisResult,
     ) -> CandleStopLossInput | None:
-        frame = analysis.frames.get("M5")
+        frame = getattr(analysis, "completed_frames", {}).get("M5")
+        previous_index = 0
+        if frame is None:
+            frame = analysis.frames.get("M5")
+            previous_index = 1
         peaks = analysis.peaks.get("M5")
         peak_items = getattr(peaks, "peaks_original", ())
-        if frame is None or len(frame) < 2 or not peak_items:
+        if frame is None or len(frame) <= previous_index or not peak_items:
             return None
         return CandleStopLossInput(
             latest_peak=dict(peak_items[0]),
-            previous_candle=frame.iloc[1].to_dict(),
+            previous_candle=frame.iloc[previous_index].to_dict(),
         )
 
 
@@ -1009,7 +1016,9 @@ def build_live_application(
     schedule: TradingSchedule | None = None,
     cancel_pending_on_start: bool = False,
     dry_run: bool = False,
+    main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
 ) -> LiveApplication:
+    analysis_backend = MainSourceAnalysis(source_directory=main_analysis_dir) if candidate_builder is None else None
     clock = clock or SystemClock()
     pair = pair or settings.trading.default_pair
     if market_data is None or broker_execution is None or broker_query is None:
@@ -1141,6 +1150,9 @@ def build_live_application(
         candidate_builder or LineCandidateBuilder(pair, risk_yen=settings.trading.risk_yen),
         candidate_context_builder=build_line_candidate_context,
         units=int(settings.trading.line_units),
+        analysis_backend=analysis_backend,
+        analysis_mode="live",
+        risk_yen=settings.trading.risk_yen,
     )
     return LiveApplication(
         pair,
@@ -1174,8 +1186,11 @@ def build_strategy_live_application(
     cancel_pending_on_start: bool = False,
     dry_run: bool = False,
     max_quote_age: timedelta | None = None,
+    main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
 ) -> StrategyLiveApplication:
     """Compose a live runner for an already validated trusted strategy."""
+
+    bind_main_analysis(strategy, mode="live", main_analysis_dir=main_analysis_dir)
 
     clock = clock or SystemClock()
     pair = pair or settings.trading.default_pair
@@ -1324,6 +1339,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", "--settings", dest="config")
     parser.add_argument("--account", default="primary")
     parser.add_argument("--pair")
+    parser.add_argument("--main-analysis-dir", default=DEFAULT_SOURCE_DIRECTORY, metavar="PATH",
+                        help="main source directory for original (default: ../main, relative to working directory)")
     parser.add_argument(
         "--strategy", choices=("original", "matcha"),
         help="packaged strategy to run (default: original; shared is not runnable)",
@@ -1390,6 +1407,7 @@ def main(argv: list[str] | None = None) -> int:
                 pair=arguments.pair,
                 cancel_pending_on_start=arguments.cancel_pending_on_start,
                 dry_run=arguments.dry_run,
+                main_analysis_dir=arguments.main_analysis_dir,
             )
         else:
             application = build_live_application(
@@ -1398,6 +1416,7 @@ def main(argv: list[str] | None = None) -> int:
                 pair=arguments.pair,
                 cancel_pending_on_start=arguments.cancel_pending_on_start,
                 dry_run=arguments.dry_run,
+                main_analysis_dir=arguments.main_analysis_dir,
             )
     if arguments.once:
         result = application.run_resilient_once(dry_run=arguments.dry_run)

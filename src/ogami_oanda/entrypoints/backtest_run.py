@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable
 
+from ogami_oanda.entrypoints.main_analysis import bind_main_analysis
+from ogami_oanda.adapters.legacy.main_analysis.source import DEFAULT_SOURCE_DIRECTORY
 from ogami_oanda.adapters.backtest.broker import SimulatedBroker
 from ogami_oanda.adapters.backtest.history import SimulationHistory, SimulationNotifier
 from ogami_oanda.adapters.backtest.report import BacktestReport
@@ -64,10 +66,15 @@ def run_backtest(
     start: datetime, end: datetime, *, initial_balance: float, output_dir: str | Path,
     slippage_pips: float = 0, metadata: dict | None = None,
     progress: Callable[[datetime], None] | None = None,
+    main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
 ) -> dict:
     start, end = utc_time(start), utc_time(end)
     if start >= end or start.microsecond or end.microsecond or start.second % 5 or end.second % 5:
         raise ValueError("backtest range must increase and align to S5")
+    backend = bind_main_analysis(strategy, mode="inspection", main_analysis_dir=main_analysis_dir)
+    metadata = dict(metadata or {})
+    if getattr(backend, "source_directory", None) is not None:
+        metadata["main_source_directory"] = str(backend.source_directory)
     requirements = strategy_data_requirements(strategy)
     market = HistoricalMarket(pair, requirements)
     clock = ReplayClock(start)

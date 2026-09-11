@@ -93,3 +93,20 @@ Run synthetic long-history verification separately; it is not collected by pytes
 Use `--days 1` for a short benchmark of the same streaming path. See the
 [backtest guide](../docs/backtest.md) for the memory limit, artifacts, approximations,
 and the separate credentialed real-data acceptance boundary.
+
+## Main-source adapter
+
+The [main-source guide](../docs/main-analysis.md) documents direct directory access
+and separate analysis/order-candidate entry points. Native tests compare original
+calls, three-pair prices/units and evaluation isolation. Supply the external main
+directory explicitly when it is not `../main` relative to the pytest working
+directory. Native tests skip with a reason if that directory is unavailable;
+loader, CLI and lifecycle-only contracts still run without main.
+
+```sh
+.venv/bin/python -m pytest -q tests/test_main_analysis_source.py tests/test_main_analysis_bridge.py --main-analysis-dir ../main
+.venv/bin/python -m ruff check src/ogami_oanda/adapters/legacy/main_analysis/*.py
+```
+
+The differential manifest pins the exact Python and numeric-library versions;
+use that environment for the golden gate instead of editing golden metadata.

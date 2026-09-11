@@ -370,15 +370,16 @@ STOP/LIMITのwatching状態から待機・発注・取消を判断する。
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`MarketAnalysisResult`](../../src/ogami_oanda/strategy/original/analysis.py#L27) | class | 解析で得た足・注文意図・候補診断をまとめた結果。 |
-| [`OriginalAnalysis`](../../src/ogami_oanda/strategy/original/analysis.py#L36) | class | 市場データと指標を準備し、選択候補をOrderIntentへ変換する。 この責任を提供するクラス。 |
-| [`OriginalAnalysis.__init__`](../../src/ogami_oanda/strategy/original/analysis.py#L37) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`OriginalAnalysis.analyze_frames`](../../src/ogami_oanda/strategy/original/analysis.py#L49) | method | 足の前処理・ピーク解析・候補選択・OrderIntent生成を行う純粋なoriginal処理。 |
-| [`OriginalAnalysis.prepare_frame`](../../src/ogami_oanda/strategy/original/analysis.py#L112) | method | 足の前処理・ピーク解析・候補選択・OrderIntent生成を行う純粋なoriginal処理。 |
-| [`OriginalAnalysis._candidate_to_intent`](../../src/ogami_oanda/strategy/original/analysis.py#L128) | method | 選択された候補をOrderIntentへ変換する。 |
-| [`OriginalAnalysis._legacy_order_name`](../../src/ogami_oanda/strategy/original/analysis.py#L179) | method | 従来の規則に沿って注文名を作る。 |
-| [`OriginalAnalysis._intent_metadata`](../../src/ogami_oanda/strategy/original/analysis.py#L182) | method | 候補の判断文脈をintentメタデータへ移す。 |
-| [`OriginalAnalysis._pair_name`](../../src/ogami_oanda/strategy/original/analysis.py#L260) | method | 解析で使う通貨ペア名を正規化する。 |
+| [`MarketAnalysisResult`](../../src/ogami_oanda/strategy/original/analysis.py#L28) | class | 解析で得た足・注文意図・候補診断をまとめた結果。 |
+| [`OriginalAnalysis`](../../src/ogami_oanda/strategy/original/analysis.py#L38) | class | 市場データと指標を準備し、選択候補をOrderIntentへ変換する。 この責任を提供するクラス。 |
+| [`OriginalAnalysis.__init__`](../../src/ogami_oanda/strategy/original/analysis.py#L39) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`OriginalAnalysis.analyze_frames`](../../src/ogami_oanda/strategy/original/analysis.py#L58) | method | 足の前処理・ピーク解析・候補選択・OrderIntent生成を行う純粋なoriginal処理。 |
+| [`OriginalAnalysis.prepare_frame`](../../src/ogami_oanda/strategy/original/analysis.py#L152) | method | 足の前処理・ピーク解析・候補選択・OrderIntent生成を行う純粋なoriginal処理。 |
+| [`OriginalAnalysis._candidate_to_intent`](../../src/ogami_oanda/strategy/original/analysis.py#L168) | method | 選択された候補をOrderIntentへ変換する。 |
+| [`OriginalAnalysis._legacy_order_name`](../../src/ogami_oanda/strategy/original/analysis.py#L219) | method | 従来の規則に沿って注文名を作る。 |
+| [`OriginalAnalysis._intent_metadata`](../../src/ogami_oanda/strategy/original/analysis.py#L222) | method | 候補の判断文脈をintentメタデータへ移す。 |
+| [`OriginalAnalysis._pair_name`](../../src/ogami_oanda/strategy/original/analysis.py#L300) | method | 解析で使う通貨ペア名を正規化する。 |
+| [`OriginalAnalysis._analyze_main`](../../src/ogami_oanda/strategy/original/analysis.py#L123) | method | 評価状態と既存の呼び出し契約を接続する。 |
 
 ## `strategy/original/context.py`
 
@@ -406,9 +407,10 @@ originalのAPI v1判断、データ要件、空の状態読込とfactoryを提�
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`OriginalStrategy`](../../src/ogami_oanda/strategy/original/strategy.py#L27) | class | Pure multi-frame decisions; scheduling and broker state stay with callers. |
-| [`OriginalStrategy.__init__`](../../src/ogami_oanda/strategy/original/strategy.py#L33) | method | 依存・設定を受け取り初期状態を構築する。 |
-| [`OriginalStrategy.decide`](../../src/ogami_oanda/strategy/original/strategy.py#L57) | method | 共通市場入力から戦略判断を返す。 |
-| [`OriginalStrategy.dump_state`](../../src/ogami_oanda/strategy/original/strategy.py#L92) | method | JSON互換の戦略状態を返す。 |
-| [`OriginalStrategy.load_state`](../../src/ogami_oanda/strategy/original/strategy.py#L95) | method | 保存された戦略状態を検証して読み込む。 |
-| [`create_strategy`](../../src/ogami_oanda/strategy/original/strategy.py#L101) | function | originalのAPI v1判断、データ要件、空の状態読込とfactoryを提供する。 |
+| [`OriginalStrategy`](../../src/ogami_oanda/strategy/original/strategy.py#L28) | class | Pure multi-frame decisions; scheduling and broker state stay with callers. |
+| [`OriginalStrategy.__init__`](../../src/ogami_oanda/strategy/original/strategy.py#L34) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`OriginalStrategy.decide`](../../src/ogami_oanda/strategy/original/strategy.py#L68) | method | 共通市場入力から戦略判断を返す。 |
+| [`OriginalStrategy.dump_state`](../../src/ogami_oanda/strategy/original/strategy.py#L112) | method | JSON互換の戦略状態を返す。 |
+| [`OriginalStrategy.load_state`](../../src/ogami_oanda/strategy/original/strategy.py#L115) | method | 保存された戦略状態を検証して読み込む。 |
+| [`create_strategy`](../../src/ogami_oanda/strategy/original/strategy.py#L121) | function | originalのAPI v1判断、データ要件、空の状態読込とfactoryを提供する。 |
+| [`OriginalStrategy.bind_main_analysis`](../../src/ogami_oanda/strategy/original/strategy.py#L63) | method | 評価状態と既存の呼び出し契約を接続する。 |
