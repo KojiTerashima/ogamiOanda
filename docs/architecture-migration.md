@@ -44,9 +44,16 @@ One live tick follows this flow:
    `time_jp/open/close/high/low` contract.
 4. The composition injects `MainSourceAnalysis` through the domain analysis port.
    Its evaluation-local source modules prepare indicators, completed candles, peaks and lines.
+   The original composition selects `line` by default or `resistance_breakout` via
+   `--analysis` / `analysis_name`. An explicit selection cannot replace an injected
+   dependency or run on a strategy that does not declare support.
 5. A separate candidate entry point applies the original pair policy and returns
    resolved prices, units, timeouts and management metadata. Waiting/trial and
    unsupported management/control conditions do not become executable intents.
+   The known resistance-breakout origin/tag is supported: its existing timeout
+   policy is enabled and owned positions are excluded from automatic hedge closing.
+   Owner tags persist in order metadata and optional broker requests; OANDA tags
+   respect the existing client-extensions setting and preserve submission IDs.
 6. `MarketAnalysisService` preserves its result API. The domain converter builds
    absolute-price `OrderIntent` values; `OrderPlanner` preserves resolved prices
    and builds the existing broker-neutral request.

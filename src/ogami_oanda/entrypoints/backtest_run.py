@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+import platform
 from typing import Callable, Iterable
 
-from ogami_oanda.entrypoints.main_analysis import bind_main_analysis
+from ogami_oanda.entrypoints.main_analysis import analysis_strategy_id, bind_main_analysis
 from ogami_oanda.adapters.legacy.main_analysis.source import DEFAULT_SOURCE_DIRECTORY
 from ogami_oanda.adapters.backtest.broker import SimulatedBroker
 from ogami_oanda.adapters.backtest.history import SimulationHistory, SimulationNotifier
@@ -25,6 +27,21 @@ APPROXIMATIONS = {
     "quote_time": "observed_S5_close_time", "end_positions": "last_bid_ask_close",
     "margin": False, "swap": False, "commission": 0,
 }
+
+
+def runtime_versions() -> dict:
+    """Describe the runtime without loading settings or importing dependencies."""
+    packages = {}
+    for name in ("numpy", "oandapyV20", "pandas", "plotly", "pympler", "pytz", "PyYAML", "requests"):
+        try:
+            packages[name] = version(name)
+        except PackageNotFoundError:
+            packages[name] = None
+    return {
+        "python": {"implementation": platform.python_implementation(), "version": platform.python_version()},
+        "platform": {"system": platform.system(), "release": platform.release(), "machine": platform.machine()},
+        "packages": packages,
+    }
 
 
 def release_simulation_history(application, broker, history) -> None:
@@ -67,14 +84,26 @@ def run_backtest(
     slippage_pips: float = 0, metadata: dict | None = None,
     progress: Callable[[datetime], None] | None = None,
     main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
+    analysis_name: str | None = None,
 ) -> dict:
     start, end = utc_time(start), utc_time(end)
     if start >= end or start.microsecond or end.microsecond or start.second % 5 or end.second % 5:
         raise ValueError("backtest range must increase and align to S5")
-    backend = bind_main_analysis(strategy, mode="inspection", main_analysis_dir=main_analysis_dir)
+    backend = bind_main_analysis(strategy, mode="inspection", main_analysis_dir=main_analysis_dir, analysis_name=analysis_name)
+    strategy_id = analysis_strategy_id(strategy_id, backend)
     metadata = dict(metadata or {})
+    # Provenance comes from the bound execution snapshot, never caller metadata.
+    metadata.pop("main_source_manifest", None)
+    metadata.pop("main_source_sha256", None)
+    manifest = getattr(backend, "source_manifest", None)
+    digest = getattr(backend, "source_sha256", None)
+    if manifest is not None and digest is not None:
+        metadata.update(main_source_manifest=manifest, main_source_sha256=digest)
+    metadata["runtime_versions"] = runtime_versions()
     if getattr(backend, "source_directory", None) is not None:
         metadata["main_source_directory"] = str(backend.source_directory)
+    if getattr(backend, "analysis_name", None) is not None:
+        metadata["analysis_name"] = backend.analysis_name
     requirements = strategy_data_requirements(strategy)
     market = HistoricalMarket(pair, requirements)
     clock = ReplayClock(start)

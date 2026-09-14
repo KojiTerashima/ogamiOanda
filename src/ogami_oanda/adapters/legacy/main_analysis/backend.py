@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ogami_oanda.domain.analysis.main_contracts import (
-    AnalysisNotReady, MainAnalysisEvaluation, PeakSnapshot,
+    AnalysisNotReady, MainAnalysisEvaluation, PeakSnapshot, validate_main_analysis_name,
 )
 from ogami_oanda.domain.analysis.main_orders import to_order_intents
 from ogami_oanda.domain.orders.models import OrderContext
@@ -22,29 +22,45 @@ class MainSourceAnalysis:
     """Read main once; mutable execution state belongs to individual evaluations."""
 
     def __init__(self, *, source_directory: str | Path = DEFAULT_SOURCE_DIRECTORY,
-                 artifact_directory: str | Path | None = None):
+                 artifact_directory: str | Path | None = None, analysis_name: str = "line"):
+        self._analysis_name = validate_main_analysis_name(analysis_name)
         self.sources = read_sources(source_directory)
         self.artifact_directory = Path(artifact_directory).resolve() if artifact_directory is not None else None
 
     @property
+    def analysis_name(self):
+        return self._analysis_name
+
+    @property
     def source_directory(self):
         return self.sources.directory
+
+    @property
+    def source_manifest(self):
+        return self.sources.manifest
+
+    @property
+    def source_sha256(self):
+        return self.sources.sha256
 
     def evaluation(self, request):
         """Open the session shared by analyze and build_order_candidates."""
         return AnalysisSession(request, sources=self.sources, artifact_directory=self.artifact_directory)
 
     def evaluate(self, request):
-        """Compose the currently enabled original line strategy for the domain port."""
+        """Compose the selected analysis without changing the caller's lifecycle."""
         with self.evaluation(request) as session:
             try:
-                result = analyze(session, "line")
+                parameters = ({"risk_yen": request.risk_yen}
+                              if self.analysis_name == "resistance_breakout" and request.risk_yen is not None else None)
+                result = analyze(session, self.analysis_name, parameters)
                 candidates = build_order_candidates(session, result)
             except AnalysisNotReady as error:
                 return MainAnalysisEvaluation(
                     (), (), {}, {}, {},
                     OrderContext(request.current_price, jst_time(request.decision_time).strftime("%Y/%m/%d %H:%M:%S")),
-                    {"status": "not_ready", "reason": str(error), "source_directory": str(self.source_directory)},
+                    {"status": "not_ready", "reason": str(error), "source_directory": str(self.source_directory),
+                     "analysis_name": self.analysis_name},
                     status="not_ready",
                 )
             candles = session.candles
@@ -63,6 +79,7 @@ class MainSourceAnalysis:
                 intents, candidates, {name: frame.copy(deep=True) for name, frame in session.frames.items()},
                 completed, peaks, context,
                 {"source_directory": str(self.source_directory), "analysis": plain(result.features),
+                 "analysis_name": self.analysis_name,
                  "candidate_count": len(candidates), "intent_count": len(intents),
                  "withheld": [candidate.execution for candidate in candidates if candidate.execution != "ready"],
                  "unsupported_controls": tuple(session.control_events),

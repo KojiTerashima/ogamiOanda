@@ -5,7 +5,7 @@ from __future__ import annotations
 from math import isfinite
 from typing import Mapping
 
-from ogami_oanda.domain.analysis.main_contracts import MainAnalysisBackend
+from ogami_oanda.domain.analysis.main_contracts import EXECUTABLE_MAIN_ANALYSES, MainAnalysisBackend
 from ogami_oanda.strategy.original.analysis import (
     CandidateBuilder,
     CandidateContextBuilder,
@@ -29,6 +29,7 @@ class OriginalStrategy:
     """Pure multi-frame decisions; scheduling and broker state stay with callers."""
 
     evaluation_profile = "original"
+    supported_main_analyses = EXECUTABLE_MAIN_ANALYSES
     data_requirements = {"M5": 250, "H1": 250, "M30": 250, "S5": 250}
 
     def __init__(

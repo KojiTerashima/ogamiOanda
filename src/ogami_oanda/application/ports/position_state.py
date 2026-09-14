@@ -164,6 +164,9 @@ def _validated_strategy_value(value: object) -> object:
 _PERSISTED_METADATA_KEYS = frozenset(
     {
         "source",
+        "owner_tag",
+        "origin",
+        "main_analysis",
         "line_strategy",
         "linkage_id",
         "linkage_order_names",

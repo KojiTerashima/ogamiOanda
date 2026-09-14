@@ -10,6 +10,15 @@ import pandas as pd
 from ogami_oanda.domain.orders.models import OrderContext, OrderIntent
 
 
+EXECUTABLE_MAIN_ANALYSES = ("line", "resistance_breakout")
+
+
+def validate_main_analysis_name(name: str) -> str:
+    if name not in EXECUTABLE_MAIN_ANALYSES:
+        raise ValueError(f"unsupported main analysis: {name!r}; choose line or resistance_breakout")
+    return name
+
+
 class MainAnalysisError(ValueError):
     """An invalid evaluation, distinct from an ordinary absence of signals."""
 

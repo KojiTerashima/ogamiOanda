@@ -408,9 +408,9 @@ originalのAPI v1判断、データ要件、空の状態読込とfactoryを提�
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
 | [`OriginalStrategy`](../../src/ogami_oanda/strategy/original/strategy.py#L28) | class | Pure multi-frame decisions; scheduling and broker state stay with callers. |
-| [`OriginalStrategy.__init__`](../../src/ogami_oanda/strategy/original/strategy.py#L34) | method | 依存・設定を受け取り初期状態を構築する。 |
-| [`OriginalStrategy.decide`](../../src/ogami_oanda/strategy/original/strategy.py#L68) | method | 共通市場入力から戦略判断を返す。 |
-| [`OriginalStrategy.dump_state`](../../src/ogami_oanda/strategy/original/strategy.py#L112) | method | JSON互換の戦略状態を返す。 |
-| [`OriginalStrategy.load_state`](../../src/ogami_oanda/strategy/original/strategy.py#L115) | method | 保存された戦略状態を検証して読み込む。 |
-| [`create_strategy`](../../src/ogami_oanda/strategy/original/strategy.py#L121) | function | originalのAPI v1判断、データ要件、空の状態読込とfactoryを提供する。 |
-| [`OriginalStrategy.bind_main_analysis`](../../src/ogami_oanda/strategy/original/strategy.py#L63) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`OriginalStrategy.__init__`](../../src/ogami_oanda/strategy/original/strategy.py#L35) | method | 依存・設定を受け取り初期状態を構築する。 |
+| [`OriginalStrategy.decide`](../../src/ogami_oanda/strategy/original/strategy.py#L69) | method | 共通市場入力から戦略判断を返す。 |
+| [`OriginalStrategy.dump_state`](../../src/ogami_oanda/strategy/original/strategy.py#L113) | method | JSON互換の戦略状態を返す。 |
+| [`OriginalStrategy.load_state`](../../src/ogami_oanda/strategy/original/strategy.py#L116) | method | 保存された戦略状態を検証して読み込む。 |
+| [`create_strategy`](../../src/ogami_oanda/strategy/original/strategy.py#L122) | function | originalのAPI v1判断、データ要件、空の状態読込とfactoryを提供する。 |
+| [`OriginalStrategy.bind_main_analysis`](../../src/ogami_oanda/strategy/original/strategy.py#L64) | method | 評価状態と既存の呼び出し契約を接続する。 |

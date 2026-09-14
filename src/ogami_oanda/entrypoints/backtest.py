@@ -10,7 +10,8 @@ import math
 from pathlib import Path
 import sys
 
-from ogami_oanda.entrypoints.main_analysis import bind_main_analysis
+from ogami_oanda.entrypoints.main_analysis import analysis_strategy_id, bind_main_analysis
+from ogami_oanda.domain.analysis.main_contracts import EXECUTABLE_MAIN_ANALYSES
 from ogami_oanda.adapters.legacy.main_analysis.source import DEFAULT_SOURCE_DIRECTORY
 from ogami_oanda.adapters.repositories.historical_store import HistoricalStore, file_hash, read_mid_csv
 from ogami_oanda.application.services.historical_market import HistoricalMarket
@@ -54,7 +55,11 @@ def select_strategy(args) -> tuple:
         strategy, identity = loaded.strategy, loaded.strategy_id
         hashes = {"strategy_python_sha256": file_hash(loaded.python_path), "strategy_yaml_sha256": file_hash(loaded.yaml_path)}
     if args.command == "run":
-        bind_main_analysis(strategy, mode="inspection", main_analysis_dir=args.main_analysis_dir)
+        backend = bind_main_analysis(strategy, mode="inspection", main_analysis_dir=args.main_analysis_dir,
+                                     analysis_name=getattr(args, "analysis_name", None))
+        identity = analysis_strategy_id(identity, backend)
+        if getattr(backend, "analysis_name", None) is not None:
+            hashes["analysis_name"] = backend.analysis_name
     configured_pair = getattr(strategy, "pair", args.pair)
     if configured_pair != args.pair:
         raise ValueError("strategy pair does not match --pair")
@@ -81,6 +86,8 @@ def parser() -> argparse.ArgumentParser:
             sub.add_argument("--account", default="primary")
             sub.add_argument("--warmup-days", type=int, help="override automatically sized warmup history")
         else:
+            sub.add_argument("--analysis", dest="analysis_name", choices=EXECUTABLE_MAIN_ANALYSES,
+                             help="main analysis for original (default: line)")
             sub.add_argument("--main-analysis-dir", default=DEFAULT_SOURCE_DIRECTORY, metavar="PATH",
                              help="main source directory for original (default: ../main, relative to working directory)")
             data = sub.add_mutually_exclusive_group(required=True)
@@ -154,6 +161,7 @@ def _run(args, strategy, identity, hashes) -> dict:
     return run_backtest(strategy, identity, args.pair, values, args.start, args.end,
                         initial_balance=args.initial_balance, output_dir=args.output_dir,
                         slippage_pips=args.slippage_pips, metadata=metadata, main_analysis_dir=args.main_analysis_dir,
+                        analysis_name=getattr(args, "analysis_name", None),
                         progress=lambda at: print(f"[REPLAY] {at.isoformat()}", flush=True))
 
 
@@ -166,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "fetch":
             _fetch(args, strategy)
         else:
+            if "analysis_name" in hashes:
+                print(f"[ANALYSIS] name={hashes['analysis_name']}", flush=True)
             summary = _run(args, strategy, identity, hashes)
             print(json.dumps(summary, ensure_ascii=False, sort_keys=True, allow_nan=False))
         return 0

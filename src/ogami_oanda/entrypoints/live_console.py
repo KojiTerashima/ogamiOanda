@@ -19,17 +19,19 @@ _CANDIDATE_MODES = ("immediate", "future_resist", "future_break")
 
 
 def format_candidate_diagnostics(diagnostics: Any) -> str:
+    modes = tuple(dict.fromkeys((*_CANDIDATE_MODES, *diagnostics.raw_counts,
+                                *diagnostics.selected_counts, *diagnostics.rejected_reasons)))
     raw = ",".join(
         f"{mode}:{int(diagnostics.raw_counts.get(mode, 0))}"
-        for mode in _CANDIDATE_MODES
+        for mode in modes
     )
     selected = ",".join(
         f"{mode}:{int(diagnostics.selected_counts.get(mode, 0))}"
-        for mode in _CANDIDATE_MODES
+        for mode in modes
     )
     rejected = ",".join(
         f"{mode}/{reason}:{int(count)}"
-        for mode in _CANDIDATE_MODES
+        for mode in modes
         for reason, count in diagnostics.rejected_reasons.get(mode, {}).items()
         if count
     ) or "-"
@@ -113,9 +115,11 @@ class ConsoleLiveReporter:
         analysis = getattr(result, "analysis", None)
         diagnostics = getattr(analysis, "candidate_diagnostics", None)
         if self.trace_candidates and diagnostics is not None:
+            name = getattr(analysis, "candidate_context", {}).get("main_analysis", {}).get("analysis_name")
+            prefix = f"analysis={name} " if name else ""
             self._print(
                 self.stdout,
-                f"{now} [CANDIDATES] {format_candidate_diagnostics(diagnostics)}",
+                f"{now} [CANDIDATES] {prefix}{format_candidate_diagnostics(diagnostics)}",
             )
 
         emitted_names: set[str] = set()

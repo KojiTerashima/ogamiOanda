@@ -487,6 +487,7 @@ def _decode_order_plan(raw: object) -> OrderPlan | None:
         take_profit_price=float(request_raw["take_profit_price"]),
         stop_loss_price=float(request_raw["stop_loss_price"]),
         client_reference=str(request_raw.get("client_reference", "")),
+        owner_tag=str(request_raw.get("owner_tag") or ""),
     )
     return OrderPlan(
         intent=intent,

@@ -5,6 +5,8 @@
 USD/JPY・EUR/USD・AUD/USDの足・ピーク・ラインから注文候補を選びます。
 起動名は `original` です。live・backtest・組込みプラグインの組立で
 [main原文の解析実行器](../../../../docs/main-analysis.md)を注入します。
+live/backtestは`--analysis line`（省略時）または`--analysis resistance_breakout`で計算を選択できます。
+抵抗線ブレイクには所有タグによる保護と原文の保有時間上限を適用します。詳細は上記ガイドを参照してください。
 `analysis.py`が原文の解析・候補作成結果を既存APIへ接続し、従来の`line/`・`context.py`は
 明示的な依存注入と公開互換経路のために残します。注入済み経路では旧計算を重複実行しません。
 

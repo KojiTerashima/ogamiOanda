@@ -19,6 +19,9 @@ def from_native_order(order, analysis):
     if missing:
         raise UnsupportedAnalysisDependency(f"unsupported upstream order schema; missing: {', '.join(missing)}")
     plan = {**plain(order.order_json), **plain(order.exe_order_plan)}
+    owned_breakout = (analysis == "resistance_breakout"
+                      and plan.get("origin") == "resistance_breakout"
+                      and plan.get("owner_tag") == "resistance_breakout")
     execution = str(plan.get("execution_mode") or "ready")
     if execution not in {"ready", "execute", "trial"}:
         execution = "unsupported"
@@ -29,8 +32,14 @@ def from_native_order(order, analysis):
     if not bool(plan.get("order_permission", True)):
         execution = "trial" if execution == "trial" else "waiting"
     if execution == "ready" and (plan.get("allow_followup_order") is False or plan.get("profit_lock_ratio") is not None
-            or plan.get("line_order_mode") == "predict_reversal" or plan.get("owner_tag")):
+            or plan.get("line_order_mode") == "predict_reversal"
+            or (plan.get("owner_tag") and not owned_breakout)
+            or (analysis == "resistance_breakout" and not owned_breakout)):
         execution = "unsupported"
+    if owned_breakout:
+        if not isfinite(float(order.trade_timeout_min)) or float(order.trade_timeout_min) <= 0:
+            raise AnalysisIntegrityError("owned breakout requires a positive trade timeout")
+        plan["trade_timeout_enabled"] = True
     candidate = OrderCandidate(
         pair=str(plan.get("pair", order.instrument)),
         direction=int(order.direction), order_type=str(order.ls_type),

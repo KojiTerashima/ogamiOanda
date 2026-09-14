@@ -232,17 +232,17 @@
 | [`_decode_position`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L339) | function / internal | 保存形式から管理ポジションを復元する。 |
 | [`_encode_order_plan`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L401) | function / internal | 注文計画を保存形式へ変換する。 |
 | [`_decode_order_plan`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L438) | function / internal | 保存形式から注文計画を復元する。 |
-| [`_encode_analytics`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L503) | function / internal | 損益集計を保存形式へ変換する。 |
-| [`_decode_analytics`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L520) | function / internal | 保存形式から損益集計を復元する。 |
-| [`_plain_json_value`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L552) | function / internal | 値をJSON互換の保存表現へ変換する。 |
-| [`_restore_json_value`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L566) | function / internal | JSON保存表現から値を復元する。 |
-| [`_encode_float`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L579) | function / internal | 非有限値も考慮して浮動小数を保存表現へ変換する。 |
-| [`_decode_float`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L587) | function / internal | 保存表現から浮動小数を復元する。 |
-| [`_encode_datetime`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L595) | function / internal | 日時を保存可能な表現へ変換する。 |
-| [`_decode_datetime`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L599) | function / internal | 保存された日時表現を復元する。 |
-| [`_optional_string`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L603) | function / internal | 省略可能な文字列を検証・復元する。 |
-| [`_optional_float`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L607) | function / internal | 省略可能な浮動小数を検証・復元する。 |
-| [`_optional_int`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L611) | function / internal | 省略可能な整数を検証・復元する。 |
+| [`_encode_analytics`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L504) | function / internal | 損益集計を保存形式へ変換する。 |
+| [`_decode_analytics`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L521) | function / internal | 保存形式から損益集計を復元する。 |
+| [`_plain_json_value`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L553) | function / internal | 値をJSON互換の保存表現へ変換する。 |
+| [`_restore_json_value`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L567) | function / internal | JSON保存表現から値を復元する。 |
+| [`_encode_float`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L580) | function / internal | 非有限値も考慮して浮動小数を保存表現へ変換する。 |
+| [`_decode_float`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L588) | function / internal | 保存表現から浮動小数を復元する。 |
+| [`_encode_datetime`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L596) | function / internal | 日時を保存可能な表現へ変換する。 |
+| [`_decode_datetime`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L600) | function / internal | 保存された日時表現を復元する。 |
+| [`_optional_string`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L604) | function / internal | 省略可能な文字列を検証・復元する。 |
+| [`_optional_float`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L608) | function / internal | 省略可能な浮動小数を検証・復元する。 |
+| [`_optional_int`](../../src/ogami_oanda/adapters/repositories/json_position_state.py#L612) | function / internal | 省略可能な整数を検証・復元する。 |
 
 ## `adapters/backtest/__init__.py`
 
@@ -386,9 +386,12 @@ Compose native evaluation stages behind the domain analysis port.
 | --- | --- | --- |
 | [`MainSourceAnalysis`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L21) | class | mainの原文を一度読み込み、評価ごとの実行状態を分離する。 |
 | [`MainSourceAnalysis.__init__`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L24) | method | 評価状態と既存の呼び出し契約を接続する。 |
-| [`MainSourceAnalysis.source_directory`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L30) | method | 評価状態と既存の呼び出し契約を接続する。 |
-| [`MainSourceAnalysis.evaluation`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L33) | method | Open the session shared by analyze and build_order_candidates. |
-| [`MainSourceAnalysis.evaluate`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L37) | method | Compose the currently enabled original line strategy for the domain port. |
+| [`MainSourceAnalysis.source_directory`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L35) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`MainSourceAnalysis.evaluation`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L46) | method | Open the session shared by analyze and build_order_candidates. |
+| [`MainSourceAnalysis.evaluate`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L50) | method | Compose the currently enabled original line strategy for the domain port. |
+| [`MainSourceAnalysis.analysis_name`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L31) | method | 起動時に選んだ解析名を返す。 |
+| [`MainSourceAnalysis.source_manifest`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L39) | method | 実行する原文のファイル別識別情報を返す。 |
+| [`MainSourceAnalysis.source_sha256`](../../src/ogami_oanda/adapters/legacy/main_analysis/backend.py#L43) | method | 固定済み原文の全体SHA-256を返す。 |
 
 
 ## `adapters/legacy/main_analysis/inputs.py`
@@ -445,7 +448,7 @@ Create candidates with upstream order functions, without submitting orders.
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
 | [`from_native_order`](../../src/ogami_oanda/adapters/legacy/main_analysis/orders.py#L13) | function | Copy finalized prices, units and management metadata without recalculation. |
-| [`build_order_candidates`](../../src/ogami_oanda/adapters/legacy/main_analysis/orders.py#L53) | function | Build native orders once from a result owned by this open session. |
+| [`build_order_candidates`](../../src/ogami_oanda/adapters/legacy/main_analysis/orders.py#L62) | function | Build native orders once from a result owned by this open session. |
 
 
 ## `adapters/legacy/main_analysis/session.py`
@@ -474,8 +477,11 @@ Evaluation lifetime and native result ownership.
 
 | シンボル | 種別 | 役割 |
 | --- | --- | --- |
-| [`MainSources`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L28) | class | 参照ディレクトリと変更不可の原文バイト列を保持する。 |
-| [`read_sources`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L35) | function | 必要なPythonファイルを読み込み、不足時は参照先を示すエラーにする。 |
+| [`MainSources`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L30) | class | 参照ディレクトリと変更不可の原文バイト列を保持する。 |
+| [`read_sources`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L56) | function | 必要なPythonファイルを読み込み、不足時は参照先を示すエラーにする。 |
+| [`MainSources.__post_init__`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L38) | method | 原文バイト列を固定し、manifestと全体ハッシュを一度だけ計算する。 |
+| [`MainSources.manifest`](../../src/ogami_oanda/adapters/legacy/main_analysis/source.py#L51) | method | 固定済み識別情報の独立したコピーを返す。 |
+
 
 ## `adapters/legacy/main_analysis/values.py`
 

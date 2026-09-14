@@ -3,7 +3,7 @@
 [索引](README.md) / [original戦略](../src/ogami_oanda/strategy/original/README.md)
 
 mainディレクトリのPythonファイルを直接読み込み、その関数へogamiOandaの足・時刻・価格を渡します。
-mainの原文は変更せず、ogamiOandaへコピーしません。同期スクリプトやコードのハッシュ照合はありません。
+mainの原文を直接読み込み、通常起動でコピー・同期は行いません。backtestでは実行した原文のハッシュを結果へ記録します。
 mainの認証設定・保存済み市場データは読み込みません。
 
 ## 配置と起動
@@ -28,6 +28,58 @@ Pythonでは`MainSourceAnalysis(source_directory="../main")`、組立関数の
 履歴取得だけの`fetch`、Matcha、ヘルプ、offline smoke、別の解析器を注入した経路にはmainは不要です。
 originalを使う実行器は初期化時に必要な25ファイルを読み込みます。
 ディレクトリや必須ファイルがなければ、そのパスを示してエラーにします。旧計算への自動切替はありません。
+
+## CLIで解析を選択する
+
+liveとbacktestの`run`に`--analysis {line,resistance_breakout}`を指定します。
+省略時は従来どおり`line`です。1回の起動で1種類を使い、mainの`fAnalysis_order_Main.py`の登録一覧は参照しません。
+
+| 選択 | mainの計算 |
+| --- | --- |
+| `line` | `fLineAnalysis.py`と通貨別ライン戦略 |
+| `resistance_breakout` | `fResistanceBreakoutAnalysis.py`・`fResistanceBreakoutCore.py` |
+
+取得済み履歴でのバックテスト例です。出力先は新しいディレクトリを指定します。
+
+```sh
+.venv/bin/ogami-oanda-backtest run \
+  --strategy original --analysis resistance_breakout \
+  --main-analysis-dir ../main --pair USD_JPY \
+  --from 2024-01-01T00:00:00Z --to 2026-01-01T00:00:00Z \
+  --data-dir data/history/usd-jpy --initial-balance 1000000 \
+  --output-dir results/resistance-breakout-001
+```
+
+liveも既存の起動コマンドへ同じオプションを付けます。以下は発注を抑止する起動例ですが、価格等の外部読み取りは行います。
+
+```sh
+.venv/bin/ogami-oanda-live --strategy original --analysis resistance_breakout \
+  --main-analysis-dir ../main --config config/settings.yaml --pair USD_JPY --dry-run
+```
+
+組込みoriginalを`--strategy-py`・`--strategy-yaml`で起動する場合も選択できます。
+Matcha、解析選択に非対応のプラグイン、offline smokeとは併用できません。履歴取得だけの`fetch`には追加していません。
+`double_top`・`flip`等は下記Python APIの対象で、CLIでの売買には対応していません。
+
+抵抗線ブレイクには原文の既定policyを使い、リスク額だけ既存のogamiOanda設定から渡します。
+backtestの名前指定originalは`--risk-yen`（既定500）、liveは`trading.risk_yen`、プラグインはそのoriginal設定です。
+数量・上限・換算の計算は原文どおりで、確定数量を追加の倍率で変更しません。
+
+Pythonの組立関数にも`analysis_name="resistance_breakout"`を渡せます。
+省略時は注入済みの解析器を維持し、注入がなければ`line`を作ります。
+明示した名前と注入済みの解析器・candidate builderが矛盾する場合はエラーにし、上書きしません。
+選択は実行器の作成時に固定します。
+
+```python
+backend = MainSourceAnalysis(source_directory="../main", analysis_name="resistance_breakout")
+evaluation = backend.evaluate(request)  # 解析→候補作成→Intent変換。発注はしない。
+intents = evaluation.intents
+```
+
+起動時の`[ANALYSIS]`、候補診断の`analysis_name`、backtestの`run.json`に選択名を記録します。
+`line`の実行識別方法は維持し、それ以外には解析名を含む識別子を使用します。
+保有注文・ポジションがある状態で解析を切り替えて起動すると、既存の戦略不一致検出で停止します。
+その場合は元の解析で再開し、保有状態を解消してから切り替えます。保存ファイルを解析ごとに分離して保有状態を見失う方式にはしません。
 
 ## 呼び出し方
 
@@ -101,19 +153,37 @@ liveの履歴警告を継続可能とする原文の判断も維持します。
 
 live、backtest、組込みoriginalのプラグイン組立で、同じ`MainSourceAnalysis`を注入します。
 strategyはdomainの`MainAnalysisBackend`だけを参照し、adapterを直接importしません。
-`decide(StrategyInput) → StrategyDecision`、`MarketAnalysisResult`、ポジション保護・注文管理・時刻規則は維持します。
+`decide(StrategyInput) → StrategyDecision`、`MarketAnalysisResult`、通常注文の管理・時刻規則は維持します。
+抵抗線ブレイクには以下の所有保護と保有時間上限を追加しています。
 注入した経路では旧ピーク・旧ライン候補を再計算しません。
 明示的なテスト用candidate builder、未注入の公開互換窓口、ルートの互換モジュールは残します。
 
 通常Intentへ変換するのは`execution="ready"`の候補だけです。
-trial、待機、profit-lock/followup制約、predictionの失効制御、専用owner tagが必要な候補は自動発注しません。
+trial、待機、profit-lock/followup制約、predictionの失効制御、未対応のowner tagを持つ候補は自動発注しません。
 原文が返す`line_control`イベントも`unsupported_controls`診断に保持します。
 TP/SL、数量、期限、`lc_change`、監視設定等のmetadataを保持し、対応していない管理条件を落として発注しません。
 
 有効化する戦略登録をmainからコピーすることはありません。
-ダブルトップ、抵抗線ブレイク、flipの窓口が利用可能になっても、originalの取引には自動追加しません。
+抵抗線ブレイクは明示的に選んだ場合だけ使います。ダブルトップ・flipはoriginalの取引へ追加しません。
 `fAnalysis_order_Main`、`fFlipWatch`は実行対象外です。
 `fFlagInspection`、`fPredictTurn`は依存が欠落しており、復元・実行の対象外です。
+
+### 抵抗線ブレイクの所有保護と期限
+
+解析名・`origin`・`owner_tag`がすべて`resistance_breakout`の候補を対応対象にします。
+未知のタグやほかの未対応管理条件まで許可する例外ではありません。
+
+- 所有タグ付きポジションを自動両建て解消の対象から外します。通常注文の両建てルールは変更しません。
+- `trade_timeout_enabled=True`を設定し、原文の`trade_timeout_min`で既存の時間決済を有効にします。
+  現在の原文は約定から60分です。登録からの未約定注文期限とは別で、判定は既存の同期タイミングで行います。
+- 初期TP/SL、未約定注文の期限、足に基づくSL変更は既存処理へ渡します。所有タグだけでこれらを無効化しません。
+- 所有タグ・解析名・期限設定をチェックポイントへ保存します。再起動しても約定時刻と保護を引き継ぎます。
+- 既存の`client_extensions_enabled`が有効なら、注文・建玉のtagへ所有タグを送り、識別用IDはogamiOandaのものを保ちます。
+  無効な場合は外部へタグを送らず、ローカルの保存注文metadataで保護します。
+
+mainの一般的な逆ポジション整理処理は移植していません。
+原文の解析・注文価格・数量とこれらの管理条件を使い、評価時刻・約定モデルはogamiOandaのものを使います。
+mainのバックテストと最終売買履歴・損益が一致することを保証する構成ではありません。
 
 ## 同一プロセス内の分離
 
@@ -143,12 +213,22 @@ mainに`__pycache__`等を生成せず、Git管理されていないディレク
 コードのバージョン固定やAPIハッシュによる更新判定は行いません。
 未対応の依存・引数・返り値は実行時にエラーにし、必要な互換処理はogamiOanda側で対応します。
 診断の`source_directory`とbacktestの`main_source_directory`には実際の参照先を記録します。
-参照パスだけでは過去のコードの版を再現できないため、同じ結果の再現には同じmainの内容を用意します。
+backtestは固定済み原文から`main_source_manifest`と`main_source_sha256`も記録します。
+`SOURCE_MODULES`全ファイルの相対名・バイト数・SHA-256をファイル名順に並べ、形式版`schema_version: 1`を含めた
+UTF-8 JSONを`sort_keys=True, separators=(",", ":"), ensure_ascii=False`で正規化して全体ハッシュを計算します。
+`MainSources`作成時に一度だけ計算し、評価中の再読込や再ハッシュはありません。
+絶対パス・更新時刻・Git HEADは対象外です。配置だけの変更ではハッシュは変わりません。
+`MainSourceAnalysis.source_manifest`と`source_sha256`から同じ識別情報を取得できます。
+
+このハッシュは更新の許可判定やコードの復元には使いません。同じ結果の再現には同じ原文を保管し、
+受入実行では保存した対応Pythonソースのディレクトリを`--main-analysis-dir`へ指定します。
+通常依存の版は`runtime_versions`に記録します。成功・失敗時の記録と保存方法は[backtestガイド](backtest.md)を参照してください。
 既存のbacktestデータ検証と、flipの原文によるアーティファクト検証は維持します。
 
 ## 検証
 
 ```sh
+.venv/bin/python -m pytest -q tests/test_main_analysis_selection.py tests/test_main_analysis_management.py
 .venv/bin/python -m pytest -q tests/test_main_analysis_source.py tests/test_main_analysis_bridge.py --main-analysis-dir ../main
 .venv/bin/python -m pytest -q -m "not integration"
 .venv/bin/python -m ruff check src tests

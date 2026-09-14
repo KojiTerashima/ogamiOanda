@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import hashlib
+import json
 from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
@@ -30,6 +32,25 @@ class MainSources:
 
     directory: Path
     contents: Mapping[str, bytes]
+    sha256: str = field(init=False)
+    _manifest_json: bytes = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        contents = dict(self.contents)
+        object.__setattr__(self, "contents", MappingProxyType(contents))
+        manifest = {"schema_version": 1, "files": [
+            {"path": f"{name}.py", "size_bytes": len(content),
+             "sha256": hashlib.sha256(content).hexdigest()}
+            for name, content in sorted(contents.items(), key=lambda item: f"{item[0]}.py")
+        ]}
+        encoded = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        object.__setattr__(self, "_manifest_json", encoded)
+        object.__setattr__(self, "sha256", hashlib.sha256(encoded).hexdigest())
+
+    @property
+    def manifest(self) -> dict:
+        """Return detached provenance for the pinned bytes, without rehashing."""
+        return json.loads(self._manifest_json)
 
 
 def read_sources(source_directory: str | Path = DEFAULT_SOURCE_DIRECTORY) -> MainSources:

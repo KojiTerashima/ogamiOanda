@@ -55,6 +55,12 @@ originalの初回解析、時間帯・スプレッド条件、解析前後の同
 ```
 
 出力先は毎回新しいディレクトリを指定します。既存結果は上書きしません。
+originalの`run`は`--analysis line`（省略時）または`--analysis resistance_breakout`で解析を選べます。
+上記コマンドへ`--analysis resistance_breakout`を追加すると、mainの抵抗線ブレイクを既存の仮想売買で検証します。
+組込みoriginalのプラグイン起動でも使用でき、Matchaや非対応プラグインでは拒否します。`fetch`の引数には追加していません。
+選択名は起動表示と`run.json`に記録します。mainの実行登録一覧とは独立した選択です。
+抵抗線ブレイクの所有保護・約定からの時間決済・原文との比較範囲は[main解析ガイド](main-analysis.md)を参照してください。
+
 名前指定originalの数量設定は `--risk-yen`（既定500）と `--line-units`（既定1）です。
 `risk_yen`は既存戦略の設定名を維持しており、損益の決済通貨指定とは別です。
 matcha本体・同梱YAMLの設定は変更しません。
@@ -207,5 +213,58 @@ originalの`run`はmainディレクトリの解析コードを直接読みます
 既定の`../main`を使い、別配置では`--main-analysis-dir PATH`を指定します。`fetch`とMatchaには不要です。
 mainの変更は次の実行で反映します。コードを同梱・同期する処理はありません。
 `run.json`の`main_source_directory`は参照パスです。既存の`source_sha256`はogamiOanda内のコードが対象で、
-外部mainの内容は含みません。同じ結果の再現には同じmainの内容を用意します。
+外部mainの内容は含みません。外部mainは次の独立した項目で記録します。
+
+| `run.json`の項目 | 内容 |
+| --- | --- |
+| `main_source_manifest` | `schema_version: 1`と、相対ファイル名`path`・バイト数`size_bytes`・`sha256`の`files`配列 |
+| `main_source_sha256` | ファイル名順のmanifestをUTF-8 JSONで正規化した全体SHA-256 |
+| `runtime_versions` | Python実装・版、OS種別・版・CPUアーキテクチャ、通常依存8パッケージの版。未インストールは`null` |
+
+対象は`SOURCE_MODULES`全体です。バックエンドの作成時に固定した`MainSources.contents`のバイト列から
+一度だけ計算します。絶対パス・更新時刻・Git HEAD・対象外ファイルは含めません。
+JSON正規化は`sort_keys=True, separators=(",", ":"), ensure_ascii=False`です。
+実行中のファイル編集・移動は既存バックエンドの実行内容とハッシュへ影響せず、新しいバックエンドから反映します。
+CLIとPython APIの両方で最初の`running`から保存し、`complete`・`failed`にも保持します。
+呼出側metadataより計算結果が優先されます。Matcha等のmainを使わない戦略と、識別情報を提供しない独自
+バックエンドではmainの2項目を省略します。既存の戦略ID・`source_sha256`・liveチェックポイントの照合は変更しません。
+
+ハッシュからコードは復元できません。受入実行では`SOURCE_MODULES`の対応ファイルを専用ディレクトリへ保管し、
+`--main-analysis-dir`にその保存先を指定します。保存したファイルを後から編集せず、`main_source_manifest`と照合します。
+通常のmainディレクトリ全体には認証設定等が含まれるため、対応するPythonソースだけを保存してください。
 [main解析ガイド](main-analysis.md)にPython APIとエラー時の扱いを記載しています。
+
+## 実データ2年間の受入
+
+受入条件は評価区間`[2024-09-01T00:00:00Z, 2026-09-01T00:00:00Z)`、
+originalの`line`でUSD_JPY・EUR_USD・AUD_USD、同梱MatchaでUSD_JPYの4構成です。
+初期残高はJPY建て1,000,000、USD建て10,000、スリッページ0.2 pips、
+originalの`risk_yen=500, line_units=1`を固定します。
+まず28日の前歴を含む7日分を取得して4構成を再生し、同じ保存先へ2年間の取得を拡張します。
+取得完了後の再実行でmanifestが変わらず、取得要求が不要になることも確認します。
+
+各再生は新規出力先を使い、所要時間と最大RSSを別途記録します。
+[受入照合スクリプト](../scripts/verify_backtest_acceptance.py)は全期間のDataFrameを作らず、
+取引台帳の決済数量・価格・損益、全資産行、最大DD、月別損益、欠損、終了時の未約定と保有を検査します。
+portfolio内の未解決操作は、実行器が`complete`を保存する直前の照合でゼロを保証します。
+`--data-dir`を指定すると保存済みmanifest・日別ハッシュ・必要前歴・評価足の全件消化も照合します。
+金額の許容値は決済通貨単位で絶対誤差`1e-6`です。取引ゼロや赤字だけでは失敗にしません。
+
+```sh
+.venv/bin/python scripts/verify_backtest_acceptance.py \
+  --output-dir runtime/backtest-acceptance/EXAMPLE/run-full/original-USD_JPY \
+  --repeat-dir runtime/backtest-acceptance/EXAMPLE/run-repeat/original-USD_JPY \
+  --data-dir runtime/history/USD_JPY
+```
+
+再実行は`orders.csv, trades.csv, equity.csv, gaps.csv, summary.json`をバイト単位で比較し、
+`run.json`のコード・設定・データ・実行環境・最終状態も一致させます。
+ハッシュ追加後の1日合成再生では5出力が修正前後で一致し、再生ループ・売買・履歴保持に変更がないため、
+既存730日合成検証を引き継ぎます。
+
+今回の準備物と検証記録は`runtime/backtest-acceptance/completion-20260913-0cizanaa/`にあります。
+`commands.md`に全取得・再生・照合コマンド、`commands.json`に固定条件、`main-source/`に対応する原文、
+`execute.py --check`に通信なしの事前検査を用意しています。`execute.py --phase PHASE`で段階実行でき、
+前段の成功を確認して進みます。失敗時の結果・測定・ログを残し、既存結果を上書きしません。
+2026-09-13時点では認証付き取得の実行直前承認待ちで、実データ4構成の2年間検証は未実施です。
+全構成の再生と再実行照合が成功するまでは、バックテスト基盤の完全完了とは判定しません。

@@ -139,10 +139,10 @@
 | [`account_identity_hash`](../../src/ogami_oanda/application/ports/position_state.py#L130) | function | 口座の生の識別子を状態キーへ直接残さないためのハッシュを作る。 |
 | [`validated_strategy_state`](../../src/ogami_oanda/application/ports/position_state.py#L134) | function | Copy and validate a strategy state mapping as recursively JSON values. |
 | [`_validated_strategy_value`](../../src/ogami_oanda/application/ports/position_state.py#L145) | function / internal | 戦略状態の入れ子値をJSON互換性に沿って検証する。 |
-| [`persisted_metadata`](../../src/ogami_oanda/application/ports/position_state.py#L197) | function | 永続化対象のメタデータをJSON互換の安全な項目へ絞る。 |
-| [`_sanitized_position`](../../src/ogami_oanda/application/ports/position_state.py#L206) | function / internal | 永続化するポジション情報を安全な項目へ正規化する。 |
-| [`_Unsupported`](../../src/ogami_oanda/application/ports/position_state.py#L236) | class / internal | JSONへ保存できない値を示す内部センチネル。 |
-| [`_json_compatible_value`](../../src/ogami_oanda/application/ports/position_state.py#L243) | function / internal | 保存可能なJSON互換値へ変換する。 |
+| [`persisted_metadata`](../../src/ogami_oanda/application/ports/position_state.py#L200) | function | 永続化対象のメタデータをJSON互換の安全な項目へ絞る。 |
+| [`_sanitized_position`](../../src/ogami_oanda/application/ports/position_state.py#L209) | function / internal | 永続化するポジション情報を安全な項目へ正規化する。 |
+| [`_Unsupported`](../../src/ogami_oanda/application/ports/position_state.py#L239) | class / internal | JSONへ保存できない値を示す内部センチネル。 |
+| [`_json_compatible_value`](../../src/ogami_oanda/application/ports/position_state.py#L246) | function / internal | 保存可能なJSON互換値へ変換する。 |
 
 ## `application/ports/trade_history.py`
 
@@ -238,8 +238,8 @@ intentの価格/距離を確定価格へ変換し、OrderPlanを構築する。
 | --- | --- | --- |
 | [`OrderPlanner`](../../src/ogami_oanda/application/services/order_planner.py#L14) | class | intentの価格/距離を確定価格へ変換し、OrderPlanを構築する。 この責任を提供するクラス。 |
 | [`OrderPlanner.plan`](../../src/ogami_oanda/application/services/order_planner.py#L15) | method | 注文intentとcontextから価格が確定した計画を作る。 |
-| [`OrderPlanner._target_price`](../../src/ogami_oanda/application/services/order_planner.py#L50) | method / internal | 目標の価格/距離指定を絶対価格へ解決する。 |
-| [`OrderPlanner._protection_price`](../../src/ogami_oanda/application/services/order_planner.py#L60) | method / internal | TP/SLの価格/距離指定を絶対価格へ解決する。 |
+| [`OrderPlanner._target_price`](../../src/ogami_oanda/application/services/order_planner.py#L51) | method / internal | 目標の価格/距離指定を絶対価格へ解決する。 |
+| [`OrderPlanner._protection_price`](../../src/ogami_oanda/application/services/order_planner.py#L61) | method / internal | TP/SLの価格/距離指定を絶対価格へ解決する。 |
 
 ## `application/services/portfolio.py`
 
@@ -337,7 +337,7 @@ intentの価格/距離を確定価格へ変換し、OrderPlanを構築する。
 | [`PositionPortfolioService._linked_positions`](../../src/ogami_oanda/application/services/position_portfolio_service.py#L1993) | method / internal | 指定位置に連動するポジションを取り出す。 |
 | [`PositionPortfolioService._execute_linkage_decision`](../../src/ogami_oanda/application/services/position_portfolio_service.py#L2022) | method / internal | 連動判断を外部操作へ反映する。 |
 | [`PositionPortfolioService._apply_hedge`](../../src/ogami_oanda/application/services/position_portfolio_service.py#L2106) | method / internal | 反対方向のヘッジ管理判断を適用する。 |
-| [`PositionPortfolioService._execute_mutation`](../../src/ogami_oanda/application/services/position_portfolio_service.py#L2154) | method / internal | 永続化フックを伴う外部変更操作を実行する。 |
+| [`PositionPortfolioService._execute_mutation`](../../src/ogami_oanda/application/services/position_portfolio_service.py#L2156) | method / internal | 永続化フックを伴う外部変更操作を実行する。 |
 
 ## `application/services/position_service.py`
 

@@ -25,6 +25,7 @@ class OrderPlanner:
             price=target_price,
             take_profit_price=take_profit_price,
             stop_loss_price=stop_loss_price,
+            owner_tag=str(intent.metadata.get("owner_tag") or ""),
             client_reference=submission_fingerprint(
                 pair=intent.pair,
                 name=intent.name,

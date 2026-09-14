@@ -33,6 +33,9 @@
 
 mainの候補は解決済み価格と数量をIntentへコピーする。`target_is_price=True`ならMARKETも指定価格を保つ。
 待機・trial・未対応の管理条件を持つ候補と制御通知は通常Intentへ変換せず、診断に保持する。
+originalは`--analysis line`（省略時）と`--analysis resistance_breakout`を選択できる。
+既知の抵抗線ブレイク所有タグは対応し、自動両建て解消から除外して原文の保有上限による時間決済を有効にする。
+価格・数量と所有タグ・期限設定は保存・復元され、通常のline注文の管理・スケジュールは変更しない。
 
 OANDA adapterはMARKETをFOKかつトップレベルpriceなし、LIMIT/STOPをGTCかつpriceありに変換します。
 発注応答はpending、filled、rejected、cancelled、terminal、unknownを区別します。

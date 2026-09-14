@@ -82,7 +82,11 @@ operator commands are documented in [the strategy guide](../src/ogami_oanda/stra
 These offline tests cover acquisition recovery, atomic storage, rolling frames,
 execution ambiguity, partial-close accounting, lifecycle integration, source-scoped
 commands, CLI isolation, reproducibility, and future-input independence.
-The full normal gate remains required because original and live share evaluation.
+`test_backtest_provenance.py` also covers canonical source fingerprints, pinned
+execution after source edits/moves, no per-evaluation reads/hashes, metadata spoofing,
+and identical CLI/Python API provenance on success and failure. It uses synthetic
+source files and never needs credentials. The full normal gate remains required
+because original and live share evaluation.
 
 Run synthetic long-history verification separately; it is not collected by pytest:
 
@@ -93,6 +97,18 @@ Run synthetic long-history verification separately; it is not collected by pytes
 Use `--days 1` for a short benchmark of the same streaming path. See the
 [backtest guide](../docs/backtest.md) for the memory limit, artifacts, approximations,
 and the separate credentialed real-data acceptance boundary.
+
+## Analysis selection and owned breakout orders
+
+```sh
+.venv/bin/python -m pytest -q tests/test_main_analysis_selection.py tests/test_main_analysis_management.py
+```
+
+These offline contracts cover named/plug-in original selection, incompatible CLI
+options and injected dependencies, native three-pair prices and risk sizing,
+owner-tag serialization, hedge exclusion and timeouts measured from the fill.
+The old line lifecycle and schedule suites remain required. Native-source cases
+skip with an explicit reason when main is unavailable; lifecycle and CLI tests do not.
 
 ## Main-source adapter
 
@@ -110,3 +126,9 @@ loader, CLI and lifecycle-only contracts still run without main.
 
 The differential manifest pins the exact Python and numeric-library versions;
 use that environment for the golden gate instead of editing golden metadata.
+
+The independent [acceptance auditor](../scripts/verify_backtest_acceptance.py)
+streams fills/equity/gaps and optionally validates the saved dataset and a repeat.
+`test_backtest_acceptance_verification.py` checks partial closes, zero trades,
+corrupt ledger/equity/data, incomplete runs, warmup, and byte-level repeat differences.
+Run it only against offline artifacts; it never fetches prices or loads credentials.

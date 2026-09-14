@@ -63,6 +63,7 @@ class BrokerOrderRequest:
     take_profit_price: float
     stop_loss_price: float
     client_reference: str = ""
+    owner_tag: str = ""
 
 
 def submission_fingerprint(

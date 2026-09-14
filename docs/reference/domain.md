@@ -145,8 +145,8 @@ OHLCの派生列、RSI、MACD、EMA、ボリンジャーバンドを計算する
 | [`OrderIntent.__post_init__`](../../src/ogami_oanda/domain/orders/models.py#L44) | method | 生成直後に入力の整合性確認や不変形式への変換を行う。 |
 | [`OrderContext`](../../src/ogami_oanda/domain/orders/models.py#L50) | class | 計画確定に必要な現在価格・判断時刻等の文脈。 |
 | [`BrokerOrderRequest`](../../src/ogami_oanda/domain/orders/models.py#L58) | class | SDKに依存しない確定発注要求。 |
-| [`submission_fingerprint`](../../src/ogami_oanda/domain/orders/models.py#L68) | function | 注文判断の主要値から安定した送信識別子を計算する。 |
-| [`OrderPlan`](../../src/ogami_oanda/domain/orders/models.py#L93) | class | intent/contextと確定価格・レンジ・発注要求を保持する計画。 |
+| [`submission_fingerprint`](../../src/ogami_oanda/domain/orders/models.py#L69) | function | 注文判断の主要値から安定した送信識別子を計算する。 |
+| [`OrderPlan`](../../src/ogami_oanda/domain/orders/models.py#L94) | class | intent/contextと確定価格・レンジ・発注要求を保持する計画。 |
 
 ## `domain/positions/__init__.py`
 
@@ -215,18 +215,18 @@ Data-only boundary for evaluating unchanged main analysis sources.
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`MainAnalysisError`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L13) | class | An invalid evaluation, distinct from an ordinary absence of signals. |
-| [`AnalysisNotReady`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L17) | class | Completed history or an explicitly required policy is unavailable. |
-| [`AnalysisIntegrityError`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L21) | class | The supplied history or result violates the upstream contract. |
-| [`UnsupportedAnalysisDependency`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L25) | class | The main source requested an unsupported dependency or API contract. |
-| [`AnalysisRequest`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L30) | class | 解析境界のデータまたは実行状態を保持する。 |
-| [`AnalysisResult`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L44) | class | 解析境界のデータまたは実行状態を保持する。 |
-| [`OrderCandidate`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L54) | class | 解析境界のデータまたは実行状態を保持する。 |
-| [`PeakSnapshot`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L73) | class | The existing peak read surface, without an upstream class instance. |
-| [`MainAnalysisEvaluation`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L83) | class | 解析境界のデータまたは実行状態を保持する。 |
-| [`MainAnalysisBackend`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L94) | class | 解析境界のデータまたは実行状態を保持する。 |
-| [`MainAnalysisBackend.evaluate`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L95) | method | 評価状態と既存の呼び出し契約を接続する。 |
-
+| [`MainAnalysisError`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L22) | class | An invalid evaluation, distinct from an ordinary absence of signals. |
+| [`AnalysisNotReady`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L26) | class | Completed history or an explicitly required policy is unavailable. |
+| [`AnalysisIntegrityError`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L30) | class | The supplied history or result violates the upstream contract. |
+| [`UnsupportedAnalysisDependency`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L34) | class | The main source requested an unsupported dependency or API contract. |
+| [`AnalysisRequest`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L39) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`AnalysisResult`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L53) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`OrderCandidate`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L63) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`PeakSnapshot`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L82) | class | The existing peak read surface, without an upstream class instance. |
+| [`MainAnalysisEvaluation`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L92) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`MainAnalysisBackend`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L103) | class | 解析境界のデータまたは実行状態を保持する。 |
+| [`MainAnalysisBackend.evaluate`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L104) | method | 評価状態と既存の呼び出し契約を接続する。 |
+| [`validate_main_analysis_name`](../../src/ogami_oanda/domain/analysis/main_contracts.py#L16) | function | 売買経路が対応する解析名を検証する。 |
 
 ## `domain/analysis/main_orders.py`
 

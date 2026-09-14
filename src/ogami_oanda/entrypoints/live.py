@@ -14,7 +14,7 @@ from ogami_oanda.adapters.notifications.discord import (
 )
 from ogami_oanda.adapters.legacy.main_analysis.backend import MainSourceAnalysis
 from ogami_oanda.adapters.legacy.main_analysis.source import DEFAULT_SOURCE_DIRECTORY
-from ogami_oanda.entrypoints.main_analysis import bind_main_analysis
+from ogami_oanda.entrypoints.main_analysis import analysis_strategy_id, bind_main_analysis, validate_analysis_selection
 from ogami_oanda.adapters.oanda.client import OandaClient
 from ogami_oanda.adapters.oanda.execution import OandaExecutionAdapter
 from ogami_oanda.adapters.oanda.market_data import OandaMarketDataAdapter
@@ -31,6 +31,7 @@ from ogami_oanda.application.errors import (
 )
 from ogami_oanda.application.ports.market_data import MarketDataPort, MarketQuote
 from ogami_oanda.application.ports.position_state import (
+    BUILTIN_LINE_STRATEGY_ID,
     PositionStateRepository,
     account_identity_hash,
     validated_strategy_state,
@@ -57,6 +58,7 @@ from ogami_oanda.application.services.position_service import (
     PositionService,
 )
 from ogami_oanda.application.services.runtime_event_buffer import RuntimeEventBuffer
+from ogami_oanda.domain.analysis.main_contracts import EXECUTABLE_MAIN_ANALYSES, validate_main_analysis_name
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import OrderContext, OrderPlan
 from ogami_oanda.domain.positions.models import PositionEvent, TradeState
@@ -1017,8 +1019,14 @@ def build_live_application(
     cancel_pending_on_start: bool = False,
     dry_run: bool = False,
     main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
+    analysis_name: str | None = None,
 ) -> LiveApplication:
-    analysis_backend = MainSourceAnalysis(source_directory=main_analysis_dir) if candidate_builder is None else None
+    if analysis_name is not None:
+        validate_main_analysis_name(analysis_name)
+        if candidate_builder is not None:
+            raise ValueError("--analysis conflicts with the injected candidate builder")
+    analysis_backend = (MainSourceAnalysis(source_directory=main_analysis_dir, analysis_name=analysis_name or "line")
+                        if candidate_builder is None else None)
     clock = clock or SystemClock()
     pair = pair or settings.trading.default_pair
     if market_data is None or broker_execution is None or broker_query is None:
@@ -1102,6 +1110,7 @@ def build_live_application(
         state_repository=state_repository,
         account_hash=account_hash,
         state_writable=not dry_run,
+        strategy_id=analysis_strategy_id(BUILTIN_LINE_STRATEGY_ID, analysis_backend),
     )
     startup_complete = False
 
@@ -1187,10 +1196,12 @@ def build_strategy_live_application(
     dry_run: bool = False,
     max_quote_age: timedelta | None = None,
     main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
+    analysis_name: str | None = None,
 ) -> StrategyLiveApplication:
     """Compose a live runner for an already validated trusted strategy."""
 
-    bind_main_analysis(strategy, mode="live", main_analysis_dir=main_analysis_dir)
+    backend = bind_main_analysis(strategy, mode="live", main_analysis_dir=main_analysis_dir, analysis_name=analysis_name)
+    strategy_id = analysis_strategy_id(strategy_id, backend)
 
     clock = clock or SystemClock()
     pair = pair or settings.trading.default_pair
@@ -1345,13 +1356,15 @@ def main(argv: list[str] | None = None) -> int:
         "--strategy", choices=("original", "matcha"),
         help="packaged strategy to run (default: original; shared is not runnable)",
     )
+    parser.add_argument("--analysis", dest="analysis_name", choices=EXECUTABLE_MAIN_ANALYSES,
+                        help="main analysis for original (default: line)")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--cancel-pending-on-start", action="store_true")
     parser.add_argument("--once", action="store_true", help="run one deterministic scheduling tick")
     parser.add_argument(
         "--trace-candidates",
         action="store_true",
-        help="print built-in line candidate counts and rejection reasons",
+        help="print original analysis candidate counts and rejection reasons",
     )
     parser.add_argument(
         "--offline-smoke",
@@ -1371,6 +1384,8 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     if arguments.strategy and (arguments.strategy_py is not None or arguments.strategy_yaml is not None):
         parser.error("--strategy cannot be combined with --strategy-py or --strategy-yaml")
+    if arguments.analysis_name is not None and arguments.strategy == "matcha":
+        parser.error("--analysis requires original; it cannot be combined with matcha")
     if arguments.strategy == "matcha":
         strategy_dir = Path(__file__).resolve().parents[1] / "strategy" / "matcha"
         arguments.strategy_py = strategy_dir / "strategy.py"
@@ -1380,6 +1395,8 @@ def main(argv: list[str] | None = None) -> int:
     if has_strategy_py != has_strategy_yaml:
         parser.error("--strategy-py and --strategy-yaml must be supplied together")
     if arguments.offline_smoke:
+        if arguments.analysis_name is not None:
+            parser.error("--analysis cannot be combined with --offline-smoke")
         if not arguments.dry_run or not arguments.once:
             parser.error("--offline-smoke requires --dry-run and --once")
         if has_strategy_py:
@@ -1397,7 +1414,8 @@ def main(argv: list[str] | None = None) -> int:
         if has_strategy_py:
             try:
                 loaded = load_strategy(arguments.strategy_py, arguments.strategy_yaml)
-            except StrategyPluginError as exc:
+                validate_analysis_selection(loaded.strategy, arguments.analysis_name)
+            except (StrategyPluginError, ValueError) as exc:
                 parser.error(str(exc))
             application = build_strategy_live_application(
                 settings,
@@ -1408,6 +1426,7 @@ def main(argv: list[str] | None = None) -> int:
                 cancel_pending_on_start=arguments.cancel_pending_on_start,
                 dry_run=arguments.dry_run,
                 main_analysis_dir=arguments.main_analysis_dir,
+                **({"analysis_name": arguments.analysis_name} if arguments.analysis_name is not None else {}),
             )
         else:
             application = build_live_application(
@@ -1417,7 +1436,15 @@ def main(argv: list[str] | None = None) -> int:
                 cancel_pending_on_start=arguments.cancel_pending_on_start,
                 dry_run=arguments.dry_run,
                 main_analysis_dir=arguments.main_analysis_dir,
+                **({"analysis_name": arguments.analysis_name} if arguments.analysis_name is not None else {}),
             )
+    analysis = (getattr(getattr(application, "strategy", None), "analysis", None)
+                or getattr(application, "analysis", None))
+    backend = getattr(analysis, "analysis_backend", None)
+    if getattr(backend, "analysis_name", None) is not None:
+        source = getattr(backend, "source_directory", None)
+        location = f" source={source}" if source is not None else ""
+        print(f"[ANALYSIS] name={backend.analysis_name}{location}", flush=True)
     if arguments.once:
         result = application.run_resilient_once(dry_run=arguments.dry_run)
         accepted_names = ",".join(result.registration.accepted) or "-"
@@ -1438,7 +1465,9 @@ def main(argv: list[str] | None = None) -> int:
                 format_candidate_diagnostics,
             )
 
-            print("candidates " + format_candidate_diagnostics(diagnostics))
+            name = getattr(result.analysis, "candidate_context", {}).get("main_analysis", {}).get("analysis_name")
+            prefix = f"analysis={name} " if name else ""
+            print("candidates " + prefix + format_candidate_diagnostics(diagnostics))
     else:
         from ogami_oanda.entrypoints.live_console import ConsoleLiveReporter
 

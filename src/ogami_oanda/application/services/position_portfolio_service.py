@@ -2116,6 +2116,8 @@ class PositionPortfolioService:
             )
             for position in working_slots
             if position is not None and position.snapshot.trade_state.value == "OPEN"
+            and not (position.runtime.order_plan is not None
+                     and position.runtime.order_plan.intent.metadata.get("owner_tag"))
         ]
         commands = []
         for decision in self.hedge_policy.close_commands(open_positions):

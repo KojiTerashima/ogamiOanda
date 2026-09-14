@@ -96,7 +96,7 @@ def broker_request_to_oanda(
     if include_client_extensions and request.client_reference:
         extensions = {
             "id": request.client_reference,
-            "tag": "ogami-oanda",
+            "tag": request.owner_tag or "ogami-oanda",
         }
         order["clientExtensions"] = extensions
         order["tradeClientExtensions"] = dict(extensions)
