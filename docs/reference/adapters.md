@@ -69,17 +69,18 @@
 
 [ソース](../../src/ogami_oanda/adapters/notifications/discord.py)
 
-通知先設定を受け、ペア別Discord通知の配送と重複抑止を行う。
+通知先設定を受け、strategy・通貨ペア別Discord通知の配送と経路別の重複抑止を行う。
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
 | [`NotificationConfiguration`](../../src/ogami_oanda/adapters/notifications/discord.py#L8) | class | 通知先情報を受け取る設定契約。 |
-| [`create_http_session`](../../src/ogami_oanda/adapters/notifications/discord.py#L13) | function | Keep the requests dependency at the notification adapter boundary. |
-| [`DiscordNotifier`](../../src/ogami_oanda/adapters/notifications/discord.py#L20) | class | 通知先設定を受け、ペア別Discord通知の配送と重複抑止を行う。 この責任を提供するクラス。 |
-| [`DiscordNotifier.__init__`](../../src/ogami_oanda/adapters/notifications/discord.py#L21) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`DiscordNotifier.send`](../../src/ogami_oanda/adapters/notifications/discord.py#L28) | method | 通知を配送する。 |
-| [`DiscordNotifier._webhook`](../../src/ogami_oanda/adapters/notifications/discord.py#L59) | method / internal | 通知種別とペアに対応する配送先を選ぶ。 |
-| [`DiscordNotifier._pair_from_message`](../../src/ogami_oanda/adapters/notifications/discord.py#L68) | method / internal | 通知メッセージから通貨ペアを判定する。 |
+| [`create_http_session`](../../src/ogami_oanda/adapters/notifications/discord.py#L15) | function | Keep the requests dependency at the notification adapter boundary. |
+| [`DiscordNotifier`](../../src/ogami_oanda/adapters/notifications/discord.py#L22) | class | 通知先設定を受け、strategy・通貨ペア別Discord通知の配送と経路別の重複抑止を行う。 この責任を提供するクラス。 |
+| [`DiscordNotifier.__init__`](../../src/ogami_oanda/adapters/notifications/discord.py#L23) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`DiscordNotifier.send`](../../src/ogami_oanda/adapters/notifications/discord.py#L33) | method | 通知を配送する。 |
+| [`DiscordNotifier._webhook`](../../src/ogami_oanda/adapters/notifications/discord.py#L72) | method / internal | 検証・tokens互換・strategyと通貨ペアの設定から配送先を選ぶ。 |
+| [`DiscordNotifier._pair_from_message`](../../src/ogami_oanda/adapters/notifications/discord.py#L85) | method / internal | 通知メッセージから通貨ペアを判定する。 |
+| [`DiscordNotifier._is_duplicate`](../../src/ogami_oanda/adapters/notifications/discord.py#L66) | method / internal | 通知経路ごとに連続同文を数え、3回目以降を抑止する。 |
 
 ## `adapters/oanda/__init__.py`
 

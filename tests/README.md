@@ -61,6 +61,17 @@ Add `--archives` only when verifying the retired bundles: it checks member
 paths, modes, and hashes without extracting or executing old code.
 
 
+Discord routing has focused offline contracts:
+
+```sh
+.venv/bin/python -m pytest -q tests/test_contract_discord_notifier.py tests/test_contract_discord_live_routing.py tests/test_contract_config_and_ports.py tests/test_contract_live_cli.py tests/test_main_analysis_selection.py tests/test_contract_legacy_entrypoints.py
+```
+
+These use fake HTTP and broker ports to cover strategy/pair routing, disabled or
+missing routes without pair fallback, shared inspection delivery, route-scoped
+consecutive duplicates, token compatibility, plugin names, and composed order,
+closure, and quarantine notices. No real Discord delivery is performed.
+
 Strategy layout and named-loop selection have focused offline contracts:
 
 ```sh

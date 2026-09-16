@@ -19,10 +19,13 @@ trading:
   high_priority_threshold: 100
 
 notifications:
-  pair_webhooks:
-    USD_JPY: ${DISCORD_USD_JPY_WEBHOOK}
-    EUR_USD: ${DISCORD_EUR_USD_WEBHOOK}
-    AUD_USD: ${DISCORD_AUD_USD_WEBHOOK}
+  strategy_pair_webhooks:
+    original:
+      USD_JPY: ${DISCORD_ORIGINAL_USD_JPY_WEBHOOK}
+      EUR_USD: ${DISCORD_ORIGINAL_EUR_USD_WEBHOOK}
+      AUD_USD: ${DISCORD_ORIGINAL_AUD_USD_WEBHOOK}
+    matcha:
+      USD_JPY: ${DISCORD_MATCHA_USD_JPY_WEBHOOK}
   inspection_webhook: ${DISCORD_INSPECTION_WEBHOOK}
 
 paths:

@@ -232,3 +232,60 @@ def test_offline_fakes_satisfy_port_contracts(candle_frame):
     assert notifier.messages == [("offline", "live", "USD_JPY")]
     assert history.records == [{"result": "tp"}]
     assert clock.now() == datetime(2026, 1, 2, 3, 4, 5)
+
+
+@pytest.mark.contract
+def test_strategy_webhooks_resolve_environment_and_cannot_enable_legacy_routing(tmp_path):
+    path = tmp_path / "settings.yaml"
+    path.write_text("""\
+accounts:
+  primary:
+    account_id: test-id
+    access_token: test-token
+notifications:
+  pair_webhooks:
+    USD_JPY: legacy-route
+  legacy_pair_routing: true
+  strategy_pair_webhooks:
+    original:
+      USD_JPY: ${ORIGINAL_ROUTE}
+      EUR_USD: ${UNDEFINED_ROUTE}
+    matcha:
+      USD_JPY: matcha-route
+      EUR_USD: ''
+""", encoding="utf-8")
+    settings = load_settings(path, {"ORIGINAL_ROUTE": "original-route"}).notifications
+    assert settings.strategy_pair_webhooks == {
+        "original": {"USD_JPY": "original-route", "EUR_USD": ""},
+        "matcha": {"USD_JPY": "matcha-route", "EUR_USD": ""},
+    }
+    assert settings.pair_webhooks == {"USD_JPY": "legacy-route"}
+    assert settings.legacy_pair_routing is False
+
+
+@pytest.mark.contract
+def test_strategy_webhook_settings_copy_and_freeze_both_mapping_levels():
+    from ogami_oanda.infrastructure.config.models import NotificationSettings
+
+    source = {"original": {"USD_JPY": "original-route"}}
+    settings = NotificationSettings(strategy_pair_webhooks=source)
+    source["original"]["USD_JPY"] = "changed"
+    source["matcha"] = {"USD_JPY": "another"}
+    assert settings.strategy_pair_webhooks == {"original": {"USD_JPY": "original-route"}}
+    with pytest.raises(TypeError):
+        settings.strategy_pair_webhooks["matcha"] = {}
+    with pytest.raises(TypeError):
+        settings.strategy_pair_webhooks["original"]["USD_JPY"] = "changed"
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize("routes", ["[]", "null", "{original: []}", "{original: invalid}"])
+def test_strategy_webhook_loader_rejects_invalid_mapping_shape(tmp_path, routes):
+    path = tmp_path / "settings.yaml"
+    path.write_text(
+        "accounts:\n  primary:\n    account_id: test-id\n    access_token: test-token\n"
+        f"notifications:\n  strategy_pair_webhooks: {routes}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="notifications.strategy_pair_webhooks"):
+        load_settings(path, {})

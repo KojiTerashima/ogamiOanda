@@ -50,6 +50,7 @@ def settings_from_tokens(tokens: ModuleType) -> AppSettings:
                 "AUD_USD": getattr(tokens, "WEBHOOK_URL_audusd", ""),
             },
             inspection_webhook=getattr(tokens, "WEBHOOK_URL_inspection", ""),
+            legacy_pair_routing=True,
         ),
         paths=PathSettings(
             result_dir=getattr(tokens, "folder_path", "."),
