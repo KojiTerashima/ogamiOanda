@@ -37,6 +37,7 @@ from ogami_oanda.application.ports.position_state import (
     validated_strategy_state,
 )
 from ogami_oanda.application.scheduling import TradingSchedule
+from ogami_oanda.application.settings import resolve_spread_limit_pips
 from ogami_oanda.application.services.line_candidate_context_builder import (
     build_line_candidate_context,
 )
@@ -196,8 +197,11 @@ class LiveApplication:
         startup: Callable[[], None] | None = None,
         runtime_events: RuntimeEventBuffer | None = None,
         authorization_recovery: Callable[[], PortfolioStartupState] | None = None,
+        *,
+        spread_limit_pips: float | None = None,
     ) -> None:
         self.pair = pair
+        self.spread_limit_pips = resolve_spread_limit_pips(pair, spread_limit_pips)
         self.market_data = market_data
         self.analysis = analysis
         self.planner = planner
@@ -255,7 +259,7 @@ class LiveApplication:
         quote = self._quote()
         update_only = self.schedule.is_update_only_window(now)
         pair = currency_pair(self.pair)
-        if pair.round_price(quote.spread) > pair.pips_to_price(pair.spread_limit_pips):
+        if pair.round_price(quote.spread) > pair.pips_to_price(self.spread_limit_pips):
             update_only = True
         first_execution = self._last_analysis_at is None
         elapsed = (now - self._last_analysis_at).total_seconds() if not first_execution else float("inf")
@@ -520,6 +524,7 @@ class StrategyLiveApplication(LiveApplication):
         startup: Callable[[], None] | None = None,
         *,
         max_quote_age: timedelta | None = None,
+        spread_limit_pips: float | None = None,
         runtime_events: RuntimeEventBuffer | None = None,
         authorization_recovery: Callable[[], PortfolioStartupState] | None = None,
     ) -> None:
@@ -528,6 +533,7 @@ class StrategyLiveApplication(LiveApplication):
         if max_quote_age is not None and max_quote_age.total_seconds() <= 0:
             raise ValueError("max_quote_age must be positive")
         self.pair = pair
+        self.spread_limit_pips = resolve_spread_limit_pips(pair, spread_limit_pips)
         self.strategy = strategy
         self.strategy_id = strategy_id
         self.market_data = market_data
@@ -895,7 +901,7 @@ class StrategyLiveApplication(LiveApplication):
             reasons.append("update_only")
         pair = currency_pair(self.pair)
         if pair.round_price(quote.spread) > pair.pips_to_price(
-            pair.spread_limit_pips
+            self.spread_limit_pips
         ):
             reasons.append("wide_spread")
         if quote.pair != self.pair:
@@ -1174,6 +1180,7 @@ def build_live_application(
         startup=start,
         runtime_events=runtime_events,
         authorization_recovery=recover_authorization,
+        spread_limit_pips=settings.trading.spread_limit_for(pair),
     )
 
 
@@ -1342,6 +1349,7 @@ def build_strategy_live_application(
         max_quote_age=max_quote_age,
         runtime_events=runtime_events,
         authorization_recovery=recover_authorization,
+        spread_limit_pips=settings.trading.spread_limit_for(pair),
     )
 
 

@@ -39,6 +39,7 @@ def build_service(
         clock=SystemClock().now,
         expected_account_id=client.account_id,
         require_hedging=account.require_hedging,
+        trading_settings=settings.trading,
     )
 
 

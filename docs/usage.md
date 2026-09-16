@@ -32,6 +32,7 @@ Git管理外の `config/settings.yaml` を用意します。`${変数名}` は�
 | `require_hedging` | ヘッジ機能の要求。既定true |
 | `live_trading_enabled` | live環境の明示的な有効化。既定false |
 | `trading.default_pair` | 省略時の通貨ペア |
+| `trading.spread_limit_pips` | 通貨ペア別の新規注文スプレッド上限（pips） |
 | `trading.line_units`, `risk_yen` | 組込みライン戦略の数量・リスク計算設定 |
 | `trading.max_positions` | 全枠数。既定15 |
 | `normal_slot_count`, `mid_slot_count`, `high_slot_count` | 優先度別枠。既定6・8・1、合計は全枠数と一致させる |
@@ -46,6 +47,30 @@ Git管理外の `config/settings.yaml` を用意します。`${変数名}` は�
 公開テンプレートを使う例では必ず `--account practice` を指定しています。
 トークン変更は実行中プロセスへ自動反映されません。再起動の扱いは
 [復旧と構築の詳細](architecture-migration.md) を参照してください。
+
+### スプレッド上限
+
+`config/settings.yaml`の既存の`trading`へ次の項目を追加できます。
+値は現行の既定値です。必要な通貨ペアだけ指定できます。
+
+```yaml
+trading:
+  default_pair: USD_JPY
+  spread_limit_pips:
+    USD_JPY: 1.1
+    EUR_USD: 1.5
+    AUD_USD: 1.8
+```
+
+未指定のペアはUSD_JPY=1.1、EUR_USD=1.5、AUD_USD=1.8 pipsを使用します。
+有限の非負数を指定してください。文字列・真偽値・null・負数・無限値・NaN・未知のペアはエラーです。
+0はスプレッドゼロのみ許可し、制限解除の指定ではありません。
+上限と等しい価格差は許可し、価格桁への丸め方は従来と同じです。
+
+上限はoriginal・Matcha・既存プラグイン共通です。liveとpractice受入コマンドに反映されます。
+設定は起動時に確定し、変更の反映には再起動が必要です。
+スプレッド超過時もポジション管理を継続し、originalの初回解析例外を維持します。
+バックテストで同じ設定を使う場合は、[再生コマンド](backtest.md)に`--config`を指定してください。
 
 ## live CLI
 

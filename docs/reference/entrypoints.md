@@ -16,62 +16,62 @@
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`LiveFailure`](../../src/ogami_oanda/entrypoints/live.py#L88) | class | 外部障害の分類と再試行情報。 |
-| [`LiveRunResult`](../../src/ogami_oanda/entrypoints/live.py#L98) | class | 1 tickの解析・採用結果・スキップ・イベント・失敗の集約。 |
-| [`LiveRunObserver`](../../src/ogami_oanda/entrypoints/live.py#L111) | class | 完了tickと失敗を受け取る表示/監視契約。 |
-| [`LiveRunObserver.on_result`](../../src/ogami_oanda/entrypoints/live.py#L112) | method | 完了したtickの結果を表示/観測する。 |
-| [`LiveRunObserver.on_error`](../../src/ogami_oanda/entrypoints/live.py#L114) | method | tickの失敗と再試行情報を表示/観測する。 |
-| [`_notify_observer_result`](../../src/ogami_oanda/entrypoints/live.py#L117) | function / internal | 結果observerがあれば完了tickを通知する。 |
-| [`_notify_observer_error`](../../src/ogami_oanda/entrypoints/live.py#L133) | function / internal | エラーobserverがあれば失敗を通知する。 |
-| [`_run_forever_with_observer`](../../src/ogami_oanda/entrypoints/live.py#L144) | function / internal | 対応するrunnerへobserverを渡して継続実行する。 |
-| [`_configured_log_dir`](../../src/ogami_oanda/entrypoints/live.py#L167) | function / internal | 設定からログ保存先を取り出す。 |
-| [`_collect_runtime_events`](../../src/ogami_oanda/entrypoints/live.py#L175) | function / internal | Attach and clear the current tick's transient events on a result. |
-| [`LiveApplication`](../../src/ogami_oanda/entrypoints/live.py#L186) | class | 設定から依存を構築し、組込み/プラグインのtick・復旧・CLIを提供する。 この責任を提供するクラス。 |
-| [`LiveApplication.__init__`](../../src/ogami_oanda/entrypoints/live.py#L187) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`LiveApplication.run_once`](../../src/ogami_oanda/entrypoints/live.py#L223) | method | 1 tickのスケジュール・判断・状態同期を実行する。 |
-| [`LiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L331) | method | 固定間隔でtickを継続実行する。 |
-| [`LiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L355) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
-| [`LiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L391) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
-| [`LiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L397) | method / internal | 認証停止を表す安全なtick結果を作る。 |
-| [`LiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L416) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
-| [`LiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L434) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
-| [`LiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L448) | method / internal | 回復後の再試行待機状態を解除する。 |
-| [`LiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L452) | method / internal | 解析/登録を行わないtick結果を作る。 |
-| [`LiveApplication._quote`](../../src/ogami_oanda/entrypoints/live.py#L466) | method / internal | tick内で共有する価格quoteを取得する。 |
-| [`LiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L469) | method / internal | 市場解析を呼び出して結果を取得する。 |
-| [`LiveApplication._sync_positions`](../../src/ogami_oanda/entrypoints/live.py#L472) | method / internal | 市場情報を使ってポジション同期を行う。 |
-| [`LiveApplication._candle_input`](../../src/ogami_oanda/entrypoints/live.py#L489) | method / internal | SL判断へ渡す確定足情報を作る。 |
-| [`StrategyLiveApplication`](../../src/ogami_oanda/entrypoints/live.py#L507) | class | Evaluate one trusted strategy plugin on every open-market tick. |
-| [`StrategyLiveApplication.__init__`](../../src/ogami_oanda/entrypoints/live.py#L510) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`StrategyLiveApplication.run_once`](../../src/ogami_oanda/entrypoints/live.py#L560) | method | 1 tickのスケジュール・判断・状態同期を実行する。 |
-| [`StrategyLiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L714) | method | 固定間隔でtickを継続実行する。 |
-| [`StrategyLiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L737) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
-| [`StrategyLiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L773) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
-| [`StrategyLiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L779) | method / internal | 認証停止を表す安全なtick結果を作る。 |
-| [`StrategyLiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L798) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
-| [`StrategyLiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L816) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
-| [`StrategyLiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L830) | method / internal | 回復後の再試行待機状態を解除する。 |
-| [`StrategyLiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L834) | method / internal | 解析/登録を行わないtick結果を作る。 |
-| [`StrategyLiveApplication._load_strategy_state_once`](../../src/ogami_oanda/entrypoints/live.py#L848) | method / internal | 初回に保存された戦略状態をロードする。 |
-| [`StrategyLiveApplication._strategy_positions`](../../src/ogami_oanda/entrypoints/live.py#L868) | method / internal | 対象戦略が所有するポジションを選ぶ。 |
-| [`StrategyLiveApplication._entry_safety_reasons`](../../src/ogami_oanda/entrypoints/live.py#L888) | method / internal | 新規注文を抑止する条件と理由を集める。 |
-| [`StrategyLiveApplication._quote_is_fresh`](../../src/ogami_oanda/entrypoints/live.py#L909) | method / internal | quoteの時刻が新規判断に十分新しいか確認する。 |
-| [`StrategyLiveApplication._skipped`](../../src/ogami_oanda/entrypoints/live.py#L931) | method / internal | スキップ理由を含むtick結果を作る。 |
-| [`_OfflineSmokeMarketData`](../../src/ogami_oanda/entrypoints/live.py#L939) | class / internal | 固定quoteを返すsmoke専用の市場実装。 |
-| [`_OfflineSmokeMarketData.__init__`](../../src/ogami_oanda/entrypoints/live.py#L940) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`_OfflineSmokeMarketData.current_quote`](../../src/ogami_oanda/entrypoints/live.py#L944) | method | 同一tickで共有するquoteを取得する。 |
-| [`_OfflineSmokeAnalysis`](../../src/ogami_oanda/entrypoints/live.py#L950) | class / internal | 外部市場を使わないsmoke専用解析。 |
-| [`_OfflineSmokeAnalysis.analyze`](../../src/ogami_oanda/entrypoints/live.py#L951) | method | 固定の空MarketAnalysisResultを返す。市場取得・候補計算を行わない。 |
-| [`_OfflineSmokePortfolio`](../../src/ogami_oanda/entrypoints/live.py#L969) | class / internal | 外部変更しないsmoke専用ポートフォリオ。 |
-| [`_OfflineSmokePortfolio.sync_all`](../../src/ogami_oanda/entrypoints/live.py#L970) | method | 固定の空同期結果を返す。ポジションや外部状態を変更しない。 |
-| [`_OfflineSmokePortfolio.register_plans`](../../src/ogami_oanda/entrypoints/live.py#L973) | method | 固定の空RegistrationResultを返す。注文を登録・送信しない。 |
-| [`build_offline_smoke_application`](../../src/ogami_oanda/entrypoints/live.py#L982) | function | Build a no-network, no-persistence CLI packaging smoke composition. |
-| [`build_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1005) | function | 設定から組込みライン戦略のlive依存一式を構築する。 |
-| [`build_strategy_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1180) | function | Compose a live runner for an already validated trusted strategy. |
-| [`main`](../../src/ogami_oanda/entrypoints/live.py#L1348) | function | 引数を検証し、smoke・組込み・戦略プラグインの経路を選び実行する。 |
-| [`LiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L328) | method | 共通strategy契約の型・設定を提供する。 |
-| [`StrategyLiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L854) | method | 共通strategy契約の型・設定を提供する。 |
-| [`StrategyLiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L859) | method | 共通strategy契約の型・設定を提供する。 |
+| [`LiveFailure`](../../src/ogami_oanda/entrypoints/live.py#L89) | class | 外部障害の分類と再試行情報。 |
+| [`LiveRunResult`](../../src/ogami_oanda/entrypoints/live.py#L99) | class | 1 tickの解析・採用結果・スキップ・イベント・失敗の集約。 |
+| [`LiveRunObserver`](../../src/ogami_oanda/entrypoints/live.py#L112) | class | 完了tickと失敗を受け取る表示/監視契約。 |
+| [`LiveRunObserver.on_result`](../../src/ogami_oanda/entrypoints/live.py#L113) | method | 完了したtickの結果を表示/観測する。 |
+| [`LiveRunObserver.on_error`](../../src/ogami_oanda/entrypoints/live.py#L115) | method | tickの失敗と再試行情報を表示/観測する。 |
+| [`_notify_observer_result`](../../src/ogami_oanda/entrypoints/live.py#L118) | function / internal | 結果observerがあれば完了tickを通知する。 |
+| [`_notify_observer_error`](../../src/ogami_oanda/entrypoints/live.py#L134) | function / internal | エラーobserverがあれば失敗を通知する。 |
+| [`_run_forever_with_observer`](../../src/ogami_oanda/entrypoints/live.py#L145) | function / internal | 対応するrunnerへobserverを渡して継続実行する。 |
+| [`_configured_log_dir`](../../src/ogami_oanda/entrypoints/live.py#L168) | function / internal | 設定からログ保存先を取り出す。 |
+| [`_collect_runtime_events`](../../src/ogami_oanda/entrypoints/live.py#L176) | function / internal | Attach and clear the current tick's transient events on a result. |
+| [`LiveApplication`](../../src/ogami_oanda/entrypoints/live.py#L187) | class | 設定から依存を構築し、組込み/プラグインのtick・復旧・CLIを提供する。 この責任を提供するクラス。 |
+| [`LiveApplication.__init__`](../../src/ogami_oanda/entrypoints/live.py#L188) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`LiveApplication.run_once`](../../src/ogami_oanda/entrypoints/live.py#L227) | method | 1 tickのスケジュール・判断・状態同期を実行する。 |
+| [`LiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L335) | method | 固定間隔でtickを継続実行する。 |
+| [`LiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L359) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
+| [`LiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L395) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
+| [`LiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L401) | method / internal | 認証停止を表す安全なtick結果を作る。 |
+| [`LiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L420) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
+| [`LiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L438) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
+| [`LiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L452) | method / internal | 回復後の再試行待機状態を解除する。 |
+| [`LiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L456) | method / internal | 解析/登録を行わないtick結果を作る。 |
+| [`LiveApplication._quote`](../../src/ogami_oanda/entrypoints/live.py#L470) | method / internal | tick内で共有する価格quoteを取得する。 |
+| [`LiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L473) | method / internal | 市場解析を呼び出して結果を取得する。 |
+| [`LiveApplication._sync_positions`](../../src/ogami_oanda/entrypoints/live.py#L476) | method / internal | 市場情報を使ってポジション同期を行う。 |
+| [`LiveApplication._candle_input`](../../src/ogami_oanda/entrypoints/live.py#L493) | method / internal | SL判断へ渡す確定足情報を作る。 |
+| [`StrategyLiveApplication`](../../src/ogami_oanda/entrypoints/live.py#L511) | class | Evaluate one trusted strategy plugin on every open-market tick. |
+| [`StrategyLiveApplication.__init__`](../../src/ogami_oanda/entrypoints/live.py#L514) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`StrategyLiveApplication.run_once`](../../src/ogami_oanda/entrypoints/live.py#L566) | method | 1 tickのスケジュール・判断・状態同期を実行する。 |
+| [`StrategyLiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L720) | method | 固定間隔でtickを継続実行する。 |
+| [`StrategyLiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L743) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
+| [`StrategyLiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L779) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
+| [`StrategyLiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L785) | method / internal | 認証停止を表す安全なtick結果を作る。 |
+| [`StrategyLiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L804) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
+| [`StrategyLiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L822) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
+| [`StrategyLiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L836) | method / internal | 回復後の再試行待機状態を解除する。 |
+| [`StrategyLiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L840) | method / internal | 解析/登録を行わないtick結果を作る。 |
+| [`StrategyLiveApplication._load_strategy_state_once`](../../src/ogami_oanda/entrypoints/live.py#L854) | method / internal | 初回に保存された戦略状態をロードする。 |
+| [`StrategyLiveApplication._strategy_positions`](../../src/ogami_oanda/entrypoints/live.py#L874) | method / internal | 対象戦略が所有するポジションを選ぶ。 |
+| [`StrategyLiveApplication._entry_safety_reasons`](../../src/ogami_oanda/entrypoints/live.py#L894) | method / internal | 新規注文を抑止する条件と理由を集める。 |
+| [`StrategyLiveApplication._quote_is_fresh`](../../src/ogami_oanda/entrypoints/live.py#L915) | method / internal | quoteの時刻が新規判断に十分新しいか確認する。 |
+| [`StrategyLiveApplication._skipped`](../../src/ogami_oanda/entrypoints/live.py#L937) | method / internal | スキップ理由を含むtick結果を作る。 |
+| [`_OfflineSmokeMarketData`](../../src/ogami_oanda/entrypoints/live.py#L945) | class / internal | 固定quoteを返すsmoke専用の市場実装。 |
+| [`_OfflineSmokeMarketData.__init__`](../../src/ogami_oanda/entrypoints/live.py#L946) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`_OfflineSmokeMarketData.current_quote`](../../src/ogami_oanda/entrypoints/live.py#L950) | method | 同一tickで共有するquoteを取得する。 |
+| [`_OfflineSmokeAnalysis`](../../src/ogami_oanda/entrypoints/live.py#L956) | class / internal | 外部市場を使わないsmoke専用解析。 |
+| [`_OfflineSmokeAnalysis.analyze`](../../src/ogami_oanda/entrypoints/live.py#L957) | method | 固定の空MarketAnalysisResultを返す。市場取得・候補計算を行わない。 |
+| [`_OfflineSmokePortfolio`](../../src/ogami_oanda/entrypoints/live.py#L975) | class / internal | 外部変更しないsmoke専用ポートフォリオ。 |
+| [`_OfflineSmokePortfolio.sync_all`](../../src/ogami_oanda/entrypoints/live.py#L976) | method | 固定の空同期結果を返す。ポジションや外部状態を変更しない。 |
+| [`_OfflineSmokePortfolio.register_plans`](../../src/ogami_oanda/entrypoints/live.py#L979) | method | 固定の空RegistrationResultを返す。注文を登録・送信しない。 |
+| [`build_offline_smoke_application`](../../src/ogami_oanda/entrypoints/live.py#L988) | function | Build a no-network, no-persistence CLI packaging smoke composition. |
+| [`build_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1011) | function | 設定から組込みライン戦略のlive依存一式を構築する。 |
+| [`build_strategy_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1187) | function | Compose a live runner for an already validated trusted strategy. |
+| [`main`](../../src/ogami_oanda/entrypoints/live.py#L1356) | function | 引数を検証し、smoke・組込み・戦略プラグインの経路を選び実行する。 |
+| [`LiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L332) | method | 共通strategy契約の型・設定を提供する。 |
+| [`StrategyLiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L860) | method | 共通strategy契約の型・設定を提供する。 |
+| [`StrategyLiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L865) | method | 共通strategy契約の型・設定を提供する。 |
 
 ## `entrypoints/live_console.py`
 
@@ -110,10 +110,10 @@ practice受入専用CLIのゲート確認・サービス構築・レポート保
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
 | [`build_service`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L28) | function | practice受入専用の依存を組み立てる。 |
-| [`main`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L45) | function | practice専用安全ゲートを確認し、受入・後処理・レポート保存を実行する。 |
-| [`_strategy_pair`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L139) | function / internal | 設定された戦略の通貨ペアを取得する。 |
-| [`_serialize_operations`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L148) | function / internal | 受入操作の結果をレポート用形式へ変換する。 |
-| [`_write_report`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L160) | function / internal | 受入レポートをJSONへ保存する。 |
+| [`main`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L46) | function | practice専用安全ゲートを確認し、受入・後処理・レポート保存を実行する。 |
+| [`_strategy_pair`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L140) | function / internal | 設定された戦略の通貨ペアを取得する。 |
+| [`_serialize_operations`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L149) | function / internal | 受入操作の結果をレポート用形式へ変換する。 |
+| [`_write_report`](../../src/ogami_oanda/entrypoints/practice_acceptance.py#L161) | function / internal | 受入レポートをJSONへ保存する。 |
 
 ## `entrypoints/backtest.py`
 
@@ -126,9 +126,9 @@ practice受入専用CLIのゲート確認・サービス構築・レポート保
 | [`source_hash`](../../src/ogami_oanda/entrypoints/backtest.py#L25) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
 | [`select_strategy`](../../src/ogami_oanda/entrypoints/backtest.py#L34) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
 | [`parser`](../../src/ogami_oanda/entrypoints/backtest.py#L69) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
-| [`_fetch`](../../src/ogami_oanda/entrypoints/backtest.py#L103) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
-| [`_run`](../../src/ogami_oanda/entrypoints/backtest.py#L132) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
-| [`main`](../../src/ogami_oanda/entrypoints/backtest.py#L168) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
+| [`_fetch`](../../src/ogami_oanda/entrypoints/backtest.py#L104) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
+| [`_run`](../../src/ogami_oanda/entrypoints/backtest.py#L133) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
+| [`main`](../../src/ogami_oanda/entrypoints/backtest.py#L174) | function | 戦略と期間を選択し、認証付きfetchまたはオフラインrunを構築するCLI。 |
 
 ## `entrypoints/backtest_run.py`
 
@@ -138,9 +138,9 @@ practice受入専用CLIのゲート確認・サービス構築・レポート保
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`release_simulation_history`](../../src/ogami_oanda/entrypoints/backtest_run.py#L47) | function | Retain terminal evidence for current slots, not every historical trade. |
-| [`run_backtest`](../../src/ogami_oanda/entrypoints/backtest_run.py#L81) | function | 仮想broker・再生市場・既存ポートフォリオ・共通strategy評価を接続する。 |
-| [`runtime_versions`](../../src/ogami_oanda/entrypoints/backtest_run.py#L32) | function | 認証設定を読まずPython・OS・CPU・通常依存の版を取得する。 |
+| [`release_simulation_history`](../../src/ogami_oanda/entrypoints/backtest_run.py#L48) | function | Retain terminal evidence for current slots, not every historical trade. |
+| [`run_backtest`](../../src/ogami_oanda/entrypoints/backtest_run.py#L82) | function | 仮想broker・再生市場・既存ポートフォリオ・共通strategy評価を接続する。 |
+| [`runtime_versions`](../../src/ogami_oanda/entrypoints/backtest_run.py#L33) | function | 認証設定を読まずPython・OS・CPU・通常依存の版を取得する。 |
 
 
 ## `entrypoints/main_analysis.py`

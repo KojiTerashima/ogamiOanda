@@ -34,8 +34,11 @@ YAMLと環境変数を型付き設定へ読み込み、必要項目を検証す�
 | --- | --- | --- |
 | [`_environment_value`](../../src/ogami_oanda/infrastructure/config/loader.py#L18) | function / internal | 環境変数プレースホルダーを値へ置換する。 |
 | [`_boolean_value`](../../src/ogami_oanda/infrastructure/config/loader.py#L26) | function / internal | boolおよび文字列形式のbool設定を解釈する。 |
-| [`load_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L39) | function | YAMLと環境変数から設定を読み取り、必要項目を検証する。 |
-| [`_validate_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L99) | function / internal | 口座必須値・環境・ペア・枠合計を検証する。 |
+| [`load_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L61) | function | YAMLと環境変数から設定を読み取り、必要項目を検証する。 |
+| [`_validate_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L124) | function / internal | 口座必須値・環境・ペア・枠合計を検証する。 |
+| [`_spread_limits`](../../src/ogami_oanda/infrastructure/config/loader.py#L39) | function | YAMLのtradingからペア別上限だけを抽出・検証する。 |
+| [`load_spread_limits`](../../src/ogami_oanda/infrastructure/config/loader.py#L50) | function | 認証設定を構築せず、ファイルからスプレッド上限だけを読み込む。 |
+
 
 ## `infrastructure/config/models.py`
 
