@@ -272,7 +272,11 @@ class LiveApplication:
         )
         should_sync_before = (
             not first_execution
-            and (update_only or should_analyze)
+            and (
+                # main's lifecycle loop (mode2) runs on even seconds only.
+                (update_only and self.schedule.should_run_position_update(now))
+                or should_analyze
+            )
         )
 
         summary = (

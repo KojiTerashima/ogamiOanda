@@ -24,10 +24,10 @@ def test_trade_statistics_net_partial_profits_and_losses_before_counting_wins():
     simulation = broker()
     simulation.submit(request(tp=160, sl=140))
     simulation.advance(bar(spread=0))
-    simulation.close_trade("trade-1", 40)
     simulation.advance(bar(1, open=151, high=151, low=151, close=151, spread=0))
-    simulation.close_trade("trade-1")
+    simulation.close_trade("trade-1", 40)
     simulation.advance(bar(2, open=149, high=149, low=149, close=149, spread=0))
+    simulation.close_trade("trade-1")
     assert simulation.completed_trades == 1
     assert simulation.winning_trades == 0
     assert simulation.gross_profit == 0

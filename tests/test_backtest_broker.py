@@ -50,37 +50,40 @@ def test_ambiguous_protection_prefers_sl(units):
     assert b.balance == pytest.approx(9899)
 
 
-def test_stop_gap_and_slippage_and_limit_price_improvement():
+def test_stop_gap_fills_at_target_with_slippage_and_limit_price_improvement():
     b = broker(slippage_pips=1)
     stop = b.submit(request(OrderType.STOP, price=150.2, tp=153))
     b.advance(bar(open=151, high=151.1, low=150.9, close=151))
-    assert b.order(stop.order_id).target_price == pytest.approx(151.02)
+    # main fills STOP at target plus assumed slippage even when the bar gaps past it.
+    assert b.order(stop.order_id).target_price == pytest.approx(150.21)
     limit = b.submit(request(OrderType.LIMIT, price=150.5, tp=153, sl=148))
     b.advance(bar(1))
     assert b.order(limit.order_id).target_price == pytest.approx(150.01)
 
 
-def test_intrabar_entry_cannot_claim_unknown_same_bar_take_profit():
+def test_intrabar_entry_honors_same_bar_take_profit():
     b = broker()
     result = b.submit(request(OrderType.LIMIT, price=149.8, tp=150.2, sl=149))
+    # main scans the whole fill bar, so the same-bar take profit is honored.
     b.advance(bar(high=150.5, low=149.5))
-    assert b.order(result.order_id).trade_state.value == "OPEN"
-    b.advance(bar(1, high=150.5))
-    assert b.trade("trade-1").close_reason == "TAKE_PROFIT"
+    closed = b.order(result.order_id)
+    assert closed.close_reason == "TAKE_PROFIT"
+    assert closed.average_close_price == pytest.approx(150.2)
 
 
 def test_partial_close_counts_each_unit_once_and_end_liquidates():
     b = broker()
     b.submit(request(tp=160, sl=140))
     b.advance(bar())
+    # main executes market closes at the latest observed close.
     assert b.close_trade("trade-1", 40).accepted
-    assert b.balance == 10000
+    assert b.balance == pytest.approx(9999.2)
     b.advance(bar(1, open=151, high=151.01, low=150.99, close=151))
     assert b.trade("trade-1").units == 60
-    assert b.balance == pytest.approx(10039.2)
+    assert b.balance == pytest.approx(9999.2)
     b.finalize()
-    assert b.balance == pytest.approx(10098)
-    assert b.trade("trade-1").realized_pl == pytest.approx(98)
+    assert b.balance == pytest.approx(10058)
+    assert b.trade("trade-1").realized_pl == pytest.approx(58)
     assert b.trade("trade-1").close_reason == "END_OF_TEST"
     assert not b.open_positions()
     assert b.completed_trades == 1
@@ -128,20 +131,21 @@ def test_tp_gap_still_prefers_sl_when_both_levels_are_reached(direction):
 
 
 @pytest.mark.parametrize("direction", [1, -1])
-def test_stop_and_sl_gaps_apply_adverse_slippage_in_both_directions(direction):
+def test_stop_gap_fills_at_target_and_sl_gap_exits_at_stop_price(direction):
     simulation = broker(slippage_pips=2)
     simulation.submit(request(OrderType.STOP, units=100 * direction, price=150 + direction * .2,
                               tp=150 + 5 * direction, sl=150 - direction))
     entry = 150 + direction
     simulation.advance(bar(open=entry, high=entry + .1, low=entry - .1, close=entry))
-    assert simulation.trade("trade-1").target_price == pytest.approx(entry + direction * .03)
+    # main: entry stays target-based on gaps; exits are exact protection prices.
+    assert simulation.trade("trade-1").target_price == pytest.approx(150 + direction * .2 + direction * .02)
     exit_price = 150 - 2 * direction
     simulation.advance(bar(1, open=exit_price, high=exit_price + .1, low=exit_price - .1, close=exit_price))
-    assert simulation.trade("trade-1").average_close_price == pytest.approx(exit_price - direction * .03)
+    assert simulation.trade("trade-1").average_close_price == pytest.approx(150 - direction)
 
 
 @pytest.mark.parametrize("direction", [1, -1])
-def test_intrabar_stop_entry_applies_sl_but_never_unknown_tp(direction):
+def test_intrabar_stop_entry_with_both_protections_hit_prefers_sl(direction):
     simulation = broker()
     simulation.submit(request(OrderType.STOP, units=100 * direction, price=150 + direction * .2,
                               tp=150 + direction, sl=150 - direction))

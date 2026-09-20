@@ -29,49 +29,49 @@
 | [`LiveApplication`](../../src/ogami_oanda/entrypoints/live.py#L186) | class | 設定から依存を構築し、組込み/プラグインのtick・復旧・CLIを提供する。 この責任を提供するクラス。 |
 | [`LiveApplication.__init__`](../../src/ogami_oanda/entrypoints/live.py#L187) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
 | [`LiveApplication.run_once`](../../src/ogami_oanda/entrypoints/live.py#L223) | method | 1 tickのスケジュール・判断・状態同期を実行する。 |
-| [`LiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L331) | method | 固定間隔でtickを継続実行する。 |
-| [`LiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L355) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
-| [`LiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L391) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
-| [`LiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L397) | method / internal | 認証停止を表す安全なtick結果を作る。 |
-| [`LiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L416) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
-| [`LiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L434) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
-| [`LiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L448) | method / internal | 回復後の再試行待機状態を解除する。 |
-| [`LiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L452) | method / internal | 解析/登録を行わないtick結果を作る。 |
-| [`LiveApplication._quote`](../../src/ogami_oanda/entrypoints/live.py#L466) | method / internal | tick内で共有する価格quoteを取得する。 |
-| [`LiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L469) | method / internal | 市場解析を呼び出して結果を取得する。 |
-| [`LiveApplication._sync_positions`](../../src/ogami_oanda/entrypoints/live.py#L472) | method / internal | 市場情報を使ってポジション同期を行う。 |
-| [`LiveApplication._candle_input`](../../src/ogami_oanda/entrypoints/live.py#L489) | method / internal | SL判断へ渡す確定足情報を作る。 |
-| [`StrategyLiveApplication`](../../src/ogami_oanda/entrypoints/live.py#L507) | class | Evaluate one trusted strategy plugin on every open-market tick. |
-| [`StrategyLiveApplication.__init__`](../../src/ogami_oanda/entrypoints/live.py#L510) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`StrategyLiveApplication.run_once`](../../src/ogami_oanda/entrypoints/live.py#L560) | method | 1 tickのスケジュール・判断・状態同期を実行する。 |
-| [`StrategyLiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L714) | method | 固定間隔でtickを継続実行する。 |
-| [`StrategyLiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L737) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
-| [`StrategyLiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L773) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
-| [`StrategyLiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L779) | method / internal | 認証停止を表す安全なtick結果を作る。 |
-| [`StrategyLiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L798) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
-| [`StrategyLiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L816) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
-| [`StrategyLiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L830) | method / internal | 回復後の再試行待機状態を解除する。 |
-| [`StrategyLiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L834) | method / internal | 解析/登録を行わないtick結果を作る。 |
-| [`StrategyLiveApplication._load_strategy_state_once`](../../src/ogami_oanda/entrypoints/live.py#L848) | method / internal | 初回に保存された戦略状態をロードする。 |
-| [`StrategyLiveApplication._strategy_positions`](../../src/ogami_oanda/entrypoints/live.py#L868) | method / internal | 対象戦略が所有するポジションを選ぶ。 |
-| [`StrategyLiveApplication._entry_safety_reasons`](../../src/ogami_oanda/entrypoints/live.py#L888) | method / internal | 新規注文を抑止する条件と理由を集める。 |
-| [`StrategyLiveApplication._quote_is_fresh`](../../src/ogami_oanda/entrypoints/live.py#L909) | method / internal | quoteの時刻が新規判断に十分新しいか確認する。 |
-| [`StrategyLiveApplication._skipped`](../../src/ogami_oanda/entrypoints/live.py#L931) | method / internal | スキップ理由を含むtick結果を作る。 |
-| [`_OfflineSmokeMarketData`](../../src/ogami_oanda/entrypoints/live.py#L939) | class / internal | 固定quoteを返すsmoke専用の市場実装。 |
-| [`_OfflineSmokeMarketData.__init__`](../../src/ogami_oanda/entrypoints/live.py#L940) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`_OfflineSmokeMarketData.current_quote`](../../src/ogami_oanda/entrypoints/live.py#L944) | method | 同一tickで共有するquoteを取得する。 |
-| [`_OfflineSmokeAnalysis`](../../src/ogami_oanda/entrypoints/live.py#L950) | class / internal | 外部市場を使わないsmoke専用解析。 |
-| [`_OfflineSmokeAnalysis.analyze`](../../src/ogami_oanda/entrypoints/live.py#L951) | method | 固定の空MarketAnalysisResultを返す。市場取得・候補計算を行わない。 |
-| [`_OfflineSmokePortfolio`](../../src/ogami_oanda/entrypoints/live.py#L969) | class / internal | 外部変更しないsmoke専用ポートフォリオ。 |
-| [`_OfflineSmokePortfolio.sync_all`](../../src/ogami_oanda/entrypoints/live.py#L970) | method | 固定の空同期結果を返す。ポジションや外部状態を変更しない。 |
-| [`_OfflineSmokePortfolio.register_plans`](../../src/ogami_oanda/entrypoints/live.py#L973) | method | 固定の空RegistrationResultを返す。注文を登録・送信しない。 |
-| [`build_offline_smoke_application`](../../src/ogami_oanda/entrypoints/live.py#L982) | function | Build a no-network, no-persistence CLI packaging smoke composition. |
-| [`build_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1005) | function | 設定から組込みライン戦略のlive依存一式を構築する。 |
-| [`build_strategy_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1180) | function | Compose a live runner for an already validated trusted strategy. |
-| [`main`](../../src/ogami_oanda/entrypoints/live.py#L1348) | function | 引数を検証し、smoke・組込み・戦略プラグインの経路を選び実行する。 |
-| [`LiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L328) | method | 共通strategy契約の型・設定を提供する。 |
-| [`StrategyLiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L854) | method | 共通strategy契約の型・設定を提供する。 |
-| [`StrategyLiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L859) | method | 共通strategy契約の型・設定を提供する。 |
+| [`LiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L335) | method | 固定間隔でtickを継続実行する。 |
+| [`LiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L359) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
+| [`LiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L395) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
+| [`LiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L401) | method / internal | 認証停止を表す安全なtick結果を作る。 |
+| [`LiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L420) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
+| [`LiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L438) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
+| [`LiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L452) | method / internal | 回復後の再試行待機状態を解除する。 |
+| [`LiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L456) | method / internal | 解析/登録を行わないtick結果を作る。 |
+| [`LiveApplication._quote`](../../src/ogami_oanda/entrypoints/live.py#L470) | method / internal | tick内で共有する価格quoteを取得する。 |
+| [`LiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L473) | method / internal | 市場解析を呼び出して結果を取得する。 |
+| [`LiveApplication._sync_positions`](../../src/ogami_oanda/entrypoints/live.py#L476) | method / internal | 市場情報を使ってポジション同期を行う。 |
+| [`LiveApplication._candle_input`](../../src/ogami_oanda/entrypoints/live.py#L493) | method / internal | SL判断へ渡す確定足情報を作る。 |
+| [`StrategyLiveApplication`](../../src/ogami_oanda/entrypoints/live.py#L511) | class | Evaluate one trusted strategy plugin on every open-market tick. |
+| [`StrategyLiveApplication.__init__`](../../src/ogami_oanda/entrypoints/live.py#L514) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`StrategyLiveApplication.run_once`](../../src/ogami_oanda/entrypoints/live.py#L564) | method | 1 tickのスケジュール・判断・状態同期を実行する。 |
+| [`StrategyLiveApplication.run_forever`](../../src/ogami_oanda/entrypoints/live.py#L718) | method | 固定間隔でtickを継続実行する。 |
+| [`StrategyLiveApplication.run_resilient_once`](../../src/ogami_oanda/entrypoints/live.py#L741) | method | 既知の一時障害・認証停止を扱いながら1 tickを実行する。 |
+| [`StrategyLiveApplication._recover_authorization`](../../src/ogami_oanda/entrypoints/live.py#L777) | method / internal | 認証を再確認し、口座条件・状態照合を経て再開可否を決める。 |
+| [`StrategyLiveApplication._authorization_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L783) | method / internal | 認証停止を表す安全なtick結果を作る。 |
+| [`StrategyLiveApplication._transient_failure_result`](../../src/ogami_oanda/entrypoints/live.py#L802) | method / internal | 一時障害と再試行を表すtick結果を作る。 |
+| [`StrategyLiveApplication._schedule_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L820) | method / internal | 次のブローカー再試行時刻と待機幅を設定する。 |
+| [`StrategyLiveApplication._reset_broker_backoff`](../../src/ogami_oanda/entrypoints/live.py#L834) | method / internal | 回復後の再試行待機状態を解除する。 |
+| [`StrategyLiveApplication._empty_result`](../../src/ogami_oanda/entrypoints/live.py#L838) | method / internal | 解析/登録を行わないtick結果を作る。 |
+| [`StrategyLiveApplication._load_strategy_state_once`](../../src/ogami_oanda/entrypoints/live.py#L852) | method / internal | 初回に保存された戦略状態をロードする。 |
+| [`StrategyLiveApplication._strategy_positions`](../../src/ogami_oanda/entrypoints/live.py#L872) | method / internal | 対象戦略が所有するポジションを選ぶ。 |
+| [`StrategyLiveApplication._entry_safety_reasons`](../../src/ogami_oanda/entrypoints/live.py#L892) | method / internal | 新規注文を抑止する条件と理由を集める。 |
+| [`StrategyLiveApplication._quote_is_fresh`](../../src/ogami_oanda/entrypoints/live.py#L913) | method / internal | quoteの時刻が新規判断に十分新しいか確認する。 |
+| [`StrategyLiveApplication._skipped`](../../src/ogami_oanda/entrypoints/live.py#L935) | method / internal | スキップ理由を含むtick結果を作る。 |
+| [`_OfflineSmokeMarketData`](../../src/ogami_oanda/entrypoints/live.py#L943) | class / internal | 固定quoteを返すsmoke専用の市場実装。 |
+| [`_OfflineSmokeMarketData.__init__`](../../src/ogami_oanda/entrypoints/live.py#L944) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`_OfflineSmokeMarketData.current_quote`](../../src/ogami_oanda/entrypoints/live.py#L948) | method | 同一tickで共有するquoteを取得する。 |
+| [`_OfflineSmokeAnalysis`](../../src/ogami_oanda/entrypoints/live.py#L954) | class / internal | 外部市場を使わないsmoke専用解析。 |
+| [`_OfflineSmokeAnalysis.analyze`](../../src/ogami_oanda/entrypoints/live.py#L955) | method | 固定の空MarketAnalysisResultを返す。市場取得・候補計算を行わない。 |
+| [`_OfflineSmokePortfolio`](../../src/ogami_oanda/entrypoints/live.py#L973) | class / internal | 外部変更しないsmoke専用ポートフォリオ。 |
+| [`_OfflineSmokePortfolio.sync_all`](../../src/ogami_oanda/entrypoints/live.py#L974) | method | 固定の空同期結果を返す。ポジションや外部状態を変更しない。 |
+| [`_OfflineSmokePortfolio.register_plans`](../../src/ogami_oanda/entrypoints/live.py#L977) | method | 固定の空RegistrationResultを返す。注文を登録・送信しない。 |
+| [`build_offline_smoke_application`](../../src/ogami_oanda/entrypoints/live.py#L986) | function | Build a no-network, no-persistence CLI packaging smoke composition. |
+| [`build_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1009) | function | 設定から組込みライン戦略のlive依存一式を構築する。 |
+| [`build_strategy_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1184) | function | Compose a live runner for an already validated trusted strategy. |
+| [`main`](../../src/ogami_oanda/entrypoints/live.py#L1352) | function | 引数を検証し、smoke・組込み・戦略プラグインの経路を選び実行する。 |
+| [`LiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L332) | method | 共通strategy契約の型・設定を提供する。 |
+| [`StrategyLiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L858) | method | 共通strategy契約の型・設定を提供する。 |
+| [`StrategyLiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L863) | method | 共通strategy契約の型・設定を提供する。 |
 
 ## `entrypoints/live_console.py`
 

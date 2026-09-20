@@ -30,7 +30,8 @@ class OriginalStrategy:
 
     evaluation_profile = "original"
     supported_main_analyses = EXECUTABLE_MAIN_ANALYSES
-    data_requirements = {"M5": 250, "H1": 250, "M30": 250, "S5": 250}
+    # main's analysis snapshot takes five S5 rows at the decision boundary.
+    data_requirements = {"M5": 250, "H1": 250, "M30": 250, "S5": 5}
 
     def __init__(
         self,

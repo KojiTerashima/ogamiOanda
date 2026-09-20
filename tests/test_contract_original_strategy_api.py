@@ -18,7 +18,7 @@ def test_original_is_a_loadable_api_v1_strategy():
     assert loaded.strategy.dump_state() == {}
     loaded.strategy.load_state({})
     assert contracts.strategy_data_requirements(loaded.strategy) == {
-        'M5': 250, 'H1': 250, 'M30': 250, 'S5': 250,
+        'M5': 250, 'H1': 250, 'M30': 250, 'S5': 5,
     }
 
 

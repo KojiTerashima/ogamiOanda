@@ -341,13 +341,13 @@ def test_live_scheduler_skips_sunday_without_requesting_a_quote():
 
 @pytest.mark.contract
 @pytest.mark.parametrize(
-    "now",
+    "now,synced",
     [
-        datetime(2026, 1, 3, 4, 0, 0),
-        datetime(2026, 1, 5, 7, 59, 59),
+        (datetime(2026, 1, 3, 4, 0, 0), True),
+        (datetime(2026, 1, 5, 7, 59, 59), False),
     ],
 )
-def test_live_scheduler_updates_each_tick_in_weekend_transition_without_analysis(now):
+def test_live_scheduler_updates_even_seconds_in_weekend_transition_without_analysis(now, synced):
     trace = []
     market = _TracingMarket(trace, MarketQuote("USD_JPY", 150.0, 150.0, 150.0))
     analysis = _TracingAnalysis(trace)
@@ -368,15 +368,21 @@ def test_live_scheduler_updates_each_tick_in_weekend_transition_without_analysis
     trace.clear()
     result = application.run_once(now=now, dry_run=True)
 
+    # main's lifecycle loop (mode2) runs on even seconds only.
     assert result.analysis is None
-    assert result.skipped == ("update_only",)
-    assert trace == ["quote", "sync"]
+    if synced:
+        assert result.skipped == ("update_only",)
+        assert trace == ["quote", "sync"]
+    else:
+        assert result.skipped == ("update_only", "outside_sync_window")
+        assert trace == ["quote"]
     assert len(analysis.calls) == 1
 
 
 @pytest.mark.contract
 def test_live_scheduler_uses_update_only_for_wide_spread_and_dry_run_has_no_commands():
-    clock = FixedClock(datetime(2026, 1, 2, 10, 1, 3))
+    # Even-second clock: main's lifecycle loop (mode2) runs on even seconds only.
+    clock = FixedClock(datetime(2026, 1, 2, 10, 1, 4))
     broker = FakeBroker()
     service = PositionService(broker, broker, FakeNotifier(), InMemoryTradeHistoryRepository(), clock)
     analysis = _NoAnalysis()
@@ -863,8 +869,9 @@ def test_three_pair_spread_limits_switch_live_tick_to_update_only(pair, mid, spr
     assert trace == ["quote", "analysis", "register"]
     trace.clear()
 
+    # Even second: main's lifecycle loop (mode2) runs on even seconds only.
     result = application.run_once(
-        now=datetime(2026, 1, 2, 10, 1, 5),
+        now=datetime(2026, 1, 2, 10, 1, 6),
         dry_run=True,
     )
 

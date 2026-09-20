@@ -44,8 +44,8 @@ class MarketAnalysisService(OriginalAnalysis):
         if self.strategy is None or (not self._injected_strategy and self.strategy.pair != pair):
             self.strategy = OriginalStrategy(pair=pair, _analysis=self)
         frames = {
-            granularity: self.market_data.candles(pair, granularity, self.candle_count)
-            for granularity in self.strategy.data_requirements
+            granularity: self.market_data.candles(pair, granularity, count)
+            for granularity, count in self.strategy.data_requirements.items()
         }
         self.last_decision = self.strategy.decide(StrategyInput(
             quote=StrategyQuote(pair, current_price, current_price, current_price),

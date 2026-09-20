@@ -264,24 +264,24 @@ S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理�
 | [`SimulatedBroker._event`](../../src/ogami_oanda/adapters/backtest/broker.py#L65) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
 | [`SimulatedBroker.submit`](../../src/ogami_oanda/adapters/backtest/broker.py#L84) | method | 新規注文を検証し、次のS5以降で有効な注文として記録する。 |
 | [`SimulatedBroker.cancel_order`](../../src/ogami_oanda/adapters/backtest/broker.py#L112) | method | 未約定注文を取消し理由を記録する。 |
-| [`SimulatedBroker.close_trade`](../../src/ogami_oanda/adapters/backtest/broker.py#L122) | method | 次のS5始値で実行する数量付き決済を予約する。 |
-| [`SimulatedBroker.amend_protection`](../../src/ogami_oanda/adapters/backtest/broker.py#L134) | method | 保護価格を変更しイベントへ記録する。 |
-| [`SimulatedBroker.advance`](../../src/ogami_oanda/adapters/backtest/broker.py#L150) | method | 次の観測済みS5を適用する。 |
-| [`SimulatedBroker._entry`](../../src/ogami_oanda/adapters/backtest/broker.py#L191) | method | 注文種別とBid/Askから約定価格と始値約定の有無を判定する。 |
-| [`SimulatedBroker._exit_prices`](../../src/ogami_oanda/adapters/backtest/broker.py#L208) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker._protect`](../../src/ogami_oanda/adapters/backtest/broker.py#L211) | method | SL優先と足途中約定の保守的TP規則で保護決済する。 |
-| [`SimulatedBroker._close`](../../src/ogami_oanda/adapters/backtest/broker.py#L227) | method | 決済数量分の実現損益を取引台帳と集計へ反映する。 |
-| [`SimulatedBroker.finalize`](../../src/ogami_oanda/adapters/backtest/broker.py#L252) | method | 未約定を取消し、残存数量を最後のBid/Ask終値で清算する。 |
-| [`SimulatedBroker.unrealized_pl`](../../src/ogami_oanda/adapters/backtest/broker.py#L267) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.order`](../../src/ogami_oanda/adapters/backtest/broker.py#L270) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.trade`](../../src/ogami_oanda/adapters/backtest/broker.py#L277) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.position`](../../src/ogami_oanda/adapters/backtest/broker.py#L281) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.pending_orders`](../../src/ogami_oanda/adapters/backtest/broker.py#L284) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.open_positions`](../../src/ogami_oanda/adapters/backtest/broker.py#L287) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.account_capabilities`](../../src/ogami_oanda/adapters/backtest/broker.py#L290) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.instrument_rules`](../../src/ogami_oanda/adapters/backtest/broker.py#L293) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.transactions_since`](../../src/ogami_oanda/adapters/backtest/broker.py#L298) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
-| [`SimulatedBroker.release_inactive`](../../src/ogami_oanda/adapters/backtest/broker.py#L304) | method | Keep terminal evidence only while application slots can reference it. |
+| [`SimulatedBroker.close_trade`](../../src/ogami_oanda/adapters/backtest/broker.py#L122) | method | 数量付き決済を最新の観測済み終値で即時執行する。 |
+| [`SimulatedBroker.amend_protection`](../../src/ogami_oanda/adapters/backtest/broker.py#L139) | method | 保護価格を変更しイベントへ記録する。 |
+| [`SimulatedBroker.advance`](../../src/ogami_oanda/adapters/backtest/broker.py#L155) | method | 次の観測済みS5を適用する。 |
+| [`SimulatedBroker._entry`](../../src/ogami_oanda/adapters/backtest/broker.py#L197) | method | 注文種別とBid/Askから約定価格を判定する。STOPは窓開けでも指値+想定スリッページ。 |
+| [`SimulatedBroker._exit_prices`](../../src/ogami_oanda/adapters/backtest/broker.py#L213) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker._protect`](../../src/ogami_oanda/adapters/backtest/broker.py#L216) | method | 足全体を走査し、SL優先で保護価格ちょうどに決済する（main検証モデルと同一）。 |
+| [`SimulatedBroker._close`](../../src/ogami_oanda/adapters/backtest/broker.py#L228) | method | 決済数量分の実現損益を取引台帳と集計へ反映する。 |
+| [`SimulatedBroker.finalize`](../../src/ogami_oanda/adapters/backtest/broker.py#L253) | method | 未約定を取消し、残存数量を最後のBid/Ask終値で清算する。 |
+| [`SimulatedBroker.unrealized_pl`](../../src/ogami_oanda/adapters/backtest/broker.py#L268) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.order`](../../src/ogami_oanda/adapters/backtest/broker.py#L271) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.trade`](../../src/ogami_oanda/adapters/backtest/broker.py#L278) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.position`](../../src/ogami_oanda/adapters/backtest/broker.py#L282) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.pending_orders`](../../src/ogami_oanda/adapters/backtest/broker.py#L285) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.open_positions`](../../src/ogami_oanda/adapters/backtest/broker.py#L288) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.account_capabilities`](../../src/ogami_oanda/adapters/backtest/broker.py#L291) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.instrument_rules`](../../src/ogami_oanda/adapters/backtest/broker.py#L294) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.transactions_since`](../../src/ogami_oanda/adapters/backtest/broker.py#L299) | method | S5のBid/Askで仮想約定し、数量単位の取引台帳と損益を管理する。 |
+| [`SimulatedBroker.release_inactive`](../../src/ogami_oanda/adapters/backtest/broker.py#L305) | method | Keep terminal evidence only while application slots can reference it. |
 
 ## `adapters/backtest/history.py`
 

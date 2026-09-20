@@ -1,4 +1,4 @@
-"""Five-second Bid/Ask execution with a quantity-based authoritative ledger."""
+"""Five-second Bid/Ask execution mirroring main's verifier fill and exit formulas."""
 
 from __future__ import annotations
 
@@ -127,8 +127,13 @@ class SimulatedBroker:
         amount = trade.snapshot.units - reserved if units is None else units
         if type(amount) is not int or amount <= 0 or amount + reserved > trade.snapshot.units:
             return ExecutionResult(False, trade_id, "invalid_close_units")
-        self._closes[trade_id] = reserved + amount
         self._event("CLOSE_REQUEST", trade.snapshot, units=amount)
+        if self.last is not None:
+            # main closes at the latest observed close, not at the next open.
+            price = self._exit_prices(trade, self.last).close
+            self._close(trade, amount, price, self.last.time, "MARKET_CLOSE")
+        else:
+            self._closes[trade_id] = reserved + amount
         return ExecutionResult(True, trade_id)
 
     def amend_protection(self, trade_id: str, take_profit_price: float | None,
@@ -153,26 +158,26 @@ class SimulatedBroker:
         if self.last is not None and candle.time <= self.last.time:
             raise ValueError("broker candles must be in strictly increasing order")
         self.last = candle
-        # Previously requested market closes precede this interval's protection.
+        # Closes requested before the first candle execute at this open.
         for trade_id, units in tuple(self._closes.items()):
             trade = self.trades[trade_id]
             if trade.snapshot.trade_state is TradeState.OPEN:
-                price = self._exit_prices(trade, candle).open - trade.snapshot.direction * self.slippage
+                price = self._exit_prices(trade, candle).open
                 self._close(trade, min(units, trade.snapshot.units), price, candle.time, "MARKET_CLOSE")
         self._closes.clear()
         for trade in tuple(self.trades.values()):
             if trade.snapshot.trade_state is TradeState.OPEN:
-                self._protect(trade, candle, allow_tp=True)
+                self._protect(trade, candle)
         for order_id, (request, snapshot) in tuple(self.orders.items()):
             if snapshot.order_state is not OrderState.PENDING:
                 continue
-            entry = self._entry(request, candle)
-            if entry is None:
+            price = self._entry(request, candle)
+            if price is None:
                 continue
-            price, at_open = entry
             self._trade_sequence += 1
             trade_id = f"trade-{self._trade_sequence}"
-            at = candle.time if at_open else candle.end
+            # main records fills at the bar start regardless of intrabar timing.
+            at = candle.time
             opened = replace(snapshot, order_state=OrderState.FILLED, trade_state=TradeState.OPEN,
                              trade_id=trade_id, target_price=price, current_price=price,
                              open_time=at.isoformat())
@@ -180,7 +185,8 @@ class SimulatedBroker:
             self.trades[trade_id] = trade
             self.orders[order_id] = (request, opened)
             self._event("FILL", opened, time=at, price=price, units=opened.units)
-            self._protect(trade, candle, allow_tp=at_open, check_open=at_open)
+            # main scans the whole fill bar for TP and SL alike.
+            self._protect(trade, candle)
         for trade in self.trades.values():
             if trade.snapshot.trade_state is TradeState.OPEN:
                 price = self._exit_prices(trade, candle).close
@@ -188,41 +194,36 @@ class SimulatedBroker:
                 elapsed = (candle.end - datetime.fromisoformat(trade.snapshot.open_time)).total_seconds()
                 trade.snapshot = replace(trade.snapshot, current_price=price, unrealized_pl=unrealized, elapsed_seconds=elapsed)
 
-    def _entry(self, request: BrokerOrderRequest, candle: HistoricalCandle) -> tuple[float, bool] | None:
+    def _entry(self, request: BrokerOrderRequest, candle: HistoricalCandle) -> float | None:
         direction = 1 if request.units > 0 else -1
         prices = candle.ask if direction > 0 else candle.bid
         target = request.price
         if request.order_type is OrderType.MARKET:
-            return prices.open + direction * self.slippage, True
+            return prices.open + direction * self.slippage
         if request.order_type is OrderType.LIMIT:
             if (prices.open - target) * direction <= 0:
-                return prices.open, True
+                return prices.open
             hit = prices.low <= target if direction > 0 else prices.high >= target
-            return (target, False) if hit else None
-        if (prices.open - target) * direction >= 0:
-            return prices.open + direction * self.slippage, True
+            return target if hit else None
+        # main fills STOP orders at target plus assumed slippage even on opening gaps.
         hit = prices.high >= target if direction > 0 else prices.low <= target
-        return (target + direction * self.slippage, False) if hit else None
+        return target + direction * self.slippage if hit else None
 
     @staticmethod
     def _exit_prices(trade: SimulatedTrade, candle: HistoricalCandle) -> OHLC:
         return candle.bid if trade.snapshot.direction > 0 else candle.ask
 
-    def _protect(self, trade: SimulatedTrade, candle: HistoricalCandle, *, allow_tp: bool,
-                 check_open: bool = True) -> None:
+    def _protect(self, trade: SimulatedTrade, candle: HistoricalCandle) -> None:
+        # main scans the full bar range, exits exactly at the protection price,
+        # and assumes the stop loss when both protections hit inside one bar.
         price = self._exit_prices(trade, candle)
         direction = trade.snapshot.direction
-        if check_open and (price.open - trade.stop_loss) * direction <= 0:
-            self._close(trade, trade.snapshot.units, price.open - direction * self.slippage, candle.time, "STOP_LOSS")
-            return
         sl_hit = price.low <= trade.stop_loss if direction > 0 else price.high >= trade.stop_loss
         tp_hit = price.high >= trade.take_profit if direction > 0 else price.low <= trade.take_profit
         if sl_hit:
-            self._close(trade, trade.snapshot.units, trade.stop_loss - direction * self.slippage, candle.end, "STOP_LOSS")
-        elif check_open and allow_tp and (price.open - trade.take_profit) * direction >= 0:
-            self._close(trade, trade.snapshot.units, price.open, candle.time, "TAKE_PROFIT")
-        elif allow_tp and tp_hit:
-            self._close(trade, trade.snapshot.units, trade.take_profit, candle.end, "TAKE_PROFIT")
+            self._close(trade, trade.snapshot.units, trade.stop_loss, candle.time, "STOP_LOSS")
+        elif tp_hit:
+            self._close(trade, trade.snapshot.units, trade.take_profit, candle.time, "TAKE_PROFIT")
 
     def _close(self, trade: SimulatedTrade, units: int, price: float, at: datetime, reason: str) -> None:
         pnl = (price - trade.snapshot.target_price) * trade.snapshot.direction * units
