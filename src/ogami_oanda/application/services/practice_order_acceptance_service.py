@@ -12,6 +12,7 @@ from ogami_oanda.application.ports.broker import (
     OrderSubmissionState,
 )
 from ogami_oanda.application.ports.market_data import MarketDataPort
+from ogami_oanda.application.settings import TradingSettings
 from ogami_oanda.domain.market.currency_pair import currency_pair
 from ogami_oanda.domain.orders.models import (
     BrokerOrderRequest,
@@ -67,6 +68,7 @@ class PracticeOrderAcceptanceService:
         expected_account_id: str | None = None,
         require_hedging: bool = True,
         clock: Callable[[], datetime] | None = None,
+        trading_settings: TradingSettings | None = None,
     ) -> None:
         self.market_data = market_data
         self.broker_execution = broker_execution
@@ -81,6 +83,7 @@ class PracticeOrderAcceptanceService:
         self.expected_account_id = expected_account_id
         self.require_hedging = require_hedging
         self.clock = clock
+        self.trading_settings = trading_settings or TradingSettings()
 
     def run(
         self,
@@ -338,7 +341,7 @@ class PracticeOrderAcceptanceService:
         if not quote.tradeable:
             raise PracticeAcceptanceError(f"{selected_pair} is not tradeable")
         pair_model = currency_pair(selected_pair)
-        if pair_model.price_to_pips(quote.spread) > pair_model.spread_limit_pips:
+        if pair_model.price_to_pips(quote.spread) > self.trading_settings.spread_limit_for(selected_pair):
             raise PracticeAcceptanceError(
                 f"{selected_pair} spread exceeds configured safety limit"
             )
@@ -435,7 +438,7 @@ class PracticeOrderAcceptanceService:
                 if not quote.tradeable:
                     raise PracticeAcceptanceError(f"{pair} is not tradeable")
                 pair_model = currency_pair(pair)
-                if pair_model.price_to_pips(quote.spread) > pair_model.spread_limit_pips:
+                if pair_model.price_to_pips(quote.spread) > self.trading_settings.spread_limit_for(pair):
                     raise PracticeAcceptanceError(
                         f"{pair} spread exceeds configured safety limit"
                     )
@@ -506,7 +509,7 @@ class PracticeOrderAcceptanceService:
             if not quote.tradeable:
                 raise PracticeAcceptanceError(f"{pair_name} is not tradeable")
             pair = currency_pair(pair_name)
-            if pair.price_to_pips(quote.spread) > pair.spread_limit_pips:
+            if pair.price_to_pips(quote.spread) > self.trading_settings.spread_limit_for(pair_name):
                 raise PracticeAcceptanceError(
                     f"{pair_name} spread exceeds configured safety limit"
                 )

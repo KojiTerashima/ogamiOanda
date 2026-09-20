@@ -132,3 +132,11 @@ streams fills/equity/gaps and optionally validates the saved dataset and a repea
 `test_backtest_acceptance_verification.py` checks partial closes, zero trades,
 corrupt ledger/equity/data, incomplete runs, warmup, and byte-level repeat differences.
 Run it only against offline artifacts; it never fetches prices or loads credentials.
+
+## Configurable spread limits
+
+`test_spread_limits.py` covers per-pair defaults/overrides, invalid configuration,
+independent settings, legacy/original/plugin scheduling boundaries, fake practice
+order paths, credential-free CLI composition, effective-limit provenance on failure,
+and repeat comparisons. All cases run offline. Setting an entry limit changes no
+Bid/Ask prices; fixed-spread reconstruction remains a separate input option.

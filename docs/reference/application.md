@@ -377,32 +377,32 @@ intentの価格/距離を確定価格へ変換し、OrderPlanを構築する。
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`PracticeAcceptanceError`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L26) | class | 明示許可されたpractice口座で最小注文の受入と所有資源の後処理を行う。 この境界の失敗を呼び出し側へ伝える例外。 |
-| [`PracticeAcceptanceError.__init__`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L27) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`PracticeAcceptanceOperation`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L38) | class | practice受入の1操作と後処理状況の記録。 |
-| [`PracticeAcceptanceReport`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L48) | class | practice受入の全操作と残存資源確認の結果。 |
-| [`PracticeOrderAcceptanceService`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L53) | class | 明示許可されたpractice口座で最小注文の受入と所有資源の後処理を行う。 この責任を提供するクラス。 |
-| [`PracticeOrderAcceptanceService.__init__`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L54) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
-| [`PracticeOrderAcceptanceService.run`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L85) | method | 3ペアの最小LIMIT/STOP作成取消・MARKET開閉を実施し、所有資源の残存を確認する。 |
-| [`PracticeOrderAcceptanceService.run_strategy`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L313) | method | 戦略を評価してpractice受入を行う。 |
-| [`PracticeOrderAcceptanceService.run_strategy_intents`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L391) | method | 受入可能な戦略intentを最小数量で検証し後処理する。 |
-| [`PracticeOrderAcceptanceService._validate_account_and_clean_baseline`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L475) | method / internal | practice口座の条件と実行前の注文/保有状態を確認する。 |
-| [`PracticeOrderAcceptanceService._preflight_pairs`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L499) | method / internal | 受入対象ペアの取引条件を先に確認する。 |
-| [`PracticeOrderAcceptanceService._request`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L526) | method / internal | 受入用の最小数量注文要求を作る。 |
-| [`PracticeOrderAcceptanceService._cancel_order`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L565) | method / internal | 受入で所有する注文を取り消す。 |
-| [`PracticeOrderAcceptanceService._cancel_or_find_trade`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L579) | method / internal | 注文を取り消すか、既に約定した取引を追跡する。 |
-| [`PracticeOrderAcceptanceService._close_trade`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L587) | method / internal | 受入で所有する取引を決済する。 |
-| [`PracticeOrderAcceptanceService._cleanup_owned`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L602) | method / internal | 受入が作った注文/取引を後処理する。 |
-| [`PracticeOrderAcceptanceService._pending_ids`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L644) | method / internal | 現在の未約定注文IDを取得する。 |
-| [`PracticeOrderAcceptanceService._open_trade_ids`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L651) | method / internal | 現在の保有取引IDを取得する。 |
-| [`PracticeOrderAcceptanceService._owned_resources`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L658) | method / internal | 受入が所有する注文/取引を特定する。 |
-| [`PracticeOrderAcceptanceService._reconcile_attempted_resources`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L689) | method / internal | 試行した操作の結果と所有資源を照合する。 |
-| [`PracticeOrderAcceptanceService._refresh_operation_cleanup`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L735) | method / internal | 各操作の後処理完了状態を更新する。 |
-| [`PracticeOrderAcceptanceService._poll_owned_resources`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L755) | method / internal | 所有資源の状態が確認できるまで照会する。 |
-| [`PracticeOrderAcceptanceService._poll_order_cleanup`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L773) | method / internal | 注文の後処理完了を照会する。 |
-| [`PracticeOrderAcceptanceService._order_cleanup_state`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L785) | method / internal | 注文の終了/残存状態を判定する。 |
-| [`PracticeOrderAcceptanceService._trade_cleanup_confirmed`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L798) | method / internal | 取引の終了が確認済みか判定する。 |
-| [`PracticeOrderAcceptanceService._poll`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L805) | method / internal | 制限回数内で確認処理を繰り返す。 |
+| [`PracticeAcceptanceError`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L27) | class | 明示許可されたpractice口座で最小注文の受入と所有資源の後処理を行う。 この境界の失敗を呼び出し側へ伝える例外。 |
+| [`PracticeAcceptanceError.__init__`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L28) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`PracticeAcceptanceOperation`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L39) | class | practice受入の1操作と後処理状況の記録。 |
+| [`PracticeAcceptanceReport`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L49) | class | practice受入の全操作と残存資源確認の結果。 |
+| [`PracticeOrderAcceptanceService`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L54) | class | 明示許可されたpractice口座で最小注文の受入と所有資源の後処理を行う。 この責任を提供するクラス。 |
+| [`PracticeOrderAcceptanceService.__init__`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L55) | method | 依存オブジェクト・設定を受け取り、インスタンスの初期状態を構築する。 |
+| [`PracticeOrderAcceptanceService.run`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L88) | method | 3ペアの最小LIMIT/STOP作成取消・MARKET開閉を実施し、所有資源の残存を確認する。 |
+| [`PracticeOrderAcceptanceService.run_strategy`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L316) | method | 戦略を評価してpractice受入を行う。 |
+| [`PracticeOrderAcceptanceService.run_strategy_intents`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L394) | method | 受入可能な戦略intentを最小数量で検証し後処理する。 |
+| [`PracticeOrderAcceptanceService._validate_account_and_clean_baseline`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L478) | method / internal | practice口座の条件と実行前の注文/保有状態を確認する。 |
+| [`PracticeOrderAcceptanceService._preflight_pairs`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L502) | method / internal | 受入対象ペアの取引条件を先に確認する。 |
+| [`PracticeOrderAcceptanceService._request`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L529) | method / internal | 受入用の最小数量注文要求を作る。 |
+| [`PracticeOrderAcceptanceService._cancel_order`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L568) | method / internal | 受入で所有する注文を取り消す。 |
+| [`PracticeOrderAcceptanceService._cancel_or_find_trade`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L582) | method / internal | 注文を取り消すか、既に約定した取引を追跡する。 |
+| [`PracticeOrderAcceptanceService._close_trade`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L590) | method / internal | 受入で所有する取引を決済する。 |
+| [`PracticeOrderAcceptanceService._cleanup_owned`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L605) | method / internal | 受入が作った注文/取引を後処理する。 |
+| [`PracticeOrderAcceptanceService._pending_ids`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L647) | method / internal | 現在の未約定注文IDを取得する。 |
+| [`PracticeOrderAcceptanceService._open_trade_ids`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L654) | method / internal | 現在の保有取引IDを取得する。 |
+| [`PracticeOrderAcceptanceService._owned_resources`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L661) | method / internal | 受入が所有する注文/取引を特定する。 |
+| [`PracticeOrderAcceptanceService._reconcile_attempted_resources`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L692) | method / internal | 試行した操作の結果と所有資源を照合する。 |
+| [`PracticeOrderAcceptanceService._refresh_operation_cleanup`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L738) | method / internal | 各操作の後処理完了状態を更新する。 |
+| [`PracticeOrderAcceptanceService._poll_owned_resources`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L758) | method / internal | 所有資源の状態が確認できるまで照会する。 |
+| [`PracticeOrderAcceptanceService._poll_order_cleanup`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L776) | method / internal | 注文の後処理完了を照会する。 |
+| [`PracticeOrderAcceptanceService._order_cleanup_state`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L788) | method / internal | 注文の終了/残存状態を判定する。 |
+| [`PracticeOrderAcceptanceService._trade_cleanup_confirmed`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L801) | method / internal | 取引の終了が確認済みか判定する。 |
+| [`PracticeOrderAcceptanceService._poll`](../../src/ogami_oanda/application/services/practice_order_acceptance_service.py#L808) | method / internal | 制限回数内で確認処理を繰り返す。 |
 
 ## `application/services/runtime_event_buffer.py`
 
@@ -425,7 +425,12 @@ intentの価格/距離を確定価格へ変換し、OrderPlanを構築する。
 
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
-| [`TradingSettings`](../../src/ogami_oanda/application/settings.py#L7) | class | Business limits consumed by trading application services. |
+| [`TradingSettings`](../../src/ogami_oanda/application/settings.py#L31) | class | Business limits consumed by trading application services. |
+| [`validate_spread_limit_pips`](../../src/ogami_oanda/application/settings.py#L11) | function | pips上限が有限の非負数か検証し、数値として確定する。 |
+| [`resolve_spread_limit_pips`](../../src/ogami_oanda/application/settings.py#L24) | function | 対象ペアの指定値または既定のスプレッド上限を解決する。 |
+| [`TradingSettings.__post_init__`](../../src/ogami_oanda/application/settings.py#L45) | method | ペア別上限を検証し、呼び出し側の変更から分離して保持する。 |
+| [`TradingSettings.spread_limit_for`](../../src/ogami_oanda/application/settings.py#L55) | method | 対象ペアへ適用するスプレッド上限を返す。 |
+
 
 ## `application/ports/historical_data.py`
 

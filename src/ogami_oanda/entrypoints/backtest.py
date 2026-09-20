@@ -86,6 +86,7 @@ def parser() -> argparse.ArgumentParser:
             sub.add_argument("--account", default="primary")
             sub.add_argument("--warmup-days", type=int, help="override automatically sized warmup history")
         else:
+            sub.add_argument("--config", help="optional YAML: use trading.spread_limit_pips only; no credentials needed")
             sub.add_argument("--analysis", dest="analysis_name", choices=EXECUTABLE_MAIN_ANALYSES,
                              help="main analysis for original (default: line)")
             sub.add_argument("--main-analysis-dir", default=DEFAULT_SOURCE_DIRECTORY, metavar="PATH",
@@ -132,6 +133,10 @@ def _fetch(args, strategy) -> None:
 def _run(args, strategy, identity, hashes) -> dict:
     if Path(args.output_dir).exists():
         raise FileExistsError("output directory already exists")
+    from ogami_oanda.infrastructure.config.loader import load_spread_limits
+
+    config = getattr(args, "config", None)
+    spread_limit_pips = load_spread_limits(config).get(args.pair) if config is not None else None
     metadata = {**hashes, "source_sha256": source_hash()}
     if args.mid_csv:
         # Exhaust once before orders exist, so corrupt late rows cannot silently
@@ -162,6 +167,7 @@ def _run(args, strategy, identity, hashes) -> dict:
                         initial_balance=args.initial_balance, output_dir=args.output_dir,
                         slippage_pips=args.slippage_pips, metadata=metadata, main_analysis_dir=args.main_analysis_dir,
                         analysis_name=getattr(args, "analysis_name", None),
+                        spread_limit_pips=spread_limit_pips,
                         progress=lambda at: print(f"[REPLAY] {at.isoformat()}", flush=True))
 
 

@@ -17,6 +17,7 @@ from ogami_oanda.application.services.historical_market import HistoricalMarket,
 from ogami_oanda.application.services.order_planner import OrderPlanner
 from ogami_oanda.application.services.position_portfolio_service import PositionPortfolioService, PortfolioStartupState
 from ogami_oanda.application.services.position_service import PositionService
+from ogami_oanda.application.settings import resolve_spread_limit_pips
 from ogami_oanda.domain.market.history import HistoricalCandle, utc_time
 from ogami_oanda.entrypoints.live import StrategyLiveApplication
 from ogami_oanda.strategy.shared.contracts import TradingStrategy, strategy_data_requirements
@@ -85,7 +86,9 @@ def run_backtest(
     progress: Callable[[datetime], None] | None = None,
     main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
     analysis_name: str | None = None,
+    spread_limit_pips: float | None = None,
 ) -> dict:
+    spread_limit_pips = resolve_spread_limit_pips(pair, spread_limit_pips)
     start, end = utc_time(start), utc_time(end)
     if start >= end or start.microsecond or end.microsecond or start.second % 5 or end.second % 5:
         raise ValueError("backtest range must increase and align to S5")
@@ -113,7 +116,8 @@ def run_backtest(
     report = BacktestReport(output_dir, {**(metadata or {}), "strategy_id": strategy_id,
                             "pair": pair, "from": start.isoformat(), "to": end.isoformat(),
                             "requirements": requirements, "initial_balance": initial_balance,
-                            "slippage_pips": slippage_pips, "approximations": APPROXIMATIONS}, initial_balance)
+                            "slippage_pips": slippage_pips, "spread_limit_pips": spread_limit_pips,
+                            "approximations": APPROXIMATIONS}, initial_balance)
     broker.event_sink = report.event
     market.gap_sink = report.gap
     service = PositionService(broker, broker, SimulationNotifier(), history, clock)
@@ -121,7 +125,8 @@ def run_backtest(
     broker.operation_reason = lambda reference: next(
         (mutation.reason for mutation in reversed(portfolio.pending_mutations)
          if mutation.broker_reference_id == reference), "")
-    application = StrategyLiveApplication(pair, strategy, strategy_id, market, OrderPlanner(), portfolio, clock)
+    application = StrategyLiveApplication(pair, strategy, strategy_id, market, OrderPlanner(), portfolio, clock,
+                                          spread_limit_pips=spread_limit_pips)
     count = 0
     warmup = 0
     skipped: dict[str, int] = {}

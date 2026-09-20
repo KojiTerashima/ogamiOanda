@@ -36,10 +36,34 @@ def _boolean_value(value: object, default: bool) -> bool:
     raise ValueError(f"Invalid boolean setting: {value}")
 
 
+def _spread_limits(raw: object) -> Mapping[str, float]:
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, Mapping):
+        raise ValueError("settings must be a mapping")
+    trading = raw.get("trading", {})
+    if not isinstance(trading, Mapping):
+        raise ValueError("trading must be a mapping")
+    return TradingSettings(spread_limit_pips=trading.get("spread_limit_pips", {})).spread_limit_pips
+
+
+def load_spread_limits(path: str | Path) -> Mapping[str, float]:
+    """Read spread policy without constructing accounts or resolving credentials."""
+    try:
+        with Path(path).open(encoding="utf-8") as settings_file:
+            raw = yaml.safe_load(settings_file)
+    except yaml.YAMLError:
+        # YAML exception bodies may quote unrelated private configuration fields.
+        raise ValueError("Invalid settings YAML") from None
+    return _spread_limits(raw)
+
+
 def load_settings(path: str | Path, environment: Mapping[str, str] | None = None) -> AppSettings:
     environment = os.environ if environment is None else environment
     with Path(path).open(encoding="utf-8") as settings_file:
-        raw = yaml.safe_load(settings_file) or {}
+        raw = yaml.safe_load(settings_file)
+    limits = _spread_limits(raw)
+    raw = {} if raw is None else raw
     accounts = {
         name: RuntimeAccountConfig(
             account_id=_environment_value(values.get("account_id"), environment),
@@ -63,6 +87,7 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
     settings = AppSettings(
         accounts=accounts,
         trading=TradingSettings(
+            spread_limit_pips=limits,
             default_pair=str(trading_raw.get("default_pair", "USD_JPY")),
             line_units=float(trading_raw.get("line_units", 1.0)),
             risk_yen=float(trading_raw.get("risk_yen", 500.0)),

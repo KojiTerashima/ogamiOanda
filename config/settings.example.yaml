@@ -9,6 +9,10 @@ accounts:
 
 trading:
   default_pair: USD_JPY
+  spread_limit_pips:
+    USD_JPY: 1.1
+    EUR_USD: 1.5
+    AUD_USD: 1.8
   line_units: 1
   risk_yen: 500
   max_positions: 15
