@@ -1085,7 +1085,9 @@ def build_live_application(
         startup_deferred = True
     except TransientExternalServiceError:
         startup_deferred = True
-    notifier = notifier or DiscordNotifier(settings.notifications, clock, create_http_session())
+    notifier = notifier or DiscordNotifier(
+        settings.notifications, clock, create_http_session(), strategy_name="original",
+    )
     history = history or CsvTradeHistoryRepository(settings.paths.history_file)
     account_hash = account_identity_hash(account.account_id)
     if state_repository is None and settings.paths.position_state_dir:
@@ -1206,6 +1208,7 @@ def build_strategy_live_application(
     cancel_pending_on_start: bool = False,
     dry_run: bool = False,
     max_quote_age: timedelta | None = None,
+    notification_strategy_name: str | None = None,
     main_analysis_dir: str | Path = DEFAULT_SOURCE_DIRECTORY,
     analysis_name: str | None = None,
 ) -> StrategyLiveApplication:
@@ -1263,6 +1266,7 @@ def build_strategy_live_application(
         settings.notifications,
         clock,
         create_http_session(),
+        strategy_name=notification_strategy_name,
     )
     history = history or CsvTradeHistoryRepository(settings.paths.history_file)
     account_hash = account_identity_hash(account.account_id)
@@ -1357,6 +1361,13 @@ def build_strategy_live_application(
     )
 
 
+def _notification_strategy_name(python_path: Path) -> str:
+    """Use the validated plugin's owner directory, independently of its hash."""
+    strategy_root = Path(__file__).resolve().parents[1] / "strategy"
+    relative = python_path.resolve().relative_to(strategy_root)
+    return relative.parts[0] if len(relative.parts) > 1 else relative.stem
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run ogami-oanda live scheduling")
     parser.add_argument("--config", "--settings", dest="config")
@@ -1433,6 +1444,7 @@ def main(argv: list[str] | None = None) -> int:
                 settings,
                 loaded.strategy,
                 loaded.strategy_id,
+                notification_strategy_name=_notification_strategy_name(loaded.python_path),
                 account_name=arguments.account,
                 pair=arguments.pair,
                 cancel_pending_on_start=arguments.cancel_pending_on_start,

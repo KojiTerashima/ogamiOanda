@@ -67,11 +67,12 @@
 | [`_OfflineSmokePortfolio.register_plans`](../../src/ogami_oanda/entrypoints/live.py#L983) | method | 固定の空RegistrationResultを返す。注文を登録・送信しない。 |
 | [`build_offline_smoke_application`](../../src/ogami_oanda/entrypoints/live.py#L992) | function | Build a no-network, no-persistence CLI packaging smoke composition. |
 | [`build_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1015) | function | 設定から組込みライン戦略のlive依存一式を構築する。 |
-| [`build_strategy_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1191) | function | Compose a live runner for an already validated trusted strategy. |
-| [`main`](../../src/ogami_oanda/entrypoints/live.py#L1360) | function | 引数を検証し、smoke・組込み・戦略プラグインの経路を選び実行する。 |
+| [`build_strategy_live_application`](../../src/ogami_oanda/entrypoints/live.py#L1193) | function | 検証済み戦略のlive依存を構築し、任意のnotification_strategy_nameを通知インスタンスへ渡す。 |
+| [`main`](../../src/ogami_oanda/entrypoints/live.py#L1371) | function | 引数を検証し、smoke・組込み・戦略プラグインの経路を選び実行する。 |
 | [`LiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L336) | method | 共通strategy契約の型・設定を提供する。 |
 | [`StrategyLiveApplication._register_plans`](../../src/ogami_oanda/entrypoints/live.py#L864) | method | 共通strategy契約の型・設定を提供する。 |
 | [`StrategyLiveApplication._analyze`](../../src/ogami_oanda/entrypoints/live.py#L869) | method | 共通strategy契約の型・設定を提供する。 |
+| [`_notification_strategy_name`](../../src/ogami_oanda/entrypoints/live.py#L1364) | function / internal | 解決済みプラグインパスから通知用の安定したstrategy名を選ぶ。 |
 
 ## `entrypoints/live_console.py`
 

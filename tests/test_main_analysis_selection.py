@@ -117,7 +117,8 @@ def test_live_cli_passes_analysis_to_both_compositions(plugin, name, monkeypatch
     app = SimpleNamespace(analysis=SimpleNamespace(analysis_backend=backend),
                           run_resilient_once=lambda **kwargs: live.LiveRunResult(None, RegistrationResult((), ())))
     monkeypatch.setattr(live, "load_settings", lambda path: object())
-    monkeypatch.setattr(live, "load_strategy", lambda *args: SimpleNamespace(strategy=OriginalStrategy(), strategy_id="test"))
+    monkeypatch.setattr(live, "load_strategy", lambda *args: SimpleNamespace(strategy=OriginalStrategy(), strategy_id="test",
+        python_path=Path(live.__file__).resolve().parents[1] / "strategy" / "original" / "strategy.py"))
     def build(*args, **kwargs):
         calls.append(kwargs)
         return app
@@ -126,6 +127,8 @@ def test_live_cli_passes_analysis_to_both_compositions(plugin, name, monkeypatch
     selection = ["--strategy-py", "original.py", "--strategy-yaml", "original.yaml"] if plugin else ["--strategy", "original"]
     assert live.main(["--config", "unused", "--analysis", name, "--dry-run", "--once", *selection]) == 0
     assert calls[0]["analysis_name"] == name
+    if plugin:
+        assert calls[0]["notification_strategy_name"] == "original"
     assert f"[ANALYSIS] name={name}" in capsys.readouterr().out
 
 

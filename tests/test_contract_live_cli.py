@@ -294,7 +294,8 @@ def test_console_offline_smoke_rejects_strategy_options(capsys):
 def test_console_dispatches_trusted_strategy_loader_and_builder(monkeypatch, capsys):
     captured = {}
     settings = object()
-    loaded = SimpleNamespace(strategy=object(), strategy_id="strategy-id")
+    loaded = SimpleNamespace(strategy=object(), strategy_id="strategy-id",
+                             python_path=Path(live.__file__).resolve().parents[1] / "strategy" / "plugin.py")
     result = LiveRunResult(
         analysis=None,
         registration=RegistrationResult((), ()),
@@ -343,6 +344,7 @@ def test_console_dispatches_trusted_strategy_loader_and_builder(monkeypatch, cap
             loaded.strategy,
             "strategy-id",
             {
+                "notification_strategy_name": "plugin",
                 "account_name": "primary",
                 "pair": "USD_JPY",
                 "cancel_pending_on_start": False,
@@ -460,6 +462,7 @@ def test_named_strategy_selects_packaged_logic_for_once_or_loop(
 
     assert live.main(arguments) == 0
     assert calls[0] == (strategy_name, {
+        **({"notification_strategy_name": "matcha"} if strategy_name == "matcha" else {}),
         "account_name": "practice", "pair": "USD_JPY",
         "cancel_pending_on_start": False, "dry_run": True,
         "main_analysis_dir": "../main",
@@ -497,3 +500,26 @@ def test_named_original_offline_smoke_requires_no_settings(monkeypatch, capsys):
     monkeypatch.setattr(live, "load_settings", lambda *args: pytest.fail("must stay offline"))
     assert live.main(["--strategy", "original", "--offline-smoke", "--dry-run", "--once"]) == 0
     assert "accepted=0" in capsys.readouterr().out
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize("name", ["original", "matcha"])
+def test_explicit_packaged_plugin_path_uses_same_notification_name(monkeypatch, tmp_path, name):
+    directory = Path(live.__file__).resolve().parents[1] / "strategy" / name
+    captured = {}
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(live, "load_settings", lambda path: object())
+
+    def build(settings, strategy, strategy_id, **kwargs):
+        captured.update(kwargs)
+        captured["strategy_id"] = strategy_id
+        return SimpleNamespace(run_resilient_once=lambda **kwargs: LiveRunResult(None, RegistrationResult((), ())))
+
+    monkeypatch.setattr(live, "build_strategy_live_application", build)
+    assert live.main([
+        "--config", "unused.yaml", "--dry-run", "--once",
+        "--strategy-py", str(directory / "strategy.py"),
+        "--strategy-yaml", str(directory / "parameters.yaml"),
+    ]) == 0
+    assert captured["notification_strategy_name"] == name
+    assert captured["strategy_id"].startswith("strategy-")

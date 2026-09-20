@@ -34,11 +34,11 @@ YAMLと環境変数を型付き設定へ読み込み、必要項目を検証す�
 | --- | --- | --- |
 | [`_environment_value`](../../src/ogami_oanda/infrastructure/config/loader.py#L18) | function / internal | 環境変数プレースホルダーを値へ置換する。 |
 | [`_boolean_value`](../../src/ogami_oanda/infrastructure/config/loader.py#L26) | function / internal | boolおよび文字列形式のbool設定を解釈する。 |
-| [`load_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L61) | function | YAMLと環境変数から設定を読み取り、必要項目を検証する。 |
-| [`_validate_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L124) | function / internal | 口座必須値・環境・ペア・枠合計を検証する。 |
+| [`load_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L74) | function | YAMLと環境変数から設定を読み取り、必要項目を検証する。 |
+| [`_validate_settings`](../../src/ogami_oanda/infrastructure/config/loader.py#L140) | function / internal | 口座必須値・環境・ペア・枠合計を検証する。 |
 | [`_spread_limits`](../../src/ogami_oanda/infrastructure/config/loader.py#L39) | function | YAMLのtradingからペア別上限だけを抽出・検証する。 |
 | [`load_spread_limits`](../../src/ogami_oanda/infrastructure/config/loader.py#L50) | function | 認証設定を構築せず、ファイルからスプレッド上限だけを読み込む。 |
-
+| [`_strategy_pair_webhooks`](../../src/ogami_oanda/infrastructure/config/loader.py#L60) | function / internal | strategyと通貨ペアの二段マッピングを検証し、環境変数を展開する。 |
 
 ## `infrastructure/config/models.py`
 
@@ -49,12 +49,12 @@ YAMLと環境変数を型付き設定へ読み込み、必要項目を検証す�
 | 定義 | 種別 | 役割 |
 | --- | --- | --- |
 | [`RuntimeAccountConfig`](../../src/ogami_oanda/infrastructure/config/models.py#L11) | class | 認証・環境・ヘッジ/live有効化などの実行口座設定。 |
-| [`NotificationSettings`](../../src/ogami_oanda/infrastructure/config/models.py#L21) | class | ペア別と検証用通知先の不変設定。 |
-| [`NotificationSettings.__post_init__`](../../src/ogami_oanda/infrastructure/config/models.py#L25) | method | 生成直後に入力の整合性確認や不変形式への変換を行う。 |
-| [`PathSettings`](../../src/ogami_oanda/infrastructure/config/models.py#L30) | class | 結果・キャッシュ・履歴・状態・ログの保存先設定。 |
-| [`AppSettings`](../../src/ogami_oanda/infrastructure/config/models.py#L39) | class | 口座・業務・通知・保存先をまとめた設定。 |
-| [`AppSettings.__post_init__`](../../src/ogami_oanda/infrastructure/config/models.py#L45) | method | 生成直後に入力の整合性確認や不変形式への変換を行う。 |
-| [`AppSettings.account`](../../src/ogami_oanda/infrastructure/config/models.py#L48) | method | 指定名の口座設定を取り出す。 |
+| [`NotificationSettings`](../../src/ogami_oanda/infrastructure/config/models.py#L21) | class | strategy・通貨ペア別と検証用通知先、およびtokens互換設定を保持する不変設定。 |
+| [`NotificationSettings.__post_init__`](../../src/ogami_oanda/infrastructure/config/models.py#L28) | method | 生成直後に入力の整合性確認や不変形式への変換を行う。 |
+| [`PathSettings`](../../src/ogami_oanda/infrastructure/config/models.py#L37) | class | 結果・キャッシュ・履歴・状態・ログの保存先設定。 |
+| [`AppSettings`](../../src/ogami_oanda/infrastructure/config/models.py#L46) | class | 口座・業務・通知・保存先をまとめた設定。 |
+| [`AppSettings.__post_init__`](../../src/ogami_oanda/infrastructure/config/models.py#L52) | method | 生成直後に入力の整合性確認や不変形式への変換を行う。 |
+| [`AppSettings.account`](../../src/ogami_oanda/infrastructure/config/models.py#L55) | method | 指定名の口座設定を取り出す。 |
 
 ## `infrastructure/logging/__init__.py`
 

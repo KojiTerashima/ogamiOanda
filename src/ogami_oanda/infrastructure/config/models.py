@@ -21,9 +21,16 @@ class RuntimeAccountConfig:
 class NotificationSettings:
     pair_webhooks: Mapping[str, str] = field(default_factory=dict)
     inspection_webhook: str = ""
+    strategy_pair_webhooks: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
+    # Enabled only by the tokens compatibility adapter, never by YAML settings.
+    legacy_pair_routing: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "pair_webhooks", MappingProxyType(dict(self.pair_webhooks)))
+        object.__setattr__(self, "strategy_pair_webhooks", MappingProxyType({
+            strategy: MappingProxyType(dict(webhooks))
+            for strategy, webhooks in self.strategy_pair_webhooks.items()
+        }))
 
 
 @dataclass(frozen=True)

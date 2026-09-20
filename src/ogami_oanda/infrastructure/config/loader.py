@@ -57,6 +57,19 @@ def load_spread_limits(path: str | Path) -> Mapping[str, float]:
         raise ValueError("Invalid settings YAML") from None
     return _spread_limits(raw)
 
+def _strategy_pair_webhooks(value: object, environment: Mapping[str, str]) -> dict[str, dict[str, str]]:
+    if not isinstance(value, Mapping):
+        raise ValueError("notifications.strategy_pair_webhooks must be a mapping")
+    result = {}
+    for strategy, webhooks in value.items():
+        if not isinstance(webhooks, Mapping):
+            raise ValueError("notifications.strategy_pair_webhooks entries must be pair mappings")
+        result[str(strategy)] = {
+            str(pair): _environment_value(url, environment)
+            for pair, url in webhooks.items()
+        }
+    return result
+
 
 def load_settings(path: str | Path, environment: Mapping[str, str] | None = None) -> AppSettings:
     environment = os.environ if environment is None else environment
@@ -108,6 +121,9 @@ def load_settings(path: str | Path, environment: Mapping[str, str] | None = None
                 for pair, url in notification_raw.get("pair_webhooks", {}).items()
             },
             inspection_webhook=_environment_value(notification_raw.get("inspection_webhook", ""), environment),
+            strategy_pair_webhooks=_strategy_pair_webhooks(
+                notification_raw.get("strategy_pair_webhooks", {}), environment,
+            ),
         ),
         paths=PathSettings(
             result_dir=str(paths_raw.get("result_dir", ".")),

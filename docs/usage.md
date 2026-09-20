@@ -37,7 +37,8 @@ Git管理外の `config/settings.yaml` を用意します。`${変数名}` は�
 | `trading.max_positions` | 全枠数。既定15 |
 | `normal_slot_count`, `mid_slot_count`, `high_slot_count` | 優先度別枠。既定6・8・1、合計は全枠数と一致させる |
 | `mid_priority_threshold`, `high_priority_threshold` | 優先度の境界。既定10・100 |
-| `notifications.pair_webhooks`, `inspection_webhook` | ペア別/検証用通知先 |
+| `notifications.strategy_pair_webhooks.<strategy>.<pair>` | strategyと通貨ペア別の通常通知先 |
+| `notifications.inspection_webhook` | 全strategy共通の検証用通知先 |
 | `paths.result_dir`, `cache_dir` | 結果・キャッシュ用の設定パス |
 | `paths.history_file` | 決済履歴CSV |
 | `paths.position_state_dir` | 注文・ポジション・未確定操作のチェックポイント |
@@ -71,6 +72,43 @@ trading:
 設定は起動時に確定し、変更の反映には再起動が必要です。
 スプレッド超過時もポジション管理を継続し、originalの初回解析例外を維持します。
 バックテストで同じ設定を使う場合は、[再生コマンド](backtest.md)に`--config`を指定してください。
+
+## Discord通知の設定と移行
+
+通常の注文・約定・拒否・結果不明・決済・隔離通知は、起動したstrategyと通知対象の通貨ペアに対応するWebhookへ送信します。
+
+```yaml
+notifications:
+  strategy_pair_webhooks:
+    original:
+      USD_JPY: ${DISCORD_ORIGINAL_USD_JPY_WEBHOOK}
+      EUR_USD: ${DISCORD_ORIGINAL_EUR_USD_WEBHOOK}
+      AUD_USD: ${DISCORD_ORIGINAL_AUD_USD_WEBHOOK}
+    matcha:
+      USD_JPY: ${DISCORD_MATCHA_USD_JPY_WEBHOOK}
+  inspection_webhook: ${DISCORD_INSPECTION_WEBHOOK}
+```
+
+`--strategy`省略時は`original`、`--strategy matcha`は`matcha`を使用します。
+originalの`--analysis line`と`--analysis resistance_breakout`は同じ通知設定を共有します。
+`--strategy-py`で明示指定した場合は、解決済みPythonファイルの`strategy/`配下の先頭ディレクトリ名を使います。
+例えば`strategy/matcha/strategy.py`は`matcha`、`strategy/custom/variant/strategy.py`は`custom`です。
+`strategy/`直下の`custom.py`は`custom`となり、YAMLファイル名や内容ハッシュは通知先に影響しません。
+Python APIの`build_strategy_live_application`を直接使う場合は`notification_strategy_name`で指定します。省略時の通常通知は送信されません。
+
+組み合わせが未設定、空文字、または参照する環境変数が未定義なら通常通知は送信されません。
+旧`pair_webhooks`が残っていてもフォールバックしません。検証通知は従来どおり共通の`inspection_webhook`を使います。
+通知本文と通信失敗時の取引継続動作は従来どおりです。同一通知経路の連続同文は2回まで送り、他のペアへの通知とは独立して重複を抑止します。
+
+既存設定からは、次の手順で移行します。
+
+1. 非公開の`config/settings.yaml`で、通知が必要なstrategy・通貨ペアを`strategy_pair_webhooks`に追加する。
+2. 対応する環境変数を設定する。従来と同じDiscordチャンネルを使う場合は既存のWebhookを再利用できる。
+3. 不要になった`pair_webhooks`を削除し、通常の運用手順でプロセスを再起動して設定を反映する。
+
+**旧`pair_webhooks`だけのYAML設定では、通常通知が送信されなくなります。**
+`main_exe.py`などの互換スクリプトと`send_notice.line_send()`が`tokens`経由で使うペア別通知は従来どおり動作します。
+通知用strategy名は復旧用strategy IDとは独立しており、チェックポイントの形式や同一口座・同一ペアの複数strategy同時稼働の制約は変わりません。
 
 ## live CLI
 
